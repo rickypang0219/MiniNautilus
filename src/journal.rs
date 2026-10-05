@@ -1,0 +1,310 @@
+//! Durable input-before-effect processing. Replay NEVER dispatches historical effects.
+use crate::{core::Core, model::*};
+use serde::{Deserialize, Serialize};
+use std::{
+    fs::{self, File, OpenOptions},
+    io::{self, Read, Seek, SeekFrom, Write},
+    path::{Path, PathBuf},
+};
+
+fn invalid(reason: impl ToString) -> io::Error {
+    io::Error::new(io::ErrorKind::InvalidData, reason.to_string())
+}
+
+// Corruption detection, not authentication. Chaining also detects deleted/reordered records.
+fn checksum(previous: u64, bytes: &[u8]) -> u64 {
+    previous
+        .to_le_bytes()
+        .iter()
+        .chain(bytes)
+        .fold(0xcbf29ce484222325, |h, b| {
+            (h ^ *b as u64).wrapping_mul(0x100000001b3)
+        })
+}
+
+#[derive(Serialize, Deserialize)]
+enum Payload {
+    Genesis { schema: u32, config: Config },
+    Input(Envelope),
+}
+#[derive(Serialize, Deserialize)]
+struct Frame {
+    previous: u64,
+    checksum: u64,
+    payload: String,
+}
+#[derive(Serialize, Deserialize)]
+struct Snapshot {
+    schema: u32,
+    checksum: u64,
+    core: Core,
+}
+
+pub struct DurableEngine {
+    core: Core,
+    file: File,
+    checksum: u64,
+    poisoned: bool,
+    journal_path: PathBuf,
+}
+
+impl DurableEngine {
+    pub fn create(path: &Path, config: Config) -> io::Result<Self> {
+        let core = Core::new(config.clone()).map_err(invalid)?;
+        let file = OpenOptions::new()
+            .read(true)
+            .write(true)
+            .create_new(true)
+            .open(path)?;
+        file.try_lock().map_err(io::Error::other)?;
+        let mut engine = Self {
+            core,
+            file,
+            checksum: 0,
+            poisoned: false,
+            journal_path: fs::canonicalize(path)?,
+        };
+        engine.append(&Payload::Genesis { schema: 1, config })?;
+        sync_parent(path)?;
+        Ok(engine)
+    }
+
+    /// Repairs only a final incomplete line. Complete corrupt records fail closed.
+    /// Snapshot is checked against its actual journal prefix; v0 prioritizes validation
+    /// over fast startup and still scans the full journal.
+    pub fn recover(path: &Path, snapshot_path: Option<&Path>) -> io::Result<Self> {
+        let mut file = OpenOptions::new().read(true).write(true).open(path)?;
+        file.try_lock().map_err(io::Error::other)?;
+        let mut bytes = Vec::new();
+        file.read_to_end(&mut bytes)?;
+        let end = bytes.iter().rposition(|b| *b == b'\n').map_or(0, |i| i + 1);
+        let snapshot: Option<Snapshot> = snapshot_path
+            .map(|p| -> io::Result<Snapshot> {
+                serde_json::from_slice(&fs::read(p)?).map_err(invalid)
+            })
+            .transpose()?;
+        let (core, previous) = scan(&bytes[..end], snapshot.as_ref())?;
+        // Only modify the file after all complete records and snapshot validate.
+        if end != bytes.len() {
+            file.set_len(end as u64)?;
+            file.sync_all()?;
+        }
+        file.seek(SeekFrom::End(0))?;
+        let mut engine = Self {
+            core,
+            file,
+            checksum: previous,
+            poisoned: false,
+            journal_path: fs::canonicalize(path)?,
+        };
+        // A recovered local state is not proof of current venue state.
+        engine.process(engine.core.now, Event::Disconnect)?;
+        Ok(engine)
+    }
+
+    pub fn core(&self) -> &Core {
+        &self.core
+    }
+
+    pub fn process(&mut self, at: Time, event: Event) -> io::Result<Vec<Effect>> {
+        if self.poisoned {
+            return Err(io::Error::other("journal failed; restart and reconcile"));
+        }
+        let input = Envelope {
+            seq: self
+                .core
+                .seq
+                .checked_add(1)
+                .ok_or_else(|| invalid("sequence exhausted"))?,
+            at,
+            event,
+        };
+        let mut next = self.core.clone();
+        let effects = next.apply(&input).map_err(invalid)?;
+        // No effect is exposed before the durable write acknowledges.
+        self.append(&Payload::Input(input))?;
+        self.core = next;
+        Ok(effects)
+    }
+
+    fn append(&mut self, payload: &Payload) -> io::Result<()> {
+        let payload = serde_json::to_string(payload).map_err(invalid)?;
+        let hash = checksum(self.checksum, payload.as_bytes());
+        let frame = Frame {
+            previous: self.checksum,
+            checksum: hash,
+            payload,
+        };
+        let mut bytes = serde_json::to_vec(&frame).map_err(invalid)?;
+        bytes.push(b'\n');
+        if let Err(error) = self
+            .file
+            .write_all(&bytes)
+            .and_then(|()| self.file.sync_all())
+        {
+            self.poisoned = true;
+            return Err(error);
+        }
+        self.checksum = hash;
+        Ok(())
+    }
+
+    pub fn snapshot(&self, path: &Path) -> io::Result<()> {
+        if path.exists() && fs::canonicalize(path)? == self.journal_path {
+            return Err(invalid("snapshot cannot overwrite its journal"));
+        }
+        if self.poisoned {
+            return Err(io::Error::other("cannot snapshot failed journal"));
+        }
+        write_snapshot(
+            path,
+            &Snapshot {
+                schema: 1,
+                checksum: self.checksum,
+                core: self.core.clone(),
+            },
+        )
+    }
+}
+
+fn write_snapshot(path: &Path, snapshot: &Snapshot) -> io::Result<()> {
+    let data = serde_json::to_vec(snapshot).map_err(invalid)?;
+    let tmp = path.with_extension(format!("{}.tmp", std::process::id()));
+    let mut file = OpenOptions::new().write(true).create_new(true).open(&tmp)?;
+    let result = (|| {
+        file.write_all(&data)?;
+        file.sync_all()?;
+        fs::rename(&tmp, path)?;
+        sync_parent(path)
+    })();
+    if result.is_err() {
+        let _ = fs::remove_file(tmp);
+    }
+    result
+}
+
+fn sync_parent(path: &Path) -> io::Result<()> {
+    let parent = path
+        .parent()
+        .filter(|p| !p.as_os_str().is_empty())
+        .unwrap_or(Path::new("."));
+    File::open(parent)?.sync_all()
+}
+
+fn scan(bytes: &[u8], snapshot: Option<&Snapshot>) -> io::Result<(Core, u64)> {
+    let mut snapshot_matched = snapshot.is_none();
+    let mut previous = 0;
+    let mut core = None;
+    for (index, line) in bytes
+        .split(|b| *b == b'\n')
+        .filter(|s| !s.is_empty())
+        .enumerate()
+    {
+        let frame: Frame = serde_json::from_slice(line).map_err(invalid)?;
+        if frame.previous != previous
+            || checksum(previous, frame.payload.as_bytes()) != frame.checksum
+        {
+            return Err(invalid("journal checksum chain mismatch"));
+        }
+        let payload: Payload = serde_json::from_str(&frame.payload).map_err(invalid)?;
+        match (index, payload) {
+            (0, Payload::Genesis { schema: 1, config }) => {
+                core = Some(Core::new(config).map_err(invalid)?)
+            }
+            (_, Payload::Input(event)) => {
+                core.as_mut()
+                    .ok_or_else(|| invalid("missing genesis"))?
+                    .apply(&event)
+                    .map_err(invalid)?;
+            }
+            _ => return Err(invalid("unsupported schema or duplicate genesis")),
+        }
+        previous = frame.checksum;
+        if let (Some(saved), Some(current)) = (snapshot, &core)
+            && saved.core.seq == current.seq
+        {
+            if saved.schema != 1 || saved.checksum != previous || saved.core != *current {
+                return Err(invalid("snapshot disagrees with journal prefix"));
+            }
+            // Same state; subsequent records replay over the validated snapshot.
+            core = Some(saved.core.clone());
+            snapshot_matched = true;
+        }
+    }
+    if !snapshot_matched {
+        return Err(invalid("snapshot is ahead of journal"));
+    }
+    let core = core.ok_or_else(|| invalid("empty or torn genesis"))?;
+    Ok((core, previous))
+}
+
+/// Read-only validated replay. Refuses an active writer or an incomplete tail.
+/// No transport effects are returned, and no recovery event is appended.
+pub fn replay(path: &Path) -> io::Result<Core> {
+    let mut file = File::open(path)?;
+    file.try_lock_shared().map_err(io::Error::other)?;
+    let mut bytes = Vec::new();
+    file.read_to_end(&mut bytes)?;
+    if !bytes.ends_with(b"\n") {
+        return Err(invalid("incomplete journal; recover before analysis"));
+    }
+    Ok(scan(&bytes, None)?.0)
+}
+
+/// Create an offline checkpoint without appending to or changing the source journal.
+pub fn checkpoint(journal: &Path, output: &Path) -> io::Result<u64> {
+    if journal == output
+        || output.exists() && fs::canonicalize(journal)? == fs::canonicalize(output)?
+    {
+        return Err(invalid("snapshot cannot overwrite its journal"));
+    }
+    let mut file = File::open(journal)?;
+    file.try_lock_shared().map_err(io::Error::other)?;
+    let mut bytes = Vec::new();
+    file.read_to_end(&mut bytes)?;
+    if !bytes.ends_with(b"\n") {
+        return Err(invalid("incomplete journal; recover first"));
+    }
+    let (core, checksum) = scan(&bytes, None)?;
+    let seq = core.seq;
+    write_snapshot(
+        output,
+        &Snapshot {
+            schema: 1,
+            checksum,
+            core,
+        },
+    )?;
+    Ok(seq)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    #[test]
+    fn persistence_error_exposes_no_effects_and_poison_is_sticky() {
+        let path =
+            std::env::temp_dir().join(format!("mini-journal-failure-{}", std::process::id()));
+        let mut engine = DurableEngine::create(&path, Config::default()).unwrap();
+        engine
+            .process(0, Event::Quote { bid: 99, ask: 101 })
+            .unwrap();
+        let original = engine.core.clone();
+        // Inject a file descriptor that cannot be written; no special devices needed.
+        engine.file = File::open(&path).unwrap();
+        let event = Event::Submit(Intent {
+            id: 1,
+            side: Side::Buy,
+            qty: 1,
+            limit: 100,
+            based_on_seq: 1,
+            valid_until: 100,
+        });
+        assert!(engine.process(1, event).is_err());
+        assert_eq!(engine.core, original);
+        assert!(engine.poisoned);
+        assert!(engine.process(1, Event::Tick).is_err());
+        drop(engine);
+        fs::remove_file(path).unwrap();
+    }
+}

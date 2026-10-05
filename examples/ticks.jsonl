@@ -1,0 +1,6 @@
+{"at":0,"event":{"Quote":{"bid":99,"ask":101}}}
+{"at":10,"event":{"Trade":{"taker":"Sell","price":101,"qty":1}}}
+{"at":20,"event":{"Trade":{"taker":"Sell","price":101,"qty":2}}}
+{"at":30,"event":{"Quote":{"bid":105,"ask":107}}}
+{"at":40,"event":{"Trade":{"taker":"Buy","price":105,"qty":3}}}
+{"at":50,"event":{"Quote":{"bid":105,"ask":107}}}
