@@ -278,6 +278,118 @@ pub fn checkpoint(journal: &Path, output: &Path) -> io::Result<u64> {
     Ok(seq)
 }
 
+/// Independent observer of complete journal frames. Never locks or mutates a writer's
+/// file, repairs tails, or dispatches effects. Partial final frames wait for more bytes.
+pub struct JournalFollower {
+    reader: io::BufReader<File>,
+    path: PathBuf,
+    pending: Vec<u8>,
+    previous: u64,
+    consumed: u64,
+    records: u64,
+    core: Option<Core>,
+    #[cfg(unix)]
+    identity: (u64, u64),
+}
+impl JournalFollower {
+    pub fn open(path: &Path) -> io::Result<Self> {
+        let file = File::open(path)?;
+        #[cfg(unix)]
+        let identity = {
+            use std::os::unix::fs::MetadataExt;
+            let m = file.metadata()?;
+            (m.dev(), m.ino())
+        };
+        Ok(Self {
+            reader: io::BufReader::new(file),
+            path: path.to_path_buf(),
+            pending: Vec::new(),
+            previous: 0,
+            consumed: 0,
+            records: 0,
+            core: None,
+            #[cfg(unix)]
+            identity,
+        })
+    }
+    pub fn pending_tail(&self) -> bool {
+        !self.pending.is_empty()
+    }
+    pub fn core(&self) -> Option<&Core> {
+        self.core.as_ref()
+    }
+    pub fn poll(
+        &mut self,
+        max_records: usize,
+        mut observe: impl FnMut(&Core, Option<&Envelope>, &[Effect]),
+    ) -> io::Result<usize> {
+        use io::BufRead;
+        let metadata = fs::metadata(&self.path)?;
+        #[cfg(unix)]
+        {
+            use std::os::unix::fs::MetadataExt;
+            if (metadata.dev(), metadata.ino()) != self.identity {
+                return Err(invalid("journal was replaced; restart dashboard to reload"));
+            }
+        }
+        if metadata.len() < self.consumed {
+            return Err(invalid(
+                "journal was truncated; restart dashboard to reload",
+            ));
+        }
+        let mut count = 0;
+        while count < max_records {
+            // Limit frame memory, including a malicious/torn line without a newline.
+            let available = self.reader.fill_buf()?;
+            if available.is_empty() {
+                break;
+            }
+            let n = available
+                .iter()
+                .position(|b| *b == b'\n')
+                .map_or(available.len(), |i| i + 1);
+            if self.pending.len() + n > 8 * 1024 * 1024 {
+                return Err(invalid("journal frame exceeds observer limit"));
+            }
+            self.pending.extend_from_slice(&available[..n]);
+            self.reader.consume(n);
+            self.consumed += n as u64;
+            if self.pending.last() != Some(&b'\n') {
+                continue;
+            }
+            let frame: Frame = serde_json::from_slice(&self.pending).map_err(invalid)?;
+            if frame.previous != self.previous
+                || checksum(self.previous, frame.payload.as_bytes()) != frame.checksum
+            {
+                return Err(invalid(
+                    "journal checksum chain mismatch; showing last validated state",
+                ));
+            }
+            let payload: Payload = serde_json::from_str(&frame.payload).map_err(invalid)?;
+            match (self.records, payload) {
+                (0, Payload::Genesis { schema: 1, config }) => {
+                    self.core = Some(Core::new(config).map_err(invalid)?);
+                    observe(self.core.as_ref().unwrap(), None, &[]);
+                }
+                (_, Payload::Input(input)) => {
+                    let core = self
+                        .core
+                        .as_mut()
+                        .ok_or_else(|| invalid("missing genesis"))?;
+                    let effects = core.apply(&input).map_err(invalid)?;
+                    observe(core, Some(&input), &effects);
+                }
+                _ => return Err(invalid("unsupported schema or duplicate genesis")),
+            }
+            self.previous = frame.checksum;
+            self.records += 1;
+            self.pending.clear();
+            count += 1;
+        }
+        Ok(count)
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

@@ -44,6 +44,16 @@ MINI_TELEMETRY=runs/telemetry.log python3 examples/replay.py --journal runs/with
 
 Telemetry queue 滿會計 dropped count；佢唔係 recovery journal。SQLite analysis 由已停止、經 Rust 驗證嘅 journal 重建，唔喺落單路徑。
 
+## Real-time dashboard（backtest / live 共用）
+
+```sh
+cargo run --locked -- dashboard runs --port 8765
+```
+
+開 [http://127.0.0.1:8765](http://127.0.0.1:8765) 即時睇 trades、orders、signals、position、PnL 同 recovery 狀態。獨立 Rust observer 讀 journal，唔阻塞 engine；無 Docker／Node dependency。支援分頁、搜尋、side filter、pause view 同 CSV export。完整費用未齊時只顯示 gross，唔假設 fee 為零。
+
+詳見 [dashboard 使用與設計](docs/dashboard.md)。
+
 ## Live market data + paper execution
 
 ```sh

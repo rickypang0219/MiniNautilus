@@ -27,6 +27,20 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
     let args: Vec<_> = std::env::args().collect();
     match args.get(1).map(String::as_str) {
         Some("demo") => demo(),
+        Some("dashboard") => {
+            let root = args
+                .get(2)
+                .ok_or("dashboard JOURNAL_OR_DIRECTORY [--port PORT]")?;
+            let port = if args.get(3).is_some_and(|s| s == "--port") {
+                args.get(4).ok_or("missing port")?.parse::<u16>()?
+            } else if args.len() > 3 {
+                return Err("dashboard JOURNAL_OR_DIRECTORY [--port PORT]".into());
+            } else {
+                8765
+            };
+            mininautilus::dashboard::serve(Path::new(root), port)?;
+            Ok(())
+        }
         Some("inspect") => {
             let path = args.get(2).ok_or("inspect JOURNAL")?;
             let state = mininautilus::journal::replay(Path::new(path))?;
@@ -114,7 +128,7 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
         }
         _ => {
             println!(
-                "MiniNautilus\n  demo\n  serve JOURNAL [--recover|CONFIG.json]\n  paper JOURNAL [CONFIG.json]\n  inspect JOURNAL\n  snapshot JOURNAL OUTPUT"
+                "MiniNautilus\n  dashboard JOURNAL_OR_DIRECTORY [--port PORT]\n  demo\n  serve JOURNAL [--recover|CONFIG.json]\n  paper JOURNAL [CONFIG.json]\n  inspect JOURNAL\n  snapshot JOURNAL OUTPUT"
             );
             Ok(())
         }
