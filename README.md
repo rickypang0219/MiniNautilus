@@ -126,3 +126,8 @@ macOS 唔會假裝提供 Linux strict affinity。Linux affinity 已 cross-compil
 | `tests/` | Failure scenarios 同跨語言測試 |
 
 五個階段嘅 runnable baseline 已接通。下一步可以揀一個受測試保護嘅瓶頸，逐個替換 clone、allocation、同步 journal 或 transport，再用相同事件檢查行為有冇改變。
+
+## Real-time Python SMA / Spot Testnet
+
+See [the SMA experiment guide](docs/realtime-sma.md) for WebSocket candles, long/flat
+execution, bounded Testnet runs, recovery and deterministic replay.

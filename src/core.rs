@@ -139,6 +139,17 @@ impl Core {
 
     fn handle(&mut self, event: &Event, out: &mut Vec<Effect>) -> Result<(), String> {
         match event {
+            Event::MarketUnavailable => self.quote = None,
+            Event::QuoteObserved {
+                bid,
+                ask,
+                observed_at,
+            } => {
+                if *bid <= 0 || ask < bid || *observed_at > self.now {
+                    return Err("invalid observed quote".into());
+                }
+                self.quote = Some((*bid, *ask, *observed_at));
+            }
             Event::Trade { price, qty, .. } => {
                 if *price <= 0 || *qty <= 0 {
                     return Err("invalid market trade".into());

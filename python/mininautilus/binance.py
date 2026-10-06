@@ -34,6 +34,8 @@ def units(value, increment):
 
 
 class BinanceSpot:
+    base_url = BASE
+    api_prefix = "/api/v3/"
     def __init__(self, symbol="BTCUSDT", session="lab", *, execute=False):
         if not re.fullmatch(r"[A-Z0-9]{3,20}", symbol) or not re.fullmatch(r"[a-z0-9]{1,10}", session):
             raise ValueError("invalid symbol/session")
@@ -50,7 +52,7 @@ class BinanceSpot:
             raise VenueError("testnet execution is disabled")
         if signed and (not self.key or not self.secret):
             raise VenueError("set BINANCE_TESTNET_API_KEY and BINANCE_TESTNET_API_SECRET locally")
-        if not path.startswith("/api/v3/"):
+        if not path.startswith(self.api_prefix):
             raise ValueError("unsupported endpoint")
         # Conservative fixed pacing. HTTP 429/418 adds server-directed backoff.
         delay = self.next_request - time.monotonic()
@@ -65,7 +67,7 @@ class BinanceSpot:
             signature = hmac.new(self.secret.encode(), query.encode(), hashlib.sha256).hexdigest()
             query += "&signature=" + signature
         headers = {"X-MBX-APIKEY": self.key} if signed else {}
-        request = urllib.request.Request(BASE + path + ("?" + query if query else ""),
+        request = urllib.request.Request(self.base_url + path + ("?" + query if query else ""),
                                          method=method, headers=headers)
         try:
             # No redirects: signed parameters must never be forwarded elsewhere.

@@ -113,6 +113,12 @@ pub enum Event {
         bid: i64,
         ask: i64,
     },
+    QuoteObserved {
+        bid: i64,
+        ask: i64,
+        observed_at: Time,
+    },
+    MarketUnavailable,
     Trade {
         taker: Side,
         price: i64,
