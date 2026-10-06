@@ -117,6 +117,11 @@ class BinanceSpot:
             raise ValueError("invalid client ID")
         return f"mn{self.session}-{order_id}"
 
+    def available_base(self):
+        """Unreserved base inventory; gross strategy position can include base fees."""
+        account = self.request("GET", "/api/v3/account", signed=True)
+        return next((Decimal(b["free"]) for b in account["balances"] if b["asset"] == self.base_asset), Decimal(0))
+
     def base_balance(self):
         account = self.request("GET", "/api/v3/account", signed=True)
         for balance in account["balances"]:
@@ -227,9 +232,21 @@ class BinanceSpot:
         position = sum(o["filled"] * (1 if o["intent"]["side"] == "Buy" else -1) for o in orders)
         base_fees = sum((Decimal(t["commission"]) for t in raw if t["commissionAsset"] == self.base_asset), Decimal(0))
         expected = Decimal(str(baseline_base)) + self.lot * position - base_fees
-        if self.base_balance() != expected:
+        actual = self.base_balance()
+        if actual != expected:
             raise VenueError("base balance disagrees with session fills/fees; recovery blocked")
         if self.open_orders():
             raise VenueError("account not quiescent; another writer may be active")
+        commissions = {}
+        for trade in raw:
+            asset = trade["commissionAsset"]
+            commissions[asset] = commissions.get(asset, Decimal(0)) + Decimal(trade["commission"])
+        self.last_reconciliation = {
+            "gross_position_lots": position,
+            "net_base_change": str(self.lot * position - base_fees),
+            "base_commission": str(base_fees),
+            "commissions_by_asset": {asset: str(amount) for asset, amount in commissions.items()},
+            "balance_verified": True,
+        }
         return {"epoch": state["epoch"], "watermark": state["venue_seq"],
                 "orders": orders, "fills": fills, "position": position}

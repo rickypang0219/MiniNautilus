@@ -27,7 +27,8 @@ def replay(path):
     summary = json.loads((path / 'summary.json').read_text())
     if state['position'] != summary['position_lots'] or len(state['fills']) != summary['fills']:
         raise ValueError('Rust replay differs from final summary')
-    return dict(replayed_candles=count, position_lots=state['position'], fills=len(state['fills']))
+    return dict(replayed_candles=count, position_lots=state['position'], fills=len(state['fills']),
+                completed=summary.get('completed'), shutdown_reconciled=summary.get('shutdown_reconciled'))
 
 if __name__ == '__main__':
     p=argparse.ArgumentParser(description=__doc__);p.add_argument('run_dir',type=Path)

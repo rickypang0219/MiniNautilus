@@ -51,4 +51,38 @@ class SmaTests(unittest.TestCase):
             effects=e.send(10001,{'Submit':dict(id=3,side='Buy',qty=1,limit=100,based_on_seq=e.state['seq'],valid_until=11000)})
             self.assertFalse(any('SendOrder' in x for x in effects))
 
+class LiveGateTests(unittest.TestCase):
+    def test_market_outage_still_accepts_fill_and_cancel(self):
+        with tempfile.TemporaryDirectory() as d, Engine(Path(d)/'events') as e:
+            e.send(0, {'Quote':dict(bid=99,ask=100)})
+            intent=dict(id=1,side='Buy',qty=2,limit=100,based_on_seq=e.state['seq'],valid_until=1000)
+            e.send(1, {'Submit':intent})
+            e.send(2, 'MarketUnavailable')
+            e.send(3, {'Execution':dict(epoch=0,venue_seq=1,report={'Fill':dict(execution_id=1,order_id=1,qty=1,price=100)})})
+            self.assertEqual(e.state['position'],1)
+            self.assertEqual(e.state['health'],'Healthy')
+            self.assertIsNone(e.state['quote'])
+            effects=e.send(4, {'Cancel':{'id':1}})
+            self.assertTrue(any('SendCancel' in effect for effect in effects))
+
+    def test_partial_buy_canceled_then_signal_sells_only_filled_quantity(self):
+        with tempfile.TemporaryDirectory() as d, Engine(Path(d)/'events',paper=True) as e:
+            s=SmaStrategy(1,2,2,'1s',long_only=True)
+            s.add(Candle(0,999,100));s.add(Candle(1000,1999,110))
+            e.send(1,{'Quote':dict(bid=99,ask=100)})
+            e.send(2,{'Submit':s.intent(e.state,2000)})
+            e.send(3,{'Trade':dict(taker='Sell',price=100,qty=1)})
+            self.assertEqual(e.state['position'],1)
+            s.add(Candle(2000,2999,90))
+            self.assertIsNone(s.intent(e.state,3000))
+            e.send(4,{'Cancel':{'id':1}})
+            intent=s.intent(e.state,3000)
+            self.assertEqual((intent['side'],intent['qty']),('Sell',1))
+
+    def test_changed_closed_bar_is_not_silently_reused(self):
+        s=SmaStrategy(1,2,1,'1s',long_only=True)
+        s.add(Candle(0,999,100))
+        with self.assertRaises(ValueError):s.add(Candle(0,999,101))
+        self.assertEqual(s.last.price,100)
+
 if __name__ == '__main__': unittest.main()

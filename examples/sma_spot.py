@@ -13,12 +13,15 @@ from pathlib import Path
 import sys
 import time
 import uuid
+from collections import deque
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / 'python'))
 from websockets.sync.client import connect
 from websockets.exceptions import ConnectionClosed
 from mininautilus.bridge import Engine
 from mininautilus.binance import BinanceSpot, VenueError, units
+from mininautilus.market import missing_candles
+from mininautilus.retry import ReconnectBudget
 from mininautilus.sma import Candle, CandleGap, SmaStrategy, INTERVALS
 
 TERMINAL = ('Filled', 'Canceled', 'Rejected')
@@ -72,6 +75,27 @@ def validate(venue, intent, cap):
         raise ValueError('order notional outside venue minimum / experiment cap')
 
 
+def latency_summary(samples):
+    ordered = sorted(samples)
+    if not ordered: return {'samples': 0}
+    return dict(samples=len(ordered), p50=round(ordered[(len(ordered)-1)//2], 3),
+                p99=round(ordered[int((len(ordered)-1)*.99)], 3), maximum=round(ordered[-1], 3))
+
+
+def write_summary(path, invocation, summary):
+    """Keep every invocation; atomically replace the latest convenience pointer."""
+    payload = json.dumps(summary, indent=2)
+    with (path / f'summary-{invocation}.json').open('x') as handle:
+        handle.write(payload); handle.flush(); os.fsync(handle.fileno())
+    temporary = path / f'.summary-{invocation}.tmp'
+    with temporary.open('x') as handle:
+        handle.write(payload); handle.flush(); os.fsync(handle.fileno())
+    os.replace(temporary, path / 'summary.json')
+    fd = os.open(path, os.O_RDONLY)
+    try: os.fsync(fd)
+    finally: os.close(fd)
+
+
 def run(args):
     load_env(args.env_file)
     venue = BinanceSpot(args.symbol, execute=args.mode == 'testnet')
@@ -103,7 +127,11 @@ def run(args):
         try: os.fsync(fd)
         finally: os.close(fd)
     venue.session = metadata['session']
-    counters = dict(closed_bars=0, signals=0, submissions=0, reconnects=0, invariant_checks=0)
+    counters = dict(closed_bars=0, signals=0, submissions=0, reconnects=0, invariant_checks=0, backfilled_bars=0, duplicates=0)
+    invocation = uuid.uuid4().hex
+    latencies = deque(maxlen=10000)
+    fired_faults = set()
+    retry_budget = ReconnectBudget()
     started = time.monotonic()
     with (path / 'observations.jsonl').open('a') as log, Engine(path / 'events.jsonl', paper=args.mode == 'paper',
             recover=args.resume, config=path / 'config.json') as engine:
@@ -115,7 +143,9 @@ def run(args):
             log.write(json.dumps(record) + '\n'); log.flush()
             print(json.dumps(record), flush=True)
         def send(event):
+            before = time.monotonic()
             effects = engine.send(now(), event)
+            latencies.append((time.monotonic() - before) * 1000)
             audit(engine.state, lots); counters['invariant_checks'] += 1
             return effects
         def deliver(report):
@@ -123,12 +153,21 @@ def run(args):
             if any('QueryState' in e for e in effects):
                 raise VenueError('private report requires reconciliation')
         def reconcile():
-            send('Disconnect'); send('Reconnect')
-            snapshot = venue.reconcile(engine.state, metadata['baseline_base'])
-            send({'Reconcile': snapshot})
-            if engine.state['health'] != 'Healthy':
-                raise VenueError('Rust rejected reconciliation')
-            note('reconciled', position_lots=engine.state['position'])
+            # Rediscover state on every attempt; never retry Submit itself.
+            for attempt in range(3):
+                send('Disconnect'); send('Reconnect')
+                try:
+                    snapshot = venue.reconcile(engine.state, metadata['baseline_base'])
+                    send({'Reconcile': snapshot})
+                    if engine.state['health'] != 'Healthy':
+                        raise VenueError('Rust rejected reconciliation')
+                    note('reconciled', position_lots=engine.state['position'], accounting=venue.last_reconciliation)
+                    return
+                except VenueError as error:
+                    # VenueError messages are adapter-owned and contain no signed URLs.
+                    note('reconciliation_failed', attempt=attempt+1, reason=str(error), venue_code=error.code)
+                    if attempt == 2 or error.code in (-2014, -2015, -1022): raise
+                    time.sleep(2 ** attempt)
         def dispatch(effects):
             for e in effects:
                 if 'SendOrder' in e:
@@ -168,40 +207,56 @@ def run(args):
                     url = f'wss://stream.testnet.binance.vision/ws/{args.symbol.lower()}@kline_{args.interval}'
                     with connect(url, open_timeout=10, close_timeout=2, max_queue=8) as ws:
                         warmup()
+                        retry_budget.connected(time.monotonic())
                         last_poll = 0.0
+                        last_message = time.monotonic()
                         while time.monotonic() - started < args.seconds:
+                            if args.faults and time.monotonic() - started >= 60 and 'disconnect' not in fired_faults:
+                                fired_faults.add('disconnect'); note('injected_fault', fault='disconnect')
+                                ws.close()
+                                raise OSError('injected paper disconnect')
                             dispatch(send('Tick'))
                             if time.monotonic() - last_poll >= 1:
                                 if args.mode == 'testnet':
                                     for report in venue.poll(engine.state): deliver(report)
+                                    # Empty order polling performs no request; verify private connectivity explicitly.
+                                    venue.base_balance()
                                 send({'Heartbeat': {'epoch': engine.state['epoch']}})
                                 last_poll = time.monotonic()
                                 for oid, order in list(engine.state['orders'].items()):
                                     if order['lifecycle'] not in TERMINAL and order['pending'] is None and now() - sent_at.get(int(oid), 0) >= args.order_ttl * 1000:
                                         dispatch(send({'Cancel': {'id': int(oid)}}))
                             try: message = json.loads(ws.recv(timeout=1))
-                            except TimeoutError: continue
+                            except TimeoutError:
+                                if time.monotonic() - last_message > 15:
+                                    raise VenueError('market stream silent for 15 seconds')
+                                continue
+                            last_message = time.monotonic()
+                            if args.faults and time.monotonic() - started >= 45 and 'stale' not in fired_faults:
+                                fired_faults.add('stale'); note('injected_fault', fault='stale')
+                                message['E'] -= 60000
                             exchange_now = int(time.time()*1000) + venue.offset_ms
                             if not 0 <= exchange_now - int(message['E']) <= 5000:
                                 raise VenueError('stale market stream; reconnect and backfill')
+                            retry_budget.progress(time.monotonic())
                             candle = closed_candle(message, venue.tick, args.symbol, args.interval)
                             if candle is None: continue
+                            if args.faults and time.monotonic() - started >= 15 and 'drop' not in fired_faults:
+                                fired_faults.add('drop'); note('injected_fault', fault='drop')
+                                continue
                             if strategy.last and candle.open_ms > strategy.last.open_ms + strategy.interval_ms:
                                 send('MarketUnavailable')
-                                first = strategy.last.open_ms + strategy.interval_ms
-                                count = (candle.open_ms - first) // strategy.interval_ms
-                                if count > 1000:
-                                    raise CandleGap('gap exceeds bounded backfill')
-                                for attempt in range(4):
-                                    rows = venue.request('GET', '/api/v3/klines', dict(symbol=args.symbol, interval=args.interval,
-                                        startTime=first, endTime=candle.open_ms - 1, limit=count))
-                                    if len(rows) == count: break
-                                    time.sleep(1)
-                                if len(rows) != count: raise CandleGap('REST history not caught up')
-                                for b in rows:
-                                    add_bar(Candle(int(b[0]), int(b[6]), units(b[4], venue.tick)))
-                                note('backfill', bars=count)
-                            if not add_bar(candle): continue
+                                bars = missing_candles(venue, strategy.last, candle, args.interval, strategy.interval_ms)
+                                for bar in bars: add_bar(bar)
+                                note('backfill', bars=len(bars))
+                                counters['backfilled_bars'] += len(bars)
+                            if not add_bar(candle):
+                                counters['duplicates'] += 1
+                                continue
+                            if args.faults and time.monotonic() - started >= 30 and 'duplicate' not in fired_faults:
+                                fired_faults.add('duplicate'); note('injected_fault', fault='duplicate')
+                                if add_bar(candle): raise RuntimeError('duplicate changed strategy')
+                                counters['duplicates'] += 1
                             counters['closed_bars'] += 1
                             signal = strategy.signal()
                             if signal:
@@ -213,19 +268,21 @@ def run(args):
                                 for taker, price in [('Sell', quote['ask']), ('Buy', quote['bid'])]:
                                     send({'Trade': dict(taker=taker, price=price, qty=lots)})
                             intent = strategy.intent(engine.state, int(time.time()*1000) + venue.offset_ms)
-                            if intent and counters['submissions'] < args.max_orders:
+                            if intent and len(engine.state['orders']) < args.max_orders:
                                 validate(venue, intent, args.max_notional)
                                 # Explicit Spot long/flat boundary, independent of SMA implementation.
                                 if intent['side'] == 'Sell' and intent['qty'] > engine.state['position']:
                                     raise RuntimeError('Spot cannot short')
+                                if args.mode == 'testnet' and intent['side'] == 'Sell' and venue.available_base() < venue.lot * intent['qty']:
+                                    note('signal_blocked', reason='insufficient_free_base_including_fees')
+                                    continue
                                 dispatch(send({'Submit': intent}))
                 except (OSError, TimeoutError, VenueError, ConnectionClosed, CandleGap) as error:
                     send('MarketUnavailable')
-                    note('connection_failure', error_type=type(error).__name__, venue_code=getattr(error, 'code', None))
+                    note('connection_failure', error_type=type(error).__name__, reason=str(error) if isinstance(error, VenueError) else None, venue_code=getattr(error, 'code', None))
                     if args.mode == 'testnet': reconcile()
                     counters['reconnects'] += 1
-                    if counters['reconnects'] > 3: raise
-                    time.sleep(1)
+                    time.sleep(retry_budget.failed())
             completed = True
         finally:
             send('MarketUnavailable')
@@ -237,9 +294,10 @@ def run(args):
                 shutdown_reconciled = True
             finally:
                 send('Disconnect')
-                summary = dict(counters, completed=completed, shutdown_reconciled=shutdown_reconciled, position_lots=engine.state['position'], fills=len(engine.state['fills']),
+                summary = dict(counters, invocation=invocation, total_session_orders=len(engine.state['orders']), faults=sorted(fired_faults),
+                               ipc_ms=latency_summary(latencies), completed=completed, shutdown_reconciled=shutdown_reconciled, position_lots=engine.state['position'], fills=len(engine.state['fills']),
                                elapsed_seconds=round(time.monotonic()-started, 2), mode=args.mode)
-                (path / 'summary.json').write_text(json.dumps(summary, indent=2))
+                write_summary(path, invocation, summary)
                 note('summary', **summary)
 
 
@@ -258,8 +316,11 @@ if __name__ == '__main__':
     p.add_argument('--order-ttl', type=int, default=10)
     p.add_argument('--max-orders', type=int, default=6)
     p.add_argument('--resume', action='store_true')
+    p.add_argument('--faults', action='store_true', help='paper only: inject drop, duplicate, stale data and disconnect')
     p.add_argument('--reconcile-only', action='store_true', help='resume, reconcile, then exit without new signals')
     a = p.parse_args()
+    if a.faults and a.mode != 'paper':
+        p.error('--faults is restricted to paper mode')
     if a.reconcile_only and (not a.resume or a.mode != 'testnet'):
         p.error('--reconcile-only requires --resume --mode testnet')
     if a.seconds <= 0 or a.order_ttl <= 0 or a.max_orders <= 0 or not a.quantity.is_finite() or a.quantity <= 0 or not a.max_notional.is_finite() or a.max_notional <= 0:
