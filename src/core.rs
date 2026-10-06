@@ -17,6 +17,10 @@ pub struct Core {
     pub orders: BTreeMap<OrderId, Order>,
     pub fills: BTreeMap<u64, Fill>,
     pub position: i64,
+    #[serde(default)]
+    pub target: Option<Target>,
+    #[serde(default)]
+    pub last_target_revision: u64,
     /// Tick-lot cash, without fees; i128 prevents multiplying two i64s from overflowing.
     pub cash: i128,
 }
@@ -47,6 +51,8 @@ impl Core {
             orders: BTreeMap::new(),
             fills: BTreeMap::new(),
             position: 0,
+            target: None,
+            last_target_revision: 0,
             cash: 0,
         })
     }
@@ -137,6 +143,38 @@ impl Core {
         None
     }
 
+    fn targeted_refusal(
+        &self,
+        intent: &Intent,
+        revision: u64,
+        expected_position: i64,
+    ) -> Option<&'static str> {
+        let Some(target) = &self.target else {
+            return Some("no active target");
+        };
+        if target.revision != revision || target.valid_until < self.now {
+            return Some("target superseded or expired");
+        }
+        if expected_position != self.position {
+            return Some("position changed since intent calculation");
+        }
+        if self
+            .orders
+            .values()
+            .any(|o| !o.lifecycle.terminal() || o.uncertain)
+        {
+            return Some("previous order unresolved; cancel/replace barrier closed");
+        }
+        let delta = target.position as i128 - self.position as i128;
+        if delta == 0
+            || intent.qty as i128 != delta.abs()
+            || intent.side.sign() as i128 != delta.signum()
+        {
+            return Some("intent does not match current target delta");
+        }
+        None
+    }
+
     fn handle(&mut self, event: &Event, out: &mut Vec<Effect>) -> Result<(), String> {
         match event {
             Event::MarketUnavailable => self.quote = None,
@@ -160,6 +198,34 @@ impl Core {
                     return Err("invalid quote".into());
                 }
                 self.quote = Some((*bid, *ask, self.now));
+            }
+            Event::SetTarget(target) => {
+                if target.revision <= self.last_target_revision
+                    || target.valid_until < self.now
+                    || (target.position as i128).abs() > self.config.max_abs_position as i128
+                {
+                    out.push(Effect::SignalRefused {
+                        revision: target.revision,
+                        reason: "stale, expired or out-of-bounds target".into(),
+                    });
+                } else {
+                    self.last_target_revision = target.revision;
+                    self.target = Some(target.clone());
+                }
+            }
+            Event::SubmitTargeted {
+                intent,
+                revision,
+                expected_position,
+            } => {
+                if let Some(reason) = self.targeted_refusal(intent, *revision, *expected_position) {
+                    out.push(Effect::Refused {
+                        id: intent.id,
+                        reason: reason.into(),
+                    });
+                } else {
+                    self.handle(&Event::Submit(intent.clone()), out)?;
+                }
             }
             Event::Submit(intent) => {
                 if let Some(reason) = self.refusal(intent) {
@@ -257,6 +323,7 @@ impl Core {
                 }
             }
             Event::Disconnect => {
+                self.target = None;
                 self.health = Health::Disconnected;
                 self.quote = None;
                 for order in self.orders.values_mut().filter(|o| !o.lifecycle.terminal()) {

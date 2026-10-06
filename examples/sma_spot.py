@@ -22,6 +22,7 @@ from mininautilus.bridge import Engine
 from mininautilus.binance import BinanceSpot, VenueError, units
 from mininautilus.market import missing_candles
 from mininautilus.retry import ReconnectBudget
+from mininautilus.targets import target_event, target_order
 from mininautilus.sma import Candle, CandleGap, SmaStrategy, INTERVALS
 
 TERMINAL = ('Filled', 'Canceled', 'Rejected')
@@ -261,6 +262,7 @@ def run(args):
                             signal = strategy.signal()
                             if signal:
                                 counters['signals'] += 1; note('signal', **signal)
+                                send(target_event(engine.state, signal['target_lots'], strategy.interval_ms + 5000))
                             observed = now()
                             quote = venue.quote()
                             send({'QuoteObserved': dict(**quote, observed_at=observed)})
@@ -276,7 +278,8 @@ def run(args):
                                 if args.mode == 'testnet' and intent['side'] == 'Sell' and venue.available_base() < venue.lot * intent['qty']:
                                     note('signal_blocked', reason='insufficient_free_base_including_fees')
                                     continue
-                                dispatch(send({'Submit': intent}))
+                                command = target_order(engine.state, price=intent['limit'])
+                                if command: dispatch(send(command))
                 except (OSError, TimeoutError, VenueError, ConnectionClosed, CandleGap) as error:
                     send('MarketUnavailable')
                     note('connection_failure', error_type=type(error).__name__, reason=str(error) if isinstance(error, VenueError) else None, venue_code=getattr(error, 'code', None))

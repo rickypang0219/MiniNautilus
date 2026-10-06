@@ -131,3 +131,6 @@ macOS 唔會假裝提供 Linux strict affinity。Linux affinity 已 cross-compil
 
 See [the SMA experiment guide](docs/realtime-sma.md) for WebSocket candles, long/flat
 execution, bounded Testnet runs, recovery and deterministic replay.
+
+See [order churn and latency experiments](docs/order-stress.md) for cancel/fill races,
+versioned target guards, delayed reports and independent venue/journal verification.

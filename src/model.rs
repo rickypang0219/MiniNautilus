@@ -25,6 +25,14 @@ pub struct Intent {
     pub valid_until: Time,
 }
 
+/// Strategy output is a versioned target, not an instruction to buy again.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct Target {
+    pub revision: u64,
+    pub position: i64,
+    pub valid_until: Time,
+}
+
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub enum Lifecycle {
     Pending,
@@ -125,6 +133,12 @@ pub enum Event {
         qty: i64,
     },
     Submit(Intent),
+    SetTarget(Target),
+    SubmitTargeted {
+        intent: Intent,
+        revision: u64,
+        expected_position: i64,
+    },
     Cancel {
         id: OrderId,
     },
@@ -156,6 +170,7 @@ pub enum Effect {
     SendCancel { id: OrderId },
     QueryState { epoch: u64 },
     Refused { id: OrderId, reason: String },
+    SignalRefused { revision: u64, reason: String },
     Alert(String),
 }
 
