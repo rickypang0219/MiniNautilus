@@ -148,3 +148,27 @@ on Linux. It does not load secrets or contact the exchange. Local verification u
   that heartbeat.
 - Summary history is immutable per invocation; the latest pointer is replaced atomically.
   Durable orders, including those recovered after restart, count toward `--max-orders`.
+
+### Completed fault soak after fixes
+
+`runs/sma-soak-faults-02/` completed in 302.27 seconds: 288 closed stream bars,
+20 submissions, 18 simulated fills, final gross position zero. All 1,427 invariant
+checks passed. The run injected all four faults, backfilled six bars, discarded the
+injected duplicate, and recovered through the two intended reconnects. Shutdown was
+clean. Replay reproduced all 321 recorded candles, including warmup and backfill, and
+the exact final Rust fill count and position.
+
+Observed engine IPC (including durable journal processing) was p50 5.340 ms,
+p99 10.894 ms, maximum 20.405 ms across 1,427 calls on this machine. These are
+experiment observations, not HFT latency claims or exchange execution latency.
+
+Validation: 23 Rust tests and 31 Python tests passed locally; formatting and Clippy
+passed. The Linux GitHub Actions run for implementation commit `92dcf6d` also
+[passed](https://github.com/rickypang0219/MiniNautilus/actions/runs/37437006474).
+The follow-up performed no additional exchange orders: the existing Spot Testnet
+session remains at two historical fills, gross flat, with fees explicitly accounted for.
+
+Remaining scope: REST operations still block the coordinator; use a serial execution
+actor with bounded queues before making latency/isolation claims. Private execution
+reports still use polling. There is no margin adapter, no fee-aware net-inventory target,
+and no claim of exhaustive failure coverage from these short experiments.
