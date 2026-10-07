@@ -30,6 +30,18 @@ def intent():
 
 
 class AdapterTests(unittest.TestCase):
+    def test_trade_time_survives_live_fill_and_reconciliation(self):
+        gateway = venue()
+        gateway.query = Mock(return_value={"orderId":88,"executedQty":"0.002","status":"FILLED"})
+        gateway.trades = Mock(return_value=[{"id":41,"qty":"0.002","price":"100.00","time":1700000000123}])
+        _, fills, _ = gateway.collect(intent())
+        self.assertEqual(gateway.timing({"Execution":{"report":{"Fill":fills[0]}}}),
+                         {"event_time_ms":1700000000123,"time_source":"exchange trade"})
+        self.assertEqual(gateway.timing({"Reconcile":{"fills":fills}}),
+                         {"fill_event_times":{42:1700000000123}})
+        self.assertEqual(gateway.timing({"Execution":{"report":{"Fill":{"execution_id":99}}}}), {})
+        self.assertEqual(gateway.timing({"Quote":{"bid":99,"ask":101}}), {})
+
     def test_decimal_grid_is_exact(self):
         self.assertEqual(units("0.003", Decimal("0.001")), 3)
         for value in ("0.0031", "-1", "Infinity", "NaN"):
@@ -110,9 +122,17 @@ class AdapterTests(unittest.TestCase):
             [{"commission": "0.000002", "commissionAsset": "BTC"}]))
         gateway.base_balance = Mock(return_value=Decimal("1.001998"))
         self.assertEqual(gateway.reconcile(state, "1")["position"], 2)
+        self.assertEqual(gateway.last_reconciliation['net_base_change'], '0.001998')
+        self.assertEqual(gateway.last_reconciliation['commissions_by_asset'], {'BTC':'0.000002'})
         gateway.base_balance.return_value = Decimal("2")
         with self.assertRaisesRegex(VenueError, "balance disagrees"):
             gateway.reconcile(state, "1")
+
+    def test_available_base_excludes_reserved_inventory(self):
+        gateway = venue()
+        gateway.request = Mock(return_value={'balances':[{'asset':'BTC','free':'0.001','locked':'0.002'}]})
+        self.assertEqual(gateway.available_base(), Decimal('0.001'))
+        self.assertEqual(gateway.base_balance(), Decimal('0.003'))
 
     def test_unknown_order_prevents_recovery_without_canceling_it(self):
         gateway = venue()

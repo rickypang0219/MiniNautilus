@@ -72,14 +72,15 @@ def run(args):
             return time_origin + int((time.monotonic() - clock_origin) * 1000)
 
         def deliver(report):
-            return engine.send(now(), {"Execution": {"epoch": engine.state["epoch"],
-                "venue_seq": engine.state["venue_seq"] + 1, "report": report}})
+            event = {"Execution": {"epoch": engine.state["epoch"],
+                "venue_seq": engine.state["venue_seq"] + 1, "report": report}}
+            return engine.send(now(), event, **venue.timing(event))
 
         def recover():
             engine.send(now(), "Disconnect")
             engine.send(now(), "Reconnect")
             snapshot = venue.reconcile(engine.state, metadata["baseline_base"])
-            engine.send(now(), {"Reconcile": snapshot})
+            engine.send(now(), {"Reconcile": snapshot}, **venue.timing({"Reconcile": snapshot}))
             if engine.state["health"] != "Healthy":
                 raise VenueError("Rust rejected reconciliation; journal retained")
 

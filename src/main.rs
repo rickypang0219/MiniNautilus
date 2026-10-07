@@ -1,5 +1,10 @@
 use mininautilus::telemetry::Telemetry;
-use mininautilus::{core::Core, journal::DurableEngine, model::*, sim::PaperExchange};
+use mininautilus::{
+    core::Core,
+    journal::{DurableEngine, EventTime},
+    model::*,
+    sim::PaperExchange,
+};
 use serde::{Deserialize, Serialize};
 use std::{
     io::{self, BufRead, Write},
@@ -10,6 +15,8 @@ use std::{
 struct Request {
     at: Time,
     event: Event,
+    #[serde(default)]
+    time: Option<EventTime>,
 }
 #[derive(Serialize)]
 struct Response<'a> {
@@ -27,6 +34,20 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
     let args: Vec<_> = std::env::args().collect();
     match args.get(1).map(String::as_str) {
         Some("demo") => demo(),
+        Some("dashboard") => {
+            let root = args
+                .get(2)
+                .ok_or("dashboard JOURNAL_OR_DIRECTORY [--port PORT]")?;
+            let port = if args.get(3).is_some_and(|s| s == "--port") {
+                args.get(4).ok_or("missing port")?.parse::<u16>()?
+            } else if args.len() > 3 {
+                return Err("dashboard JOURNAL_OR_DIRECTORY [--port PORT]".into());
+            } else {
+                8765
+            };
+            mininautilus::dashboard::serve(Path::new(root), port)?;
+            Ok(())
+        }
         Some("inspect") => {
             let path = args.get(2).ok_or("inspect JOURNAL")?;
             let state = mininautilus::journal::replay(Path::new(path))?;
@@ -69,7 +90,8 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
             stdout.flush()?;
             for line in io::stdin().lock().lines() {
                 let input: Request = serde_json::from_str(&line?)?;
-                let effects = engine.process(input.at, input.event.clone())?;
+                let effects =
+                    engine.process_timed(input.at, input.event.clone(), input.time.clone())?;
                 if paper {
                     let mut events = Vec::new();
                     for effect in &effects {
@@ -79,7 +101,12 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
                         events.extend(venue.trade(engine.core().epoch, taker, price, qty)?);
                     }
                     for event in events {
-                        engine.process(input.at, event)?;
+                        let mut time = input.time.clone();
+                        if let Some(t) = &mut time {
+                            t.source = Some("simulation".into());
+                            t.fill_event_times.clear();
+                        }
+                        engine.process_timed(input.at, event, time)?;
                     }
                 }
                 if let Some(logger) = telemetry.as_mut() {
@@ -114,7 +141,7 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
         }
         _ => {
             println!(
-                "MiniNautilus\n  demo\n  serve JOURNAL [--recover|CONFIG.json]\n  paper JOURNAL [CONFIG.json]\n  inspect JOURNAL\n  snapshot JOURNAL OUTPUT"
+                "MiniNautilus\n  dashboard JOURNAL_OR_DIRECTORY [--port PORT]\n  demo\n  serve JOURNAL [--recover|CONFIG.json]\n  paper JOURNAL [CONFIG.json]\n  inspect JOURNAL\n  snapshot JOURNAL OUTPUT"
             );
             Ok(())
         }

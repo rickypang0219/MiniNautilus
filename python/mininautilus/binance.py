@@ -34,6 +34,8 @@ def units(value, increment):
 
 
 class BinanceSpot:
+    base_url = BASE
+    api_prefix = "/api/v3/"
     def __init__(self, symbol="BTCUSDT", session="lab", *, execute=False):
         if not re.fullmatch(r"[A-Z0-9]{3,20}", symbol) or not re.fullmatch(r"[a-z0-9]{1,10}", session):
             raise ValueError("invalid symbol/session")
@@ -44,13 +46,14 @@ class BinanceSpot:
         self.next_request = 0.0
         self.tick = self.lot = None
         self.base_asset = None
+        self.execution_times = {}
 
     def request(self, method, path, params=None, *, signed=False):
         if method != "GET" and not self.execute:
             raise VenueError("testnet execution is disabled")
         if signed and (not self.key or not self.secret):
             raise VenueError("set BINANCE_TESTNET_API_KEY and BINANCE_TESTNET_API_SECRET locally")
-        if not path.startswith("/api/v3/"):
+        if not path.startswith(self.api_prefix):
             raise ValueError("unsupported endpoint")
         # Conservative fixed pacing. HTTP 429/418 adds server-directed backoff.
         delay = self.next_request - time.monotonic()
@@ -65,7 +68,7 @@ class BinanceSpot:
             signature = hmac.new(self.secret.encode(), query.encode(), hashlib.sha256).hexdigest()
             query += "&signature=" + signature
         headers = {"X-MBX-APIKEY": self.key} if signed else {}
-        request = urllib.request.Request(BASE + path + ("?" + query if query else ""),
+        request = urllib.request.Request(self.base_url + path + ("?" + query if query else ""),
                                          method=method, headers=headers)
         try:
             # No redirects: signed parameters must never be forwarded elsewhere.
@@ -114,6 +117,11 @@ class BinanceSpot:
         if not 1 <= order_id <= 2**64 - 1:
             raise ValueError("invalid client ID")
         return f"mn{self.session}-{order_id}"
+
+    def available_base(self):
+        """Unreserved base inventory; gross strategy position can include base fees."""
+        account = self.request("GET", "/api/v3/account", signed=True)
+        return next((Decimal(b["free"]) for b in account["balances"] if b["asset"] == self.base_asset), Decimal(0))
 
     def base_balance(self):
         account = self.request("GET", "/api/v3/account", signed=True)
@@ -183,6 +191,9 @@ class BinanceSpot:
         filled = units(remote["executedQty"], self.lot)
         if len({f["execution_id"] for f in fills}) != len(fills) or sum(f["qty"] for f in fills) != filled:
             raise VenueError("order/trades not yet consistent; keep recovery gate closed")
+        for trade in raw_trades:
+            if isinstance(trade.get("time"), int) and trade["time"] >= 0:
+                self.execution_times[trade["id"] + 1] = trade["time"]
         status = remote["status"]
         lifecycle = {"NEW": "Accepted", "PARTIALLY_FILLED": "Partial", "FILLED": "Filled",
                      "CANCELED": "Canceled", "EXPIRED": "Canceled", "EXPIRED_IN_MATCH": "Canceled",
@@ -190,6 +201,20 @@ class BinanceSpot:
         if lifecycle is None:
             raise VenueError("unsupported venue order status")
         return {"intent": intent, "filled": filled, "lifecycle": lifecycle}, fills, raw_trades
+
+    def timing(self, event):
+        """Preserve venue trade times separately from receipt and engine clocks."""
+        if not isinstance(event, dict):
+            return {}
+        report = event.get("Execution", {}).get("report", {})
+        if "Fill" in report:
+            timestamp = self.execution_times.get(report["Fill"]["execution_id"])
+            return dict(event_time_ms=timestamp, time_source="exchange trade") if timestamp is not None else {}
+        if "Reconcile" in event:
+            times = {f["execution_id"]: self.execution_times[f["execution_id"]]
+                     for f in event["Reconcile"]["fills"] if f["execution_id"] in self.execution_times}
+            return dict(fill_event_times=times)
+        return {}
 
     def poll(self, state):
         reports = []
@@ -225,9 +250,21 @@ class BinanceSpot:
         position = sum(o["filled"] * (1 if o["intent"]["side"] == "Buy" else -1) for o in orders)
         base_fees = sum((Decimal(t["commission"]) for t in raw if t["commissionAsset"] == self.base_asset), Decimal(0))
         expected = Decimal(str(baseline_base)) + self.lot * position - base_fees
-        if self.base_balance() != expected:
+        actual = self.base_balance()
+        if actual != expected:
             raise VenueError("base balance disagrees with session fills/fees; recovery blocked")
         if self.open_orders():
             raise VenueError("account not quiescent; another writer may be active")
+        commissions = {}
+        for trade in raw:
+            asset = trade["commissionAsset"]
+            commissions[asset] = commissions.get(asset, Decimal(0)) + Decimal(trade["commission"])
+        self.last_reconciliation = {
+            "gross_position_lots": position,
+            "net_base_change": str(self.lot * position - base_fees),
+            "base_commission": str(base_fees),
+            "commissions_by_asset": {asset: str(amount) for asset, amount in commissions.items()},
+            "balance_verified": True,
+        }
         return {"epoch": state["epoch"], "watermark": state["venue_seq"],
                 "orders": orders, "fills": fills, "position": position}
