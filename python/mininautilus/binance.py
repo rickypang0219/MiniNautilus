@@ -46,6 +46,7 @@ class BinanceSpot:
         self.next_request = 0.0
         self.tick = self.lot = None
         self.base_asset = None
+        self.execution_times = {}
 
     def request(self, method, path, params=None, *, signed=False):
         if method != "GET" and not self.execute:
@@ -190,6 +191,9 @@ class BinanceSpot:
         filled = units(remote["executedQty"], self.lot)
         if len({f["execution_id"] for f in fills}) != len(fills) or sum(f["qty"] for f in fills) != filled:
             raise VenueError("order/trades not yet consistent; keep recovery gate closed")
+        for trade in raw_trades:
+            if isinstance(trade.get("time"), int) and trade["time"] >= 0:
+                self.execution_times[trade["id"] + 1] = trade["time"]
         status = remote["status"]
         lifecycle = {"NEW": "Accepted", "PARTIALLY_FILLED": "Partial", "FILLED": "Filled",
                      "CANCELED": "Canceled", "EXPIRED": "Canceled", "EXPIRED_IN_MATCH": "Canceled",
@@ -197,6 +201,20 @@ class BinanceSpot:
         if lifecycle is None:
             raise VenueError("unsupported venue order status")
         return {"intent": intent, "filled": filled, "lifecycle": lifecycle}, fills, raw_trades
+
+    def timing(self, event):
+        """Preserve venue trade times separately from receipt and engine clocks."""
+        if not isinstance(event, dict):
+            return {}
+        report = event.get("Execution", {}).get("report", {})
+        if "Fill" in report:
+            timestamp = self.execution_times.get(report["Fill"]["execution_id"])
+            return dict(event_time_ms=timestamp, time_source="exchange trade") if timestamp is not None else {}
+        if "Reconcile" in event:
+            times = {f["execution_id"]: self.execution_times[f["execution_id"]]
+                     for f in event["Reconcile"]["fills"] if f["execution_id"] in self.execution_times}
+            return dict(fill_event_times=times)
+        return {}
 
     def poll(self, state):
         reports = []

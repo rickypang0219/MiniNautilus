@@ -1,5 +1,10 @@
 use mininautilus::telemetry::Telemetry;
-use mininautilus::{core::Core, journal::DurableEngine, model::*, sim::PaperExchange};
+use mininautilus::{
+    core::Core,
+    journal::{DurableEngine, EventTime},
+    model::*,
+    sim::PaperExchange,
+};
 use serde::{Deserialize, Serialize};
 use std::{
     io::{self, BufRead, Write},
@@ -10,6 +15,8 @@ use std::{
 struct Request {
     at: Time,
     event: Event,
+    #[serde(default)]
+    time: Option<EventTime>,
 }
 #[derive(Serialize)]
 struct Response<'a> {
@@ -83,7 +90,8 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
             stdout.flush()?;
             for line in io::stdin().lock().lines() {
                 let input: Request = serde_json::from_str(&line?)?;
-                let effects = engine.process(input.at, input.event.clone())?;
+                let effects =
+                    engine.process_timed(input.at, input.event.clone(), input.time.clone())?;
                 if paper {
                     let mut events = Vec::new();
                     for effect in &effects {
@@ -93,7 +101,12 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
                         events.extend(venue.trade(engine.core().epoch, taker, price, qty)?);
                     }
                     for event in events {
-                        engine.process(input.at, event)?;
+                        let mut time = input.time.clone();
+                        if let Some(t) = &mut time {
+                            t.source = Some("simulation".into());
+                            t.fill_event_times.clear();
+                        }
+                        engine.process_timed(input.at, event, time)?;
                     }
                 }
                 if let Some(logger) = telemetry.as_mut() {

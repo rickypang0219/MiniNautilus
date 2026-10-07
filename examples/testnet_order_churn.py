@@ -60,7 +60,7 @@ def run(args):
             note('engine',event='Disconnect',effects=[],position=engine.state['position'],
                  target=engine.state['target'],seq=engine.state['seq'],source='startup_recovery')
         def send(event):
-            effects=engine.send(now(),event);audit(engine.state,lots);stats['checks']+=1
+            effects=engine.send(now(),event,**venue.timing(event));audit(engine.state,lots);stats['checks']+=1
             note('engine',event=event,effects=effects,position=engine.state['position'],target=engine.state['target'],seq=engine.state['seq'])
             return effects
         def deliver(report):

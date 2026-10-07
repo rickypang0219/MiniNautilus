@@ -6,6 +6,7 @@ description = "A deterministic trading systems learning laboratory"
 license = "MIT"
 
 [dependencies]
+rusqlite = { version = "0.40.2", features = ["bundled"] }
 serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0"
 

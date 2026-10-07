@@ -38,7 +38,8 @@ flowchart LR
   C --> D[Independent Rust observer]
   D --> E[Checksum validation + deterministic Core replay]
   E --> F[Shared post-trade projection]
-  F --> G[Local HTTP API + browser UI]
+  F --> I[SQLite cold-path index]
+  I --> G[HTTP summary + cursor pages → browser]
 ```
 
 Observer 喺獨立 process 讀完整 journal frames，唔鎖 writer、唔改檔、唔 dispatch replay effects。
@@ -55,7 +56,15 @@ Engine 本身原有 journal fsync 成本仍然存在；UI 不會額外加入 hot
 - Pause view：凍結目前畫面，engine 繼續；Resume 追返最新狀態。轉 session 會自動 resume。
 
 `position` 係此 session 嘅 gross filled quantity，唔等於交易所全 account balance；Spot 扣 base-asset fee 後嘅淨持倉亦可能不同。
-時間用 engine monotonic milliseconds；fill observed time 係 engine 首次得知該 fill 嘅時間，唔係 venue transaction timestamp。
+預設顯示香港 datetime，可切換 UTC。每筆紀錄分開保存：
+
+- `event_time_ms`：來源事件時間；SMA signal 用 candle close，唔代表 Python 計算完成時間。
+- `received_time_ms`：live Python bridge 提交到 engine 前嘅本機 Unix 時間。
+- `at`：engine elapsed milliseconds，繼續用於 timeout、risk 同 debug。
+
+Deterministic replay 靠 journal sequence 同已記錄輸入，唔需要犧牲 datetime。Unix wall clock 並非保證 monotonic；遲到事件、時鐘校正都可能令時間倒退。Ledger 按 ingestion sequence 排列，同 timestamp 嘅多筆事件亦唔會合併。PnL 圖用 state observation time，避免今日 reconciliation 發現舊 fill 時，將今日持倉畫返去昨日。
+
+Event time 缺失會明確標示 received fallback；兩者都缺就顯示 Unknown datetime。舊 journal 唔會靠檔案修改時間猜日期；只有通過身份核對嘅 trade audit 可以補回交易時間。Historical bridge 用 `time_mode="historical"`，唔會加入今日收到時間；replay input 可以提供 `event_time_ms`。
 重複 execution reports 唔會重複計 trade／position／PnL。Reconciliation 發現嘅 fills 會補入 ledger。
 Average-cost 分拆沿用現有分析器，以 execution ID 次序計算，適用於現有 simulator 同單一 instrument Binance adapter；未來 adapter 若 ID 無時序意義，需要提供明確 execution ordering。
 
@@ -79,7 +88,17 @@ Checksum／schema／sequence 錯誤、讀到 truncation 或 file replacement 時
 Observer 可見完整 frame 不代表 writer 已完成 fsync acknowledgment；佢係 checksum-valid observation，唔係 storage durability receipt。
 
 只 bind `127.0.0.1`，API 只有 GET；無 remote deployment／authentication。最多 16 concurrent HTTP connections，每條有 timeout。
-目前最多 discovery 128 journals、深度 4、單 frame 8 MiB。Ledger 同 Core history 保留喺 cold process memory，API 傳完整 snapshot；長期大量交易應加 persistent indexed storage／server pagination。大型 runs 可指定單一 journal，避免同時 replay 所有 sessions。
+目前最多 discovery 128 journals、深度 4、單 frame 8 MiB。SQLite 係獨立 observer 嘅 temporary disk index，關閉後可以由 journal 重建；journal 先係持久資料來源。新增 events 逐批寫 index，唔會一直保留喺 UI array。Core 仍保留 orders／fills；長期 HFT 歷史仍需要 checkpoint、retention 同容量規劃。大型 runs 可指定單一 journal，避免同時 replay 所有 sessions。
+
+## 更新、斷線與隔夜重開
+
+Browser 每約 500 ms 透過 HTTP 取 summary 同目前一頁紀錄，唔直接查 DB，亦未使用 WebSocket。每頁 UI 25 筆，API 最多 200 筆；游標按 sequence／ID 排序，用 sequence ceiling 避免翻頁期間新增紀錄令頁面移位。Orders 顯示當前狀態，唔係歷史狀態快照。Events 包含所有 input 類型，Reconcile 大型 payload 顯示摘要，完整內容保留喺 journal。
+
+Request 8 秒 timeout，失敗後 exponential backoff 加 jitter（最多約 36 秒）；保留最後畫面並明示重試。恢復連線會追最新 summary，歴史按頁查閱。Observer 重啟需要 replay 重建 index，期間顯示 rebuilding，唔保證大型 journal 即時載入。
+
+關閉 tab 唔會停止 engine 寫 journal。十小時後重開，先載入最新 position／PnL，再用時間範圍或 Events 頁查看期間紀錄。Browser localStorage 記住上次 sequence，提供新增事件提示同 Review events；刪除 browser storage 只會失去提示，唔會失去 journal 歷史。Engine 必須繼續運行；電腦本身休眠同關閉 tab 係兩回事。
+
+Export trades 逐頁取得當前 sequence 之前全部成交，包含 UTC ISO datetime、engine time 同 sequence。SQLite 隨 Rust bundled dependency 編譯，唔需要另開 DB container；Node 只用於測試，唔係 dashboard runtime。
 
 ## Validation
 
@@ -90,3 +109,11 @@ cargo test --locked
 cargo clippy --locked --all-targets -- -D warnings
 python3 -m unittest discover -s tests -p 'test_*.py'
 ```
+
+新增 validation：Rust clock metadata／checksum、遲到 fill、穩定 cursor、SQLite 分頁一致性；HTTP 測試停止 observer 後寫入 100 筆跨越模擬十小時嘅事件，再重啟逐頁驗證無漏無重複。呢個係模擬時間跨度，唔係實際十小時 soak。
+
+```sh
+node --test tests/dashboard_time.cjs
+```
+
+2026-10-07 公開行情 paper run：20 signals、2 submissions／fills、129 invariant checks、2 reconnects，最後 position 0、faults 空。實際約 57 秒，無向交易所落單。

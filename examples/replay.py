@@ -11,13 +11,13 @@ from mininautilus import Engine, TargetPosition
 
 def run(journal, events):
     strategy = TargetPosition(target=3, exit_bid=105)
-    with Engine(journal, paper=True) as engine:
+    with Engine(journal, paper=True, time_mode="historical") as engine:
         for item in events:
-            engine.send(item["at"], item["event"])
+            engine.send(item["at"], item["event"], event_time_ms=item.get("event_time_ms"))
             if isinstance(item["event"], dict) and "Quote" in item["event"]:
                 intent = strategy.on_quote(engine.state)
                 if intent:
-                    engine.send(item["at"], {"Submit": intent})
+                    engine.send(item["at"], {"Submit": intent}, event_time_ms=item.get("event_time_ms"))
         state = engine.state
         mark = state["quote"][0]
         result = {"position": state["position"], "cash_tick_lots": state["cash"],

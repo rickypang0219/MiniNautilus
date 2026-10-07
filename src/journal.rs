@@ -25,7 +25,43 @@ fn checksum(previous: u64, bytes: &[u8]) -> u64 {
 #[derive(Serialize, Deserialize)]
 enum Payload {
     Genesis { schema: u32, config: Config },
-    Input(Envelope),
+    Input(RecordedInput),
+}
+/// Display/audit timestamps. They never drive Core ordering, expiry, or risk.
+#[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
+pub struct EventTime {
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub event_time_ms: Option<u64>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub received_time_ms: Option<u64>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub source: Option<String>,
+    #[serde(default, skip_serializing_if = "std::collections::BTreeMap::is_empty")]
+    pub fill_event_times: std::collections::BTreeMap<u64, u64>,
+}
+impl EventTime {
+    fn validate(&self) -> io::Result<()> {
+        // JavaScript Date range; deliberately no monotonicity requirement.
+        if self
+            .event_time_ms
+            .into_iter()
+            .chain(self.received_time_ms)
+            .chain(self.fill_event_times.values().copied())
+            .any(|t| t > 8_640_000_000_000_000)
+            || self.source.as_ref().is_some_and(|s| s.len() > 80)
+        {
+            return Err(invalid("invalid display timestamp metadata"));
+        }
+        Ok(())
+    }
+}
+#[derive(Serialize, Deserialize)]
+struct RecordedInput {
+    #[serde(flatten)]
+    input: Envelope,
+    // Optional extension inside the checksummed payload; old journals still replay.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    time: Option<EventTime>,
 }
 #[derive(Serialize, Deserialize)]
 struct Frame {
@@ -107,6 +143,18 @@ impl DurableEngine {
     }
 
     pub fn process(&mut self, at: Time, event: Event) -> io::Result<Vec<Effect>> {
+        self.process_timed(at, event, None)
+    }
+
+    pub fn process_timed(
+        &mut self,
+        at: Time,
+        event: Event,
+        time: Option<EventTime>,
+    ) -> io::Result<Vec<Effect>> {
+        if let Some(t) = &time {
+            t.validate()?;
+        }
         if self.poisoned {
             return Err(io::Error::other("journal failed; restart and reconcile"));
         }
@@ -122,7 +170,7 @@ impl DurableEngine {
         let mut next = self.core.clone();
         let effects = next.apply(&input).map_err(invalid)?;
         // No effect is exposed before the durable write acknowledges.
-        self.append(&Payload::Input(input))?;
+        self.append(&Payload::Input(RecordedInput { input, time }))?;
         self.core = next;
         Ok(effects)
     }
@@ -212,9 +260,12 @@ fn scan(bytes: &[u8], snapshot: Option<&Snapshot>) -> io::Result<(Core, u64)> {
                 core = Some(Core::new(config).map_err(invalid)?)
             }
             (_, Payload::Input(event)) => {
+                if let Some(time) = &event.time {
+                    time.validate()?;
+                }
                 core.as_mut()
                     .ok_or_else(|| invalid("missing genesis"))?
-                    .apply(&event)
+                    .apply(&event.input)
                     .map_err(invalid)?;
             }
             _ => return Err(invalid("unsupported schema or duplicate genesis")),
@@ -323,6 +374,13 @@ impl JournalFollower {
         max_records: usize,
         mut observe: impl FnMut(&Core, Option<&Envelope>, &[Effect]),
     ) -> io::Result<usize> {
+        self.poll_timed(max_records, |c, i, e, _| observe(c, i, e))
+    }
+    pub fn poll_timed(
+        &mut self,
+        max_records: usize,
+        mut observe: impl FnMut(&Core, Option<&Envelope>, &[Effect], Option<&EventTime>),
+    ) -> io::Result<usize> {
         use io::BufRead;
         let metadata = fs::metadata(&self.path)?;
         #[cfg(unix)]
@@ -369,15 +427,18 @@ impl JournalFollower {
             match (self.records, payload) {
                 (0, Payload::Genesis { schema: 1, config }) => {
                     self.core = Some(Core::new(config).map_err(invalid)?);
-                    observe(self.core.as_ref().unwrap(), None, &[]);
+                    observe(self.core.as_ref().unwrap(), None, &[], None);
                 }
                 (_, Payload::Input(input)) => {
                     let core = self
                         .core
                         .as_mut()
                         .ok_or_else(|| invalid("missing genesis"))?;
-                    let effects = core.apply(&input).map_err(invalid)?;
-                    observe(core, Some(&input), &effects);
+                    if let Some(t) = &input.time {
+                        t.validate()?;
+                    }
+                    let effects = core.apply(&input.input).map_err(invalid)?;
+                    observe(core, Some(&input.input), &effects, input.time.as_ref());
                 }
                 _ => return Err(invalid("unsupported schema or duplicate genesis")),
             }

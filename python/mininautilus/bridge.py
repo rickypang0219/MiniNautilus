@@ -6,13 +6,17 @@ Only the main runtime thread may call Engine; strategies receive snapshots.
 import json
 import selectors
 import subprocess
+import time
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[2]
 
 
 class Engine:
-    def __init__(self, journal, *, paper=False, recover=False, config=None, binary=None):
+    def __init__(self, journal, *, paper=False, recover=False, config=None, binary=None, time_mode="live"):
+        if time_mode not in ("live", "historical"):
+            raise ValueError("time_mode must be live or historical")
+        self.time_mode = time_mode
         binary = Path(binary) if binary else ROOT / "target/debug/mininautilus"
         command = [str(binary), "paper" if paper else "serve", str(journal)]
         if recover:
@@ -37,8 +41,20 @@ class Engine:
             raise RuntimeError("Rust engine stopped; recover its journal before continuing")
         return json.loads(line)
 
-    def send(self, at, event):
-        request = json.dumps({"at": at, "event": event}, separators=(",", ":"))
+    def send(self, at, event, *, event_time_ms=None, received_time_ms=None,
+             time_source=None, fill_event_times=None):
+        metadata = {}
+        if self.time_mode == "live":
+            metadata["received_time_ms"] = received_time_ms if received_time_ms is not None else time.time_ns() // 1_000_000
+        if event_time_ms is not None:
+            metadata["event_time_ms"] = event_time_ms
+            metadata["source"] = time_source or ("historical" if self.time_mode == "historical" else "exchange")
+        if fill_event_times:
+            metadata["fill_event_times"] = fill_event_times
+        request = {"at": at, "event": event}
+        if metadata:
+            request["time"] = metadata
+        request = json.dumps(request, separators=(",", ":"))
         self.process.stdin.write(request + "\n")
         self.process.stdin.flush()
         response = self._read()

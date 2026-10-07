@@ -30,6 +30,18 @@ def intent():
 
 
 class AdapterTests(unittest.TestCase):
+    def test_trade_time_survives_live_fill_and_reconciliation(self):
+        gateway = venue()
+        gateway.query = Mock(return_value={"orderId":88,"executedQty":"0.002","status":"FILLED"})
+        gateway.trades = Mock(return_value=[{"id":41,"qty":"0.002","price":"100.00","time":1700000000123}])
+        _, fills, _ = gateway.collect(intent())
+        self.assertEqual(gateway.timing({"Execution":{"report":{"Fill":fills[0]}}}),
+                         {"event_time_ms":1700000000123,"time_source":"exchange trade"})
+        self.assertEqual(gateway.timing({"Reconcile":{"fills":fills}}),
+                         {"fill_event_times":{42:1700000000123}})
+        self.assertEqual(gateway.timing({"Execution":{"report":{"Fill":{"execution_id":99}}}}), {})
+        self.assertEqual(gateway.timing({"Quote":{"bid":99,"ask":101}}), {})
+
     def test_decimal_grid_is_exact(self):
         self.assertEqual(units("0.003", Decimal("0.001")), 3)
         for value in ("0.0031", "-1", "Infinity", "NaN"):

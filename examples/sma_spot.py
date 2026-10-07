@@ -143,9 +143,9 @@ def run(args):
             record = dict(kind=kind, elapsed_ms=now(), **data)
             log.write(json.dumps(record) + '\n'); log.flush()
             print(json.dumps(record), flush=True)
-        def send(event):
+        def send(event, **timing):
             before = time.monotonic()
-            effects = engine.send(now(), event)
+            effects = engine.send(now(), event, **(venue.timing(event) | timing))
             latencies.append((time.monotonic() - before) * 1000)
             audit(engine.state, lots); counters['invariant_checks'] += 1
             return effects
@@ -262,7 +262,8 @@ def run(args):
                             signal = strategy.signal()
                             if signal:
                                 counters['signals'] += 1; note('signal', **signal)
-                                send(target_event(engine.state, signal['target_lots'], strategy.interval_ms + 5000))
+                                send(target_event(engine.state, signal['target_lots'], strategy.interval_ms + 5000),
+                                     event_time_ms=signal['bar_close_ms'], time_source='candle close')
                             observed = now()
                             quote = venue.quote()
                             send({'QuoteObserved': dict(**quote, observed_at=observed)})

@@ -1,8 +1,14 @@
 //! Read-only, localhost post-trade projection. No dependency on the execution process.
-use crate::{core::Core, journal::JournalFollower, model::*};
+pub mod index;
+pub mod ledger;
+use crate::{
+    core::Core,
+    journal::{EventTime, JournalFollower},
+    model::*,
+};
 use serde_json::{Value, json};
 use std::{
-    collections::{BTreeMap, VecDeque},
+    collections::{BTreeMap, BTreeSet, VecDeque},
     fs,
     io::{self, Read, Write},
     net::{TcpListener, TcpStream},
@@ -40,26 +46,89 @@ pub struct Projection {
     history: VecDeque<Value>,
     actions: VecDeque<Value>,
     signals: VecDeque<Value>,
-    first_seen: BTreeMap<u64, u64>,
+    first_seen: BTreeMap<u64, Value>,
+    order_seen: BTreeMap<u64, Value>,
+    events: VecDeque<Value>,
+    current_time: Value,
+    mark_time: Value,
     last_quote: Option<(i64, i64, u64)>,
     refusals: u64,
     recoveries: u64,
     last_sample: Option<u64>,
+    dirty_fills: BTreeSet<u64>,
+    dirty_orders: BTreeSet<u64>,
 }
 impl Projection {
     pub fn observe(&mut self, core: &Core, input: Option<&Envelope>, effects: &[Effect]) {
+        self.observe_timed(core, input, effects, None);
+    }
+    pub fn observe_timed(
+        &mut self,
+        core: &Core,
+        input: Option<&Envelope>,
+        effects: &[Effect],
+        time: Option<&EventTime>,
+    ) {
+        let mut stamp = json!({"seq":core.seq.to_string(),"at":core.now,"event_time_ms":time.and_then(|t|t.event_time_ms),"received_time_ms":time.and_then(|t|t.received_time_ms),"time_source":time.and_then(|t|t.source.as_deref())});
+        self.current_time = stamp.clone();
         let old_fill_count = self.core.as_ref().map_or(0, |c| c.fills.len());
         if let Some((bid, ask, at)) = core.quote {
+            if self.last_quote != Some((bid, ask, at)) {
+                self.mark_time = stamp.clone();
+            }
             self.last_quote = Some((bid, ask, at));
         }
         for id in core.fills.keys() {
-            self.first_seen.entry(*id).or_insert(core.now);
+            if !self.first_seen.contains_key(id) {
+                self.dirty_fills.insert(*id);
+            }
+            let seen = self.first_seen.entry(*id).or_insert_with(|| stamp.clone());
+            if seen["event_time_ms"].is_null()
+                && let Some(t) = time.and_then(|t| t.fill_event_times.get(id))
+            {
+                self.dirty_fills.insert(*id);
+                seen["event_time_ms"] = json!(t);
+                seen["time_source"] = json!("exchange trade");
+            }
+        }
+        for (id, order) in &core.orders {
+            if self.core.as_ref().and_then(|c| c.orders.get(id)) != Some(order) {
+                self.dirty_orders.insert(*id);
+            }
+            self.order_seen.entry(*id).or_insert_with(|| stamp.clone());
         }
         if let Some(input) = input {
+            stamp["event"] = match &input.event {
+                Event::Reconcile(s) => {
+                    json!({"Reconcile":{"epoch":s.epoch,"orders":s.orders.len(),"fills":s.fills.len(),"position":s.position}})
+                }
+                e => serde_json::to_value(e).unwrap(),
+            };
+            stamp["effects"] = json!(effects);
+            stamp["side"] = match &input.event {
+                Event::Submit(i) | Event::SubmitTargeted { intent: i, .. } => json!(i.side),
+                Event::Execution {
+                    report: Report::Fill(f),
+                    ..
+                } => core
+                    .orders
+                    .get(&f.order_id)
+                    .map_or(Value::Null, |o| json!(o.intent.side)),
+                Event::Cancel { id } => core
+                    .orders
+                    .get(id)
+                    .map_or(Value::Null, |o| json!(o.intent.side)),
+                _ => Value::Null,
+            };
+            self.events.push_back(stamp.clone());
             if matches!(input.event, Event::SetTarget(_)) {
-                self.signals.push_back(
-                    json!({"seq":core.seq.to_string(),"at":core.now,"event":input.event,"accepted":!effects.iter().any(|e| matches!(e, Effect::SignalRefused{..}))}),
+                let mut row = stamp.clone();
+                row["accepted"] = json!(
+                    !effects
+                        .iter()
+                        .any(|e| matches!(e, Effect::SignalRefused { .. }))
                 );
+                self.signals.push_back(row);
             }
             if matches!(input.event, Event::Reconcile(_)) && core.health == Health::Healthy {
                 self.recoveries += 1;
@@ -77,16 +146,7 @@ impl Projection {
                     | Event::Trade { .. }
             ) || !effects.is_empty()
             {
-                // Reconcile carries potentially large full history; show its identity/counts.
-                let event = match &input.event {
-                    Event::Reconcile(s) => {
-                        json!({"Reconcile":{"epoch":s.epoch,"orders":s.orders.len(),"fills":s.fills.len(),"position":s.position}})
-                    }
-                    other => serde_json::to_value(other).unwrap(),
-                };
-                self.actions.push_back(
-                    json!({"seq":core.seq.to_string(),"at":core.now,"event":event,"effects":effects}),
-                );
+                self.actions.push_back(stamp.clone());
             }
         }
         // Compact old chart samples while preserving the full time span. Ledger rows are never sampled.
@@ -115,13 +175,63 @@ impl Projection {
                     .filter_map(|(i, p)| (i % 2 == 0 || i == last).then_some(p))
                     .collect();
             }
-            self.history.push_back(
-                json!({"at":core.now,"position":core.position,"target":core.target.as_ref().map(|t|t.position),"pnl":gross.map(|n|n as f64),"fills":core.fills.len()}),
-            );
+            let mut point = self.current_time.clone();
+            point["position"] = json!(core.position);
+            point["target"] = json!(core.target.as_ref().map(|t| t.position));
+            point["pnl"] = json!(gross.map(|n| n as f64));
+            point["fills"] = json!(core.fills.len());
+            self.history.push_back(point);
             self.last_sample = Some(core.now);
         }
         self.core = Some(core.clone());
     }
+    fn take_batch(
+        &mut self,
+        metadata: &Value,
+        audit: &Value,
+        refresh_fees: bool,
+    ) -> (Value, Vec<(String, Vec<Value>)>) {
+        let mut view = self.view(metadata, audit);
+        let mut groups = Vec::new();
+        for kind in ["events", "actions", "signals", "trades", "orders"] {
+            let rows = view
+                .as_object_mut()
+                .unwrap()
+                .remove(kind)
+                .and_then(|v| {
+                    if let Value::Array(rows) = v {
+                        Some(rows)
+                    } else {
+                        None
+                    }
+                })
+                .unwrap_or_default();
+            let rows = rows
+                .into_iter()
+                .filter(|r| {
+                    let id = r["id"]
+                        .as_str()
+                        .and_then(|s| s.parse::<u64>().ok())
+                        .unwrap_or(0);
+                    match kind {
+                        "trades" => refresh_fees || self.dirty_fills.contains(&id),
+                        "orders" => self.dirty_orders.contains(&id),
+                        _ => true,
+                    }
+                })
+                .collect();
+            groups.push((kind.to_owned(), rows));
+        }
+        (view, groups)
+    }
+    fn batch_committed(&mut self) {
+        self.events.clear();
+        self.actions.clear();
+        self.signals.clear();
+        self.dirty_fills.clear();
+        self.dirty_orders.clear();
+    }
+
     pub fn view(&self, metadata: &Value, audit: &Value) -> Value {
         let Some(core) = &self.core else {
             return json!({"ready":false});
@@ -223,12 +333,42 @@ impl Projection {
         } else {
             None
         };
-        let trades:Vec<_>=core.fills.values().rev().map(|f|json!({
-            "id":f.execution_id.to_string(),"order_id":f.order_id.to_string(),"side":core.orders[&f.order_id].intent.side,
-            "qty":f.qty,"price":f.price,"at":self.first_seen[&f.execution_id],
-            "fee":fees.get(&f.execution_id).filter(|_| fee_complete).map(|t|json!({"amount":t["commission"],"asset":t["commissionAsset"]}))
-        })).collect();
-        let orders:Vec<_>=core.orders.values().rev().map(|o|json!({"id":o.intent.id.to_string(),"side":o.intent.side,"qty":o.intent.qty,"filled":o.filled,"price":o.intent.limit,"status":o.lifecycle,"pending":o.pending,"uncertain":o.uncertain})).collect();
+        let trades: Vec<_> =
+            core.fills
+                .values()
+                .rev()
+                .map(|f| {
+                    let mut row = self.first_seen[&f.execution_id].clone();
+                    row["id"] = json!(f.execution_id.to_string());
+                    row["order_id"] = json!(f.order_id.to_string());
+                    row["side"] = json!(core.orders[&f.order_id].intent.side);
+                    row["qty"] = json!(f.qty);
+                    row["price"] = json!(f.price);
+                    row["fee"] =
+                        json!(fees.get(&f.execution_id).filter(|_| fee_complete).map(
+                            |t| json!({"amount":t["commission"],"asset":t["commissionAsset"]})
+                        ));
+                    // Old journals can recover *trade* event time from an identity-checked venue audit.
+                    if row["event_time_ms"].is_null()
+                        && fee_complete
+                        && let Some(t) = fees
+                            .get(&f.execution_id)
+                            .and_then(|t| t["time"].as_u64())
+                            .filter(|t| *t <= 8_640_000_000_000_000)
+                    {
+                        row["event_time_ms"] = json!(t);
+                        row["time_source"] = json!("exchange audit");
+                    }
+                    row
+                })
+                .collect();
+        let orders:Vec<_>=core.orders.values().rev().map(|o| {
+            let mut row=self.order_seen[&o.intent.id].clone();
+            for (k,v) in json!({"id":o.intent.id.to_string(),"side":o.intent.side,"qty":o.intent.qty,"filled":o.filled,"price":o.intent.limit,"status":o.lifecycle,"pending":o.pending,"uncertain":o.uncertain}).as_object().unwrap() {
+                row[k]=v.clone();
+            }
+            row
+        }).collect();
         let mut history: Vec<Value> = self
             .history
             .iter()
@@ -242,7 +382,8 @@ impl Projection {
             .collect();
         // Always include the latest state, even when the final quote is inside
         // the sampling interval. Summary metrics and the chart endpoint must agree.
-        let latest = json!({"at":core.now,"position":core.position,"target":core.target.as_ref().map(|t|t.position),"pnl":gross,"fills":core.fills.len()});
+        let mut latest = self.current_time.clone();
+        for (k,v) in json!({"position":core.position,"target":core.target.as_ref().map(|t|t.position),"pnl":gross,"fills":core.fills.len()}).as_object().unwrap() {latest[k]=v.clone();}
         if history.last() != Some(&latest) {
             if history.len() >= HISTORY {
                 history.remove(1);
@@ -256,7 +397,7 @@ impl Projection {
             "fill_count":core.fills.len(),"order_count":core.orders.len(),"open_orders":core.orders.values().filter(|o|!o.lifecycle.terminal()||o.uncertain).count(),
             "pnl":{"gross":gross,"realized":realized,"unrealized":unrealized,"net":gross.zip(fee_quote).map(|(g,f)|g-f),"fees":fee_quote,"exact_gross_tick_lots":exact.map(|n|n.to_string())},
             "mark":mark,"mark_at":self.last_quote.map(|q|q.2),"mark_stale":core.quote.is_none()||self.last_quote.is_none_or(|q|core.now.saturating_sub(q.2)>core.config.market_stale_ms),
-            "history":history,
+            "history":history,"time":self.current_time,"mark_time":self.mark_time,"events":self.events.iter().rev().collect::<Vec<_>>(),
             "trades":trades,"orders":orders,"actions":self.actions.iter().rev().collect::<Vec<_>>(),"signals":self.signals.iter().rev().collect::<Vec<_>>(),"chart_limit":HISTORY})
     }
 }
@@ -269,11 +410,13 @@ struct Session {
     error: Option<String>,
     cached: Value,
     signature: (u64, u128, u128),
+    published: Option<(bool, bool, Option<String>)>,
+    generation: String,
 }
-#[derive(Default)]
 struct Store {
+    index: index::Index,
     sessions: BTreeMap<String, Value>,
-    views: BTreeMap<String, Value>,
+    views: BTreeMap<String, Arc<Value>>,
 }
 fn id(path: &Path) -> String {
     let n = path
@@ -283,6 +426,25 @@ fn id(path: &Path) -> String {
             (h ^ b as u64).wrapping_mul(0x100000001b3)
         });
     format!("{n:016x}")
+}
+fn generation(path: &Path) -> String {
+    let Ok(m) = fs::metadata(path) else {
+        return "unavailable".into();
+    };
+    let created = m
+        .created()
+        .ok()
+        .and_then(|t| t.duration_since(UNIX_EPOCH).ok())
+        .map_or(0, |t| t.as_nanos());
+    #[cfg(unix)]
+    {
+        use std::os::unix::fs::MetadataExt;
+        format!("{}:{}:{created}", m.dev(), m.ino())
+    }
+    #[cfg(not(unix))]
+    {
+        format!("{created}")
+    }
 }
 fn discover(root: &Path, depth: usize, out: &mut Vec<PathBuf>) {
     if out.len() >= 128 || depth > 4 {
@@ -330,13 +492,15 @@ fn worker(root: PathBuf, store: Arc<Mutex<Store>>) {
                     sessions.insert(
                         key,
                         Session {
-                            path,
+                            path: path.clone(),
                             follower,
                             projection: Projection::default(),
                             updated: 0,
                             error: None,
                             cached: Value::Null,
                             signature: (0, 0, 0),
+                            published: None,
+                            generation: generation(&path),
                         },
                     );
                 }
@@ -345,8 +509,8 @@ fn worker(root: PathBuf, store: Arc<Mutex<Store>>) {
         }
         for (key, s) in &mut sessions {
             let count = if s.error.is_none() {
-                match s.follower.poll(512, |core, input, effects| {
-                    s.projection.observe(core, input, effects)
+                match s.follower.poll_timed(512, |core, input, effects, time| {
+                    s.projection.observe_timed(core, input, effects, time)
                 }) {
                     Ok(n) => n,
                     Err(e) => {
@@ -368,11 +532,25 @@ fn worker(root: PathBuf, store: Arc<Mutex<Store>>) {
                 modified(&meta),
                 modified(&audit),
             );
-            if signature != s.signature || s.cached.is_null() {
-                s.cached = s.projection.view(&read_json(&meta), &read_json(&audit));
-                s.signature = signature;
+            let flags = (count == 512, s.follower.pending_tail(), s.error.clone());
+            let changed = signature != s.signature || s.cached.is_null();
+            if !changed && s.published.as_ref() == Some(&flags) {
+                continue;
             }
-            let mut view = s.cached.clone();
+            let mut batch = Vec::new();
+            let mut view = if changed {
+                let (v, rows) = s.projection.take_batch(
+                    &read_json(&meta),
+                    &read_json(&audit),
+                    signature.2 != s.signature.2 || signature.1 != s.signature.1,
+                );
+                batch = rows;
+                v
+            } else {
+                s.cached.clone()
+            };
+            s.published = Some(flags);
+            view["generation"] = json!(s.generation);
             view["catching_up"] = json!(count == 512);
             view["pending_tail"] = json!(s.follower.pending_tail());
             view["updated_at"] = json!(s.updated);
@@ -389,8 +567,24 @@ fn worker(root: PathBuf, store: Arc<Mutex<Store>>) {
             view["name"] = json!(name);
             let info = json!({"id":key,"name":name,"symbol":view["symbol"],"mode":view["mode"],"health":view["health"],"seq":view["seq"],"updated_at":s.updated,"error":s.error,"modified_at":modified(&s.path)});
             if let Ok(mut shared) = store.lock() {
+                if let Err(error) = shared.index.put(key, &batch) {
+                    s.error = Some(format!(
+                        "history index failed: {error}; restart observer to rebuild"
+                    ));
+                    s.published = None;
+                    // Retain the previously published summary and its matching index.
+                    if let Some(previous) = shared.views.get(key) {
+                        let mut previous = (**previous).clone();
+                        previous["error"] = json!(s.error);
+                        shared.views.insert(key.clone(), Arc::new(previous));
+                    }
+                    continue;
+                }
+                s.projection.batch_committed();
+                s.signature = signature;
+                s.cached = view.clone();
                 shared.sessions.insert(key.clone(), info);
-                shared.views.insert(key.clone(), view);
+                shared.views.insert(key.clone(), Arc::new(view));
             }
         }
         thread::sleep(Duration::from_millis(200));
@@ -425,6 +619,11 @@ fn respond(mut stream: TcpStream, store: Arc<Mutex<Store>>) -> io::Result<()> {
                 include_str!("../web/index.html").to_owned(),
             ),
             "/app.css" => (200, "text/css", include_str!("../web/app.css").to_owned()),
+            "/time.js" => (
+                200,
+                "text/javascript",
+                include_str!("../web/time.js").to_owned(),
+            ),
             "/app.js" => (
                 200,
                 "text/javascript",
@@ -435,11 +634,24 @@ fn respond(mut stream: TcpStream, store: Arc<Mutex<Store>>) -> io::Result<()> {
                 (200,"application/json",json!({"sessions":s.sessions.values().collect::<Vec<_>>(),"server_time":millis()}).to_string())
             }
             p if p.starts_with("/api/session/") => {
-                let key = &p[13..];
-                let s = store.lock().unwrap();
-                match s.views.get(key) {
-                    Some(v) => (200, "application/json", v.to_string()),
-                    None => (
+                let (key, query) = p[13..].split_once('?').unwrap_or((&p[13..], ""));
+                let shared = store.lock().unwrap();
+                let view = shared.views.get(key).cloned();
+                match (view, ledger::Query::parse(query)) {
+                    (_, Err(e)) => (400, "application/json", json!({"error":e}).to_string()),
+                    (Some(v), Ok(q)) => match shared.index.page(key, ledger::seq(&v), &q) {
+                        Ok(page) => {
+                            let mut summary = (*v).clone();
+                            summary["ledger"] = page;
+                            (200, "application/json", summary.to_string())
+                        }
+                        Err(_) => (
+                            503,
+                            "application/json",
+                            json!({"error":"History index unavailable"}).to_string(),
+                        ),
+                    },
+                    (None, _) => (
                         404,
                         "application/json",
                         json!({"error":"Unknown session"}).to_string(),
@@ -449,9 +661,16 @@ fn respond(mut stream: TcpStream, store: Arc<Mutex<Store>>) -> io::Result<()> {
             _ => (404, "text/plain", "Not found".to_owned()),
         }
     };
+    let reason = match status {
+        200 => "OK",
+        400 => "Bad Request",
+        404 => "Not Found",
+        405 => "Method Not Allowed",
+        _ => "Service Unavailable",
+    };
     write!(
         stream,
-        "HTTP/1.1 {status} OK\r\nContent-Type: {kind}\r\nContent-Length: {}\r\nCache-Control: no-store\r\nX-Content-Type-Options: nosniff\r\nContent-Security-Policy: default-src 'self'; style-src 'self'; script-src 'self'; connect-src 'self'; img-src 'self' data:; frame-ancestors 'none'\r\nConnection: close\r\n\r\n{body}",
+        "HTTP/1.1 {status} {reason}\r\nContent-Type: {kind}\r\nContent-Length: {}\r\nCache-Control: no-store\r\nX-Content-Type-Options: nosniff\r\nContent-Security-Policy: default-src 'self'; style-src 'self'; script-src 'self'; connect-src 'self'; img-src 'self' data:; frame-ancestors 'none'\r\nConnection: close\r\n\r\n{body}",
         body.len()
     )?;
     Ok(())
@@ -463,7 +682,11 @@ pub fn serve(root: &Path, port: u16) -> io::Result<()> {
         "MiniNautilus dashboard: http://{} (read-only)",
         listener.local_addr()?
     );
-    let store = Arc::new(Mutex::new(Store::default()));
+    let store = Arc::new(Mutex::new(Store {
+        index: index::Index::new().map_err(io::Error::other)?,
+        sessions: BTreeMap::new(),
+        views: BTreeMap::new(),
+    }));
     let clone = store.clone();
     thread::spawn(move || worker(root, clone));
     let clients = Arc::new(AtomicUsize::new(0));
