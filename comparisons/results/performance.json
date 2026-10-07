@@ -1,0 +1,392 @@
+[
+  {
+    "platform": "mini",
+    "steps": 1000,
+    "trading": false,
+    "fills": 0,
+    "seconds": [
+      0.000237708,
+      0.000241209,
+      0.000237375
+    ],
+    "median_seconds": 0.000237708,
+    "steps_per_second": 4206842.007841554
+  },
+  {
+    "platform": "backtrader",
+    "steps": 1000,
+    "trading": false,
+    "fills": 0,
+    "seconds": [
+      0.07261879200814292,
+      0.07357287500053644,
+      0.07324129200424068
+    ],
+    "median_seconds": 0.07324129200424068,
+    "steps_per_second": 13653.500267883039
+  },
+  {
+    "platform": "vnpy",
+    "steps": 1000,
+    "trading": false,
+    "fills": 0,
+    "seconds": [
+      0.0007467919931514189,
+      0.0007341250020544976,
+      0.0007405830110656098
+    ],
+    "median_seconds": 0.0007405830110656098,
+    "steps_per_second": 1350287.5235567724
+  },
+  {
+    "platform": "nautilus",
+    "steps": 1000,
+    "trading": false,
+    "fills": 0,
+    "seconds": [
+      0.009975833003409207,
+      0.009975708002457395,
+      0.010026875010225922
+    ],
+    "median_seconds": 0.009975833003409207,
+    "steps_per_second": 100242.25542450976
+  },
+  {
+    "platform": "nautilus_tick",
+    "steps": 1000,
+    "trading": false,
+    "fills": 0,
+    "seconds": [
+      0.004678708006395027,
+      0.004705208004452288,
+      0.004500708993873559
+    ],
+    "median_seconds": 0.004678708006395027,
+    "steps_per_second": 213734.21864180538
+  },
+  {
+    "platform": "mini",
+    "steps": 5000,
+    "trading": false,
+    "fills": 0,
+    "seconds": [
+      0.001262708,
+      0.001301417,
+      0.00127425
+    ],
+    "median_seconds": 0.00127425,
+    "steps_per_second": 3923876.790268786
+  },
+  {
+    "platform": "backtrader",
+    "steps": 5000,
+    "trading": false,
+    "fills": 0,
+    "seconds": [
+      0.3764356659958139,
+      0.3497385829978157,
+      0.35149395899497904
+    ],
+    "median_seconds": 0.35149395899497904,
+    "steps_per_second": 14224.995542729721
+  },
+  {
+    "platform": "vnpy",
+    "steps": 5000,
+    "trading": false,
+    "fills": 0,
+    "seconds": [
+      0.003547207990777679,
+      0.0035105830029351637,
+      0.003595083995605819
+    ],
+    "median_seconds": 0.003547207990777679,
+    "steps_per_second": 1409559.2964944285
+  },
+  {
+    "platform": "nautilus",
+    "steps": 5000,
+    "trading": false,
+    "fills": 0,
+    "seconds": [
+      0.04797425000288058,
+      0.047712542000226676,
+      0.04810029099462554
+    ],
+    "median_seconds": 0.04797425000288058,
+    "steps_per_second": 104222.5777307572
+  },
+  {
+    "platform": "nautilus_tick",
+    "steps": 5000,
+    "trading": false,
+    "fills": 0,
+    "seconds": [
+      0.021053332995506935,
+      0.02161375001014676,
+      0.021429250002256595
+    ],
+    "median_seconds": 0.021429250002256595,
+    "steps_per_second": 233325.94465384827
+  },
+  {
+    "platform": "mini",
+    "steps": 10000,
+    "trading": false,
+    "fills": 0,
+    "seconds": [
+      0.002313416,
+      0.002362708,
+      0.002285875
+    ],
+    "median_seconds": 0.002313416,
+    "steps_per_second": 4322612.10262227
+  },
+  {
+    "platform": "backtrader",
+    "steps": 10000,
+    "trading": false,
+    "fills": 0,
+    "seconds": [
+      0.7194751250062836,
+      0.7008989579917397,
+      0.7017629589972785
+    ],
+    "median_seconds": 0.7017629589972785,
+    "steps_per_second": 14249.825915988224
+  },
+  {
+    "platform": "vnpy",
+    "steps": 10000,
+    "trading": false,
+    "fills": 0,
+    "seconds": [
+      0.0071057909954106435,
+      0.007079000002704561,
+      0.007056292000925168
+    ],
+    "median_seconds": 0.007079000002704561,
+    "steps_per_second": 1412628.9018476421
+  },
+  {
+    "platform": "nautilus",
+    "steps": 10000,
+    "trading": false,
+    "fills": 0,
+    "seconds": [
+      0.09444758300378453,
+      0.0945596670062514,
+      0.09293812500254717
+    ],
+    "median_seconds": 0.09444758300378453,
+    "steps_per_second": 105878.83439642175
+  },
+  {
+    "platform": "nautilus_tick",
+    "steps": 10000,
+    "trading": false,
+    "fills": 0,
+    "seconds": [
+      0.04207779199350625,
+      0.04173854099644814,
+      0.0417514580040006
+    ],
+    "median_seconds": 0.0417514580040006,
+    "steps_per_second": 239512.59376479275
+  },
+  {
+    "platform": "mini",
+    "steps": 1000,
+    "trading": true,
+    "fills": 500,
+    "seconds": [
+      0.0217445,
+      0.022369292,
+      0.021566125
+    ],
+    "median_seconds": 0.0217445,
+    "steps_per_second": 45988.640805720985
+  },
+  {
+    "platform": "backtrader",
+    "steps": 1000,
+    "trading": true,
+    "fills": 500,
+    "seconds": [
+      0.12042995900264941,
+      0.11921841600269545,
+      0.11832095899444539
+    ],
+    "median_seconds": 0.11921841600269545,
+    "steps_per_second": 8387.965832203228
+  },
+  {
+    "platform": "vnpy",
+    "steps": 1000,
+    "trading": true,
+    "fills": 500,
+    "seconds": [
+      0.0028171249869046733,
+      0.002911709001637064,
+      0.0028334579983493313
+    ],
+    "median_seconds": 0.0028334579983493313,
+    "steps_per_second": 352925.6479476891
+  },
+  {
+    "platform": "nautilus",
+    "steps": 1000,
+    "trading": true,
+    "fills": 500,
+    "seconds": [
+      0.1987551250058459,
+      0.1971216249949066,
+      0.19648666700231843
+    ],
+    "median_seconds": 0.1971216249949066,
+    "steps_per_second": 5073.010127761674
+  },
+  {
+    "platform": "nautilus_tick",
+    "steps": 1000,
+    "trading": true,
+    "fills": 500,
+    "seconds": [
+      0.18965929200930987,
+      0.1799692079948727,
+      0.18088162499770988
+    ],
+    "median_seconds": 0.18088162499770988,
+    "steps_per_second": 5528.47753337389
+  },
+  {
+    "platform": "mini",
+    "steps": 5000,
+    "trading": true,
+    "fills": 2500,
+    "seconds": [
+      0.571369667,
+      0.58785975,
+      0.57780675
+    ],
+    "median_seconds": 0.57780675,
+    "steps_per_second": 8653.412235146094
+  },
+  {
+    "platform": "backtrader",
+    "steps": 5000,
+    "trading": true,
+    "fills": 2500,
+    "seconds": [
+      0.6164904170000227,
+      0.608355374992243,
+      0.6045332920039073
+    ],
+    "median_seconds": 0.608355374992243,
+    "steps_per_second": 8218.88028862037
+  },
+  {
+    "platform": "vnpy",
+    "steps": 5000,
+    "trading": true,
+    "fills": 2500,
+    "seconds": [
+      0.014786083993385546,
+      0.015554832993075252,
+      0.01597920800850261
+    ],
+    "median_seconds": 0.015554832993075252,
+    "steps_per_second": 321443.5026223628
+  },
+  {
+    "platform": "nautilus",
+    "steps": 5000,
+    "trading": true,
+    "fills": 2500,
+    "seconds": [
+      1.481941582998843,
+      1.4991161250072764,
+      1.4514575000066543
+    ],
+    "median_seconds": 1.481941582998843,
+    "steps_per_second": 3373.9521566579215
+  },
+  {
+    "platform": "nautilus_tick",
+    "steps": 5000,
+    "trading": true,
+    "fills": 2500,
+    "seconds": [
+      1.4573261670011561,
+      1.4073836659954395,
+      1.418019082993851
+    ],
+    "median_seconds": 1.418019082993851,
+    "steps_per_second": 3526.045636454726
+  },
+  {
+    "platform": "mini",
+    "steps": 10000,
+    "trading": true,
+    "fills": 5000,
+    "seconds": [
+      2.355554708,
+      2.585519,
+      2.447506917
+    ],
+    "median_seconds": 2.447506917,
+    "steps_per_second": 4085.790291558142
+  },
+  {
+    "platform": "backtrader",
+    "steps": 10000,
+    "trading": true,
+    "fills": 5000,
+    "seconds": [
+      1.2239689999987604,
+      1.2249217920034425,
+      1.2299763329938287
+    ],
+    "median_seconds": 1.2249217920034425,
+    "steps_per_second": 8163.786508887496
+  },
+  {
+    "platform": "vnpy",
+    "steps": 10000,
+    "trading": true,
+    "fills": 5000,
+    "seconds": [
+      0.03130033300840296,
+      0.03199950000271201,
+      0.030639583012089133
+    ],
+    "median_seconds": 0.03130033300840296,
+    "steps_per_second": 319485.41880737746
+  },
+  {
+    "platform": "nautilus",
+    "steps": 10000,
+    "trading": true,
+    "fills": 5000,
+    "seconds": [
+      4.3831810419942485,
+      4.4016633330029435,
+      4.400274542000261
+    ],
+    "median_seconds": 4.400274542000261,
+    "steps_per_second": 2272.5854726905827
+  },
+  {
+    "platform": "nautilus_tick",
+    "steps": 10000,
+    "trading": true,
+    "fills": 5000,
+    "seconds": [
+      4.295249999995576,
+      4.3487138749915175,
+      4.352110542007722
+    ],
+    "median_seconds": 4.3487138749915175,
+    "steps_per_second": 2299.5304560062614
+  }
+]

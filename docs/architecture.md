@@ -32,6 +32,8 @@ strategy is not guaranteed to recreate the same scheduling.
 - Lifecycle, pending action, and uncertainty are separate state dimensions.
 - A fill ID is counted once; the same ID with a changed payload closes the gate.
 - Accepted acknowledgements never regress filled/canceled orders.
+- An acceptance or cancel confirmation after a submit rejection is contradictory:
+  retain the rejected state and gate the account for reconciliation.
 - Canceled reports carrying missing cumulative fills cannot release remaining risk.
 - Stream gaps, unknown orders, malformed reports, or inconsistent snapshots gate new orders.
 - Stale market data/private heartbeats and expired/stale strategy intents cannot submit.
@@ -143,6 +145,11 @@ It reports gross average-cost realized and marked unrealized PnL, without fees,
 funding, FX conversion, or portfolio-wide accounting. Execution ID ordering is the
 supported simulator/Binance symbol chronology; other venues need an explicit fill
 time/order contract before using the analyzer.
+
+When no current quote is available, an open position's unrealized and total PnL
+are unknown (`null`), rather than marked at average cost. Realized PnL is still
+known. A flat account needs no mark and keeps its known cash PnL. Consumers of the
+SQLite summary JSON must handle these nullable fields.
 
 ## Reference sources
 

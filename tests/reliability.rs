@@ -444,3 +444,30 @@ fn all_permutations_of_ack_and_duplicate_fill_preserve_accounting() {
         assert_eq!(c.orders[&1].lifecycle, Lifecycle::Filled);
     }
 }
+
+#[test]
+fn rejected_order_cannot_later_be_accepted_or_canceled_without_reconciliation() {
+    for contradictory in [
+        Report::Accepted { id: 1 },
+        Report::Canceled {
+            id: 1,
+            cumulative_filled: 0,
+        },
+    ] {
+        let mut core = fresh();
+        submit(&mut core, 1, Side::Buy, 3);
+        report(&mut core, 1, Report::Rejected { id: 1 });
+        assert_eq!(core.orders[&1].lifecycle, Lifecycle::Rejected);
+        assert_eq!(core.health, Health::Healthy);
+        report(&mut core, 2, contradictory);
+        assert_eq!(core.health, Health::Reconciling);
+        assert_eq!(core.orders[&1].lifecycle, Lifecycle::Rejected);
+        assert_eq!(core.position, 0);
+        assert_eq!(core.cash, 0);
+        assert_eq!(core.exposure_bounds(), (0, 0));
+        assert!(matches!(
+            submit(&mut core, 2, Side::Buy, 1)[0],
+            Effect::Refused { .. }
+        ));
+    }
+}

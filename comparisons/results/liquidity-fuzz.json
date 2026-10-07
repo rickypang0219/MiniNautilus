@@ -1,0 +1,14 @@
+{
+  "seeds": 1000,
+  "seed_start": 0,
+  "seed_end": 999,
+  "observations_per_seed": 200,
+  "observations": 200000,
+  "input_digest": "5eecc71249e58cecf291294758412fdad030411cb242745cf1aafaaec93c27d4",
+  "checks": [
+    "every fill",
+    "every cash balance",
+    "every position",
+    "every marked equity"
+  ]
+}

@@ -1,0 +1,54 @@
+[
+  {
+    "platform": "mini_durable",
+    "steps": 200,
+    "trading": false,
+    "fills": 0,
+    "seconds": [
+      1.7977714159933385,
+      1.7730736660014372,
+      1.7196644170035142
+    ],
+    "median_seconds": 1.7730736660014372,
+    "steps_per_second": 112.79847184862419
+  },
+  {
+    "platform": "mini_durable",
+    "steps": 1000,
+    "trading": false,
+    "fills": 0,
+    "seconds": [
+      9.061082416999852,
+      8.849298832996283,
+      8.928701249998994
+    ],
+    "median_seconds": 8.928701249998994,
+    "steps_per_second": 111.99837154369037
+  },
+  {
+    "platform": "mini_durable",
+    "steps": 200,
+    "trading": true,
+    "fills": 100,
+    "seconds": [
+      3.5224647919967538,
+      3.407859583996469,
+      2.997184500010917
+    ],
+    "median_seconds": 3.407859583996469,
+    "steps_per_second": 58.687864059661685
+  },
+  {
+    "platform": "mini_durable",
+    "steps": 1000,
+    "trading": true,
+    "fills": 500,
+    "seconds": [
+      20.492265791996033,
+      20.004513834006502,
+      20.217506749992026
+    ],
+    "median_seconds": 20.217506749992026,
+    "steps_per_second": 49.46208315228555
+  }
+]

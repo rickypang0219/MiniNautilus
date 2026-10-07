@@ -1,0 +1,142 @@
+[
+  {
+    "seed": 0,
+    "observations": 1000,
+    "fast": 5,
+    "slow": 20,
+    "targets_equal": true
+  },
+  {
+    "seed": 1,
+    "observations": 1000,
+    "fast": 5,
+    "slow": 20,
+    "targets_equal": true
+  },
+  {
+    "seed": 2,
+    "observations": 1000,
+    "fast": 5,
+    "slow": 20,
+    "targets_equal": true
+  },
+  {
+    "seed": 3,
+    "observations": 1000,
+    "fast": 5,
+    "slow": 20,
+    "targets_equal": true
+  },
+  {
+    "seed": 4,
+    "observations": 1000,
+    "fast": 5,
+    "slow": 20,
+    "targets_equal": true
+  },
+  {
+    "seed": 5,
+    "observations": 1000,
+    "fast": 5,
+    "slow": 20,
+    "targets_equal": true
+  },
+  {
+    "seed": 6,
+    "observations": 1000,
+    "fast": 5,
+    "slow": 20,
+    "targets_equal": true
+  },
+  {
+    "seed": 7,
+    "observations": 1000,
+    "fast": 5,
+    "slow": 20,
+    "targets_equal": true
+  },
+  {
+    "seed": 8,
+    "observations": 1000,
+    "fast": 5,
+    "slow": 20,
+    "targets_equal": true
+  },
+  {
+    "seed": 9,
+    "observations": 1000,
+    "fast": 5,
+    "slow": 20,
+    "targets_equal": true
+  },
+  {
+    "seed": 10,
+    "observations": 1000,
+    "fast": 5,
+    "slow": 20,
+    "targets_equal": true
+  },
+  {
+    "seed": 11,
+    "observations": 1000,
+    "fast": 5,
+    "slow": 20,
+    "targets_equal": true
+  },
+  {
+    "seed": 12,
+    "observations": 1000,
+    "fast": 5,
+    "slow": 20,
+    "targets_equal": true
+  },
+  {
+    "seed": 13,
+    "observations": 1000,
+    "fast": 5,
+    "slow": 20,
+    "targets_equal": true
+  },
+  {
+    "seed": 14,
+    "observations": 1000,
+    "fast": 5,
+    "slow": 20,
+    "targets_equal": true
+  },
+  {
+    "seed": 15,
+    "observations": 1000,
+    "fast": 5,
+    "slow": 20,
+    "targets_equal": true
+  },
+  {
+    "seed": 16,
+    "observations": 1000,
+    "fast": 5,
+    "slow": 20,
+    "targets_equal": true
+  },
+  {
+    "seed": 17,
+    "observations": 1000,
+    "fast": 5,
+    "slow": 20,
+    "targets_equal": true
+  },
+  {
+    "seed": 18,
+    "observations": 1000,
+    "fast": 5,
+    "slow": 20,
+    "targets_equal": true
+  },
+  {
+    "seed": 19,
+    "observations": 1000,
+    "fast": 5,
+    "slow": 20,
+    "targets_equal": true
+  }
+]

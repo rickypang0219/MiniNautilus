@@ -1,0 +1,50 @@
+[
+  {
+    "history_observations": 0,
+    "retained_orders": 0,
+    "retained_fills": 0,
+    "probe_quotes": 5000,
+    "seconds": [
+      0.000113333,
+      0.000113,
+      0.000113292
+    ],
+    "median_ns_per_quote": 22.6584
+  },
+  {
+    "history_observations": 200,
+    "retained_orders": 100,
+    "retained_fills": 100,
+    "probe_quotes": 5000,
+    "seconds": [
+      0.010886,
+      0.010840041,
+      0.010950459
+    ],
+    "median_ns_per_quote": 2177.2
+  },
+  {
+    "history_observations": 2000,
+    "retained_orders": 1000,
+    "retained_fills": 1000,
+    "probe_quotes": 5000,
+    "seconds": [
+      0.125356542,
+      0.124878833,
+      0.123792958
+    ],
+    "median_ns_per_quote": 24975.7666
+  },
+  {
+    "history_observations": 10000,
+    "retained_orders": 5000,
+    "retained_fills": 5000,
+    "probe_quotes": 5000,
+    "seconds": [
+      0.900860292,
+      0.747188083,
+      0.83881
+    ],
+    "median_ns_per_quote": 167762.0
+  }
+]

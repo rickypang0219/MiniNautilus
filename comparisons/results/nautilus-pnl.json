@@ -1,0 +1,642 @@
+{
+  "version": "1.230.0",
+  "cases": [
+    {
+      "case": "reversal_equal_pnl",
+      "workload": {
+        "steps": [
+          {
+            "price": 101,
+            "volume": 1000,
+            "taker": "Sell",
+            "actions": [
+              {
+                "kind": "Submit",
+                "id": 1,
+                "side": "Buy",
+                "qty": 2,
+                "limit": 100
+              }
+            ]
+          },
+          {
+            "price": 100,
+            "volume": 1000,
+            "taker": "Sell",
+            "actions": []
+          },
+          {
+            "price": 99,
+            "volume": 1000,
+            "taker": "Sell",
+            "actions": [
+              {
+                "kind": "Submit",
+                "id": 2,
+                "side": "Sell",
+                "qty": 5,
+                "limit": 103
+              }
+            ]
+          },
+          {
+            "price": 103,
+            "volume": 1000,
+            "taker": "Buy",
+            "actions": []
+          },
+          {
+            "price": 104,
+            "volume": 1000,
+            "taker": "Buy",
+            "actions": [
+              {
+                "kind": "Submit",
+                "id": 3,
+                "side": "Buy",
+                "qty": 3,
+                "limit": 101
+              }
+            ]
+          },
+          {
+            "price": 101,
+            "volume": 1000,
+            "taker": "Sell",
+            "actions": []
+          }
+        ]
+      },
+      "fills": [
+        {
+          "step": 1,
+          "id": 1,
+          "side": "Buy",
+          "qty": 2.0,
+          "price": 100.0
+        },
+        {
+          "step": 3,
+          "id": 2,
+          "side": "Sell",
+          "qty": 5.0,
+          "price": 103.0
+        },
+        {
+          "step": 5,
+          "id": 3,
+          "side": "Buy",
+          "qty": 3.0,
+          "price": 101.0
+        }
+      ],
+      "diagnostics": {
+        "cached_portfolio_pnl": 6.0,
+        "fresh_portfolio_pnl": 6.0,
+        "account_pnl": 12.0,
+        "exact_fill_pnl": 12.0,
+        "rounded_margin_pnl": 12.0,
+        "currency_quantization_bound": 0.01,
+        "account_rounding_delta": 0.0,
+        "cycle_identity_aggregation": {
+          "cycles": [
+            {
+              "position_id": "TEST.SIM-FixtureStrategy-000-d2764cca-c552-41b0-b4c2-6d742fa0c45f",
+              "opening_order_id": "O-20240101-000000-001-000-1",
+              "ts_opened": 1704067260000000000,
+              "ts_last": 1704067380000000000,
+              "closed": true,
+              "realized_pnl": "6"
+            },
+            {
+              "position_id": "TEST.SIM-FixtureStrategy-000",
+              "opening_order_id": "O-20240101-000200-001-000-2",
+              "ts_opened": 1704067380000000000,
+              "ts_last": 1704067500000000000,
+              "closed": true,
+              "realized_pnl": "6"
+            }
+          ],
+          "cycle_count": 2,
+          "realized_pnl": 12.0
+        },
+        "duplicate_snapshot_invariance": true
+      }
+    },
+    {
+      "case": "repeated_round_trips",
+      "workload": {
+        "steps": [
+          {
+            "price": 101,
+            "volume": 1000,
+            "taker": "Sell",
+            "actions": [
+              {
+                "kind": "Submit",
+                "id": 1,
+                "side": "Buy",
+                "qty": 1,
+                "limit": 100
+              }
+            ]
+          },
+          {
+            "price": 100,
+            "volume": 1000,
+            "taker": "Sell",
+            "actions": []
+          },
+          {
+            "price": 101,
+            "volume": 1000,
+            "taker": "Buy",
+            "actions": [
+              {
+                "kind": "Submit",
+                "id": 2,
+                "side": "Sell",
+                "qty": 1,
+                "limit": 102
+              }
+            ]
+          },
+          {
+            "price": 102,
+            "volume": 1000,
+            "taker": "Buy",
+            "actions": []
+          },
+          {
+            "price": 101,
+            "volume": 1000,
+            "taker": "Sell",
+            "actions": [
+              {
+                "kind": "Submit",
+                "id": 3,
+                "side": "Buy",
+                "qty": 1,
+                "limit": 100
+              }
+            ]
+          },
+          {
+            "price": 100,
+            "volume": 1000,
+            "taker": "Sell",
+            "actions": []
+          },
+          {
+            "price": 101,
+            "volume": 1000,
+            "taker": "Buy",
+            "actions": [
+              {
+                "kind": "Submit",
+                "id": 4,
+                "side": "Sell",
+                "qty": 1,
+                "limit": 102
+              }
+            ]
+          },
+          {
+            "price": 102,
+            "volume": 1000,
+            "taker": "Buy",
+            "actions": []
+          }
+        ]
+      },
+      "fills": [
+        {
+          "step": 1,
+          "id": 1,
+          "side": "Buy",
+          "qty": 1.0,
+          "price": 100.0
+        },
+        {
+          "step": 3,
+          "id": 2,
+          "side": "Sell",
+          "qty": 1.0,
+          "price": 102.0
+        },
+        {
+          "step": 5,
+          "id": 3,
+          "side": "Buy",
+          "qty": 1.0,
+          "price": 100.0
+        },
+        {
+          "step": 7,
+          "id": 4,
+          "side": "Sell",
+          "qty": 1.0,
+          "price": 102.0
+        }
+      ],
+      "diagnostics": {
+        "cached_portfolio_pnl": 2.0,
+        "fresh_portfolio_pnl": 2.0,
+        "account_pnl": 4.0,
+        "exact_fill_pnl": 4.0,
+        "rounded_margin_pnl": 4.0,
+        "currency_quantization_bound": 0.01,
+        "account_rounding_delta": 0.0,
+        "cycle_identity_aggregation": {
+          "cycles": [
+            {
+              "position_id": "TEST.SIM-FixtureStrategy-000-0e1639d8-885d-437e-be15-78c4b7abfc90",
+              "opening_order_id": "O-20240101-000000-001-000-1",
+              "ts_opened": 1704067260000000000,
+              "ts_last": 1704067380000000000,
+              "closed": true,
+              "realized_pnl": "2"
+            },
+            {
+              "position_id": "TEST.SIM-FixtureStrategy-000",
+              "opening_order_id": "O-20240101-000400-001-000-3",
+              "ts_opened": 1704067500000000000,
+              "ts_last": 1704067620000000000,
+              "closed": true,
+              "realized_pnl": "2"
+            }
+          ],
+          "cycle_count": 2,
+          "realized_pnl": 4.0
+        },
+        "duplicate_snapshot_invariance": true
+      }
+    },
+    {
+      "case": "reversal_unequal_pnl",
+      "workload": {
+        "steps": [
+          {
+            "price": 101,
+            "volume": 1000,
+            "taker": "Sell",
+            "actions": [
+              {
+                "kind": "Submit",
+                "id": 1,
+                "side": "Buy",
+                "qty": 2,
+                "limit": 100
+              }
+            ]
+          },
+          {
+            "price": 100,
+            "volume": 1000,
+            "taker": "Sell",
+            "actions": []
+          },
+          {
+            "price": 99,
+            "volume": 1000,
+            "taker": "Sell",
+            "actions": [
+              {
+                "kind": "Submit",
+                "id": 2,
+                "side": "Sell",
+                "qty": 5,
+                "limit": 103
+              }
+            ]
+          },
+          {
+            "price": 103,
+            "volume": 1000,
+            "taker": "Buy",
+            "actions": []
+          },
+          {
+            "price": 104,
+            "volume": 1000,
+            "taker": "Buy",
+            "actions": [
+              {
+                "kind": "Submit",
+                "id": 3,
+                "side": "Buy",
+                "qty": 3,
+                "limit": 100
+              }
+            ]
+          },
+          {
+            "price": 100,
+            "volume": 1000,
+            "taker": "Sell",
+            "actions": []
+          }
+        ]
+      },
+      "fills": [
+        {
+          "step": 1,
+          "id": 1,
+          "side": "Buy",
+          "qty": 2.0,
+          "price": 100.0
+        },
+        {
+          "step": 3,
+          "id": 2,
+          "side": "Sell",
+          "qty": 5.0,
+          "price": 103.0
+        },
+        {
+          "step": 5,
+          "id": 3,
+          "side": "Buy",
+          "qty": 3.0,
+          "price": 100.0
+        }
+      ],
+      "diagnostics": {
+        "cached_portfolio_pnl": 15.0,
+        "fresh_portfolio_pnl": 15.0,
+        "account_pnl": 15.0,
+        "exact_fill_pnl": 15.0,
+        "rounded_margin_pnl": 15.0,
+        "currency_quantization_bound": 0.01,
+        "account_rounding_delta": 0.0,
+        "cycle_identity_aggregation": {
+          "cycles": [
+            {
+              "position_id": "TEST.SIM-FixtureStrategy-000-50c78e61-3c2e-4578-8cdf-6809acb3c2d6",
+              "opening_order_id": "O-20240101-000000-001-000-1",
+              "ts_opened": 1704067260000000000,
+              "ts_last": 1704067380000000000,
+              "closed": true,
+              "realized_pnl": "6"
+            },
+            {
+              "position_id": "TEST.SIM-FixtureStrategy-000",
+              "opening_order_id": "O-20240101-000200-001-000-2",
+              "ts_opened": 1704067380000000000,
+              "ts_last": 1704067500000000000,
+              "closed": true,
+              "realized_pnl": "9"
+            }
+          ],
+          "cycle_count": 2,
+          "realized_pnl": 15.0
+        },
+        "duplicate_snapshot_invariance": true
+      }
+    },
+    {
+      "case": "reversal_equal_losses",
+      "workload": {
+        "steps": [
+          {
+            "price": 101,
+            "volume": 1000,
+            "taker": "Sell",
+            "actions": [
+              {
+                "kind": "Submit",
+                "id": 1,
+                "side": "Buy",
+                "qty": 2,
+                "limit": 100
+              }
+            ]
+          },
+          {
+            "price": 100,
+            "volume": 1000,
+            "taker": "Sell",
+            "actions": []
+          },
+          {
+            "price": 96,
+            "volume": 1000,
+            "taker": "Sell",
+            "actions": [
+              {
+                "kind": "Submit",
+                "id": 2,
+                "side": "Sell",
+                "qty": 5,
+                "limit": 97
+              }
+            ]
+          },
+          {
+            "price": 97,
+            "volume": 1000,
+            "taker": "Buy",
+            "actions": []
+          },
+          {
+            "price": 100,
+            "volume": 1000,
+            "taker": "Buy",
+            "actions": [
+              {
+                "kind": "Submit",
+                "id": 3,
+                "side": "Buy",
+                "qty": 3,
+                "limit": 99
+              }
+            ]
+          },
+          {
+            "price": 99,
+            "volume": 1000,
+            "taker": "Sell",
+            "actions": []
+          }
+        ]
+      },
+      "fills": [
+        {
+          "step": 1,
+          "id": 1,
+          "side": "Buy",
+          "qty": 2.0,
+          "price": 100.0
+        },
+        {
+          "step": 3,
+          "id": 2,
+          "side": "Sell",
+          "qty": 5.0,
+          "price": 97.0
+        },
+        {
+          "step": 5,
+          "id": 3,
+          "side": "Buy",
+          "qty": 3.0,
+          "price": 99.0
+        }
+      ],
+      "diagnostics": {
+        "cached_portfolio_pnl": -6.0,
+        "fresh_portfolio_pnl": -6.0,
+        "account_pnl": -12.0,
+        "exact_fill_pnl": -12.0,
+        "rounded_margin_pnl": -12.0,
+        "currency_quantization_bound": 0.01,
+        "account_rounding_delta": 0.0,
+        "cycle_identity_aggregation": {
+          "cycles": [
+            {
+              "position_id": "TEST.SIM-FixtureStrategy-000-31b51a91-db0a-4510-80bf-741ba2bf48f0",
+              "opening_order_id": "O-20240101-000000-001-000-1",
+              "ts_opened": 1704067260000000000,
+              "ts_last": 1704067380000000000,
+              "closed": true,
+              "realized_pnl": "-6"
+            },
+            {
+              "position_id": "TEST.SIM-FixtureStrategy-000",
+              "opening_order_id": "O-20240101-000200-001-000-2",
+              "ts_opened": 1704067380000000000,
+              "ts_last": 1704067500000000000,
+              "closed": true,
+              "realized_pnl": "-6"
+            }
+          ],
+          "cycle_count": 2,
+          "realized_pnl": -12.0
+        },
+        "duplicate_snapshot_invariance": true
+      }
+    },
+    {
+      "case": "reversal_zero_pnl",
+      "workload": {
+        "steps": [
+          {
+            "price": 101,
+            "volume": 1000,
+            "taker": "Sell",
+            "actions": [
+              {
+                "kind": "Submit",
+                "id": 1,
+                "side": "Buy",
+                "qty": 2,
+                "limit": 100
+              }
+            ]
+          },
+          {
+            "price": 100,
+            "volume": 1000,
+            "taker": "Sell",
+            "actions": []
+          },
+          {
+            "price": 99,
+            "volume": 1000,
+            "taker": "Sell",
+            "actions": [
+              {
+                "kind": "Submit",
+                "id": 2,
+                "side": "Sell",
+                "qty": 5,
+                "limit": 100
+              }
+            ]
+          },
+          {
+            "price": 100,
+            "volume": 1000,
+            "taker": "Buy",
+            "actions": []
+          },
+          {
+            "price": 101,
+            "volume": 1000,
+            "taker": "Buy",
+            "actions": [
+              {
+                "kind": "Submit",
+                "id": 3,
+                "side": "Buy",
+                "qty": 3,
+                "limit": 100
+              }
+            ]
+          },
+          {
+            "price": 100,
+            "volume": 1000,
+            "taker": "Sell",
+            "actions": []
+          }
+        ]
+      },
+      "fills": [
+        {
+          "step": 1,
+          "id": 1,
+          "side": "Buy",
+          "qty": 2.0,
+          "price": 100.0
+        },
+        {
+          "step": 3,
+          "id": 2,
+          "side": "Sell",
+          "qty": 5.0,
+          "price": 100.0
+        },
+        {
+          "step": 5,
+          "id": 3,
+          "side": "Buy",
+          "qty": 3.0,
+          "price": 100.0
+        }
+      ],
+      "diagnostics": {
+        "cached_portfolio_pnl": 0.0,
+        "fresh_portfolio_pnl": 0.0,
+        "account_pnl": 0.0,
+        "exact_fill_pnl": 0.0,
+        "rounded_margin_pnl": 0.0,
+        "currency_quantization_bound": 0.01,
+        "account_rounding_delta": 0.0,
+        "cycle_identity_aggregation": {
+          "cycles": [
+            {
+              "position_id": "TEST.SIM-FixtureStrategy-000-c1163d47-71e7-4a41-b2bd-4ec4ea689296",
+              "opening_order_id": "O-20240101-000000-001-000-1",
+              "ts_opened": 1704067260000000000,
+              "ts_last": 1704067380000000000,
+              "closed": true,
+              "realized_pnl": "0"
+            },
+            {
+              "position_id": "TEST.SIM-FixtureStrategy-000",
+              "opening_order_id": "O-20240101-000200-001-000-2",
+              "ts_opened": 1704067380000000000,
+              "ts_last": 1704067500000000000,
+              "closed": true,
+              "realized_pnl": "0"
+            }
+          ],
+          "cycle_count": 2,
+          "realized_pnl": 0.0
+        },
+        "duplicate_snapshot_invariance": true
+      }
+    }
+  ]
+}

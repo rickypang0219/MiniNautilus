@@ -352,6 +352,9 @@ impl Core {
             Report::Fill(fill) => self.fill(fill)?,
             Report::Accepted { id } => {
                 let order = self.orders.get_mut(id).ok_or("ack for unknown order")?;
+                if order.lifecycle == Lifecycle::Rejected {
+                    return Err("acceptance conflicts with rejected order".into());
+                }
                 if !order.lifecycle.terminal() {
                     order.lifecycle = if order.filled == 0 {
                         Lifecycle::Accepted
@@ -369,6 +372,9 @@ impl Core {
                 cumulative_filled,
             } => {
                 let order = self.orders.get_mut(id).ok_or("cancel for unknown order")?;
+                if order.lifecycle == Lifecycle::Rejected {
+                    return Err("cancel confirmation conflicts with rejected order".into());
+                }
                 if *cumulative_filled < order.filled || *cumulative_filled > order.intent.qty {
                     return Err("inconsistent canceled cumulative quantity".into());
                 }

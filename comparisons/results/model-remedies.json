@@ -1,0 +1,2333 @@
+{
+  "profiles": [
+    {
+      "case": "volume_partial",
+      "workload": {
+        "steps": [
+          {
+            "price": 101,
+            "volume": 100,
+            "taker": "Sell",
+            "actions": [
+              {
+                "kind": "Submit",
+                "id": 1,
+                "side": "Buy",
+                "qty": 5,
+                "limit": 100
+              }
+            ]
+          },
+          {
+            "price": 100,
+            "volume": 1,
+            "taker": "Sell",
+            "actions": []
+          },
+          {
+            "price": 100,
+            "volume": 2,
+            "taker": "Sell",
+            "actions": []
+          },
+          {
+            "price": 100,
+            "volume": 2,
+            "taker": "Sell",
+            "actions": []
+          }
+        ]
+      },
+      "results": {
+        "mini": {
+          "cash": -500,
+          "checkpoints": [
+            {
+              "cash": 0,
+              "equity": 0,
+              "position": 0,
+              "step": 0
+            },
+            {
+              "cash": -100,
+              "equity": 0,
+              "position": 1,
+              "step": 1
+            },
+            {
+              "cash": -300,
+              "equity": 0,
+              "position": 3,
+              "step": 2
+            },
+            {
+              "cash": -500,
+              "equity": 0,
+              "position": 5,
+              "step": 3
+            }
+          ],
+          "events": 13,
+          "fills": [
+            {
+              "id": 1,
+              "price": 100,
+              "qty": 1,
+              "side": "Buy",
+              "step": 1
+            },
+            {
+              "id": 1,
+              "price": 100,
+              "qty": 2,
+              "side": "Buy",
+              "step": 2
+            },
+            {
+              "id": 1,
+              "price": 100,
+              "qty": 2,
+              "side": "Buy",
+              "step": 3
+            }
+          ],
+          "position": 5,
+          "probe_quotes": 0,
+          "retained_fills": 3,
+          "retained_orders": 1
+        },
+        "backtrader_default": {
+          "fills": [
+            {
+              "step": 1,
+              "id": 1,
+              "side": "Buy",
+              "qty": 5,
+              "price": 100.0
+            }
+          ],
+          "checkpoints": [
+            {
+              "step": 0,
+              "position": 0,
+              "cash": 0.0,
+              "equity": 0.0
+            },
+            {
+              "step": 1,
+              "position": 5,
+              "cash": -500.0,
+              "equity": 0.0
+            },
+            {
+              "step": 2,
+              "position": 5,
+              "cash": -500.0,
+              "equity": 0.0
+            },
+            {
+              "step": 3,
+              "position": 5,
+              "cash": -500.0,
+              "equity": 0.0
+            }
+          ],
+          "position": 5,
+          "cash": -500.0
+        },
+        "backtrader_fixed_filler": {
+          "fills": [
+            {
+              "step": 1,
+              "id": 1,
+              "side": "Buy",
+              "qty": 1.0,
+              "price": 100.0
+            },
+            {
+              "step": 2,
+              "id": 1,
+              "side": "Buy",
+              "qty": 2.0,
+              "price": 100.0
+            },
+            {
+              "step": 3,
+              "id": 1,
+              "side": "Buy",
+              "qty": 2.0,
+              "price": 100.0
+            }
+          ],
+          "checkpoints": [
+            {
+              "step": 0,
+              "position": 0,
+              "cash": 0.0,
+              "equity": 0.0
+            },
+            {
+              "step": 1,
+              "position": 1.0,
+              "cash": -100.0,
+              "equity": 0.0
+            },
+            {
+              "step": 2,
+              "position": 3.0,
+              "cash": -300.0,
+              "equity": 0.0
+            },
+            {
+              "step": 3,
+              "position": 5.0,
+              "cash": -500.0,
+              "equity": 0.0
+            }
+          ],
+          "position": 5.0,
+          "cash": -500.0
+        },
+        "backtrader_shared_filler": {
+          "fills": [
+            {
+              "step": 1,
+              "id": 1,
+              "side": "Buy",
+              "qty": 1.0,
+              "price": 100.0
+            },
+            {
+              "step": 2,
+              "id": 1,
+              "side": "Buy",
+              "qty": 2.0,
+              "price": 100.0
+            },
+            {
+              "step": 3,
+              "id": 1,
+              "side": "Buy",
+              "qty": 2.0,
+              "price": 100.0
+            }
+          ],
+          "checkpoints": [
+            {
+              "step": 0,
+              "position": 0,
+              "cash": 0.0,
+              "equity": 0.0
+            },
+            {
+              "step": 1,
+              "position": 1.0,
+              "cash": -100.0,
+              "equity": 0.0
+            },
+            {
+              "step": 2,
+              "position": 3.0,
+              "cash": -300.0,
+              "equity": 0.0
+            },
+            {
+              "step": 3,
+              "position": 5.0,
+              "cash": -500.0,
+              "equity": 0.0
+            }
+          ],
+          "position": 5.0,
+          "cash": -500.0
+        },
+        "nautilus_bar": {
+          "position": 1.0,
+          "cash": -100.0,
+          "checkpoints": [
+            {
+              "step": 0,
+              "position": 0,
+              "cash": 0,
+              "equity": 0
+            },
+            {
+              "step": 1,
+              "position": 1.0,
+              "cash": -100.0,
+              "equity": 0.0
+            },
+            {
+              "step": 2,
+              "position": 1.0,
+              "cash": -100.0,
+              "equity": 0.0
+            },
+            {
+              "step": 3,
+              "position": 1.0,
+              "cash": -100.0,
+              "equity": 0.0
+            }
+          ],
+          "fills": [
+            {
+              "step": 1,
+              "id": 1,
+              "side": "Buy",
+              "qty": 1.0,
+              "price": 100.0
+            }
+          ],
+          "native_pnl": 0.0,
+          "native_diagnostics": {
+            "cached_portfolio_pnl": 0.0,
+            "fresh_portfolio_pnl": 0.0,
+            "account_pnl": 0.0,
+            "exact_fill_pnl": 0.0,
+            "rounded_margin_pnl": 0.0,
+            "currency_quantization_bound": 0.005,
+            "account_rounding_delta": 0.0
+          },
+          "matching_input": "bar"
+        },
+        "nautilus_tick": {
+          "position": 5.0,
+          "cash": -500.0,
+          "checkpoints": [
+            {
+              "step": 0,
+              "position": 0,
+              "cash": 0,
+              "equity": 0
+            },
+            {
+              "step": 1,
+              "position": 1.0,
+              "cash": -100.0,
+              "equity": 0.0
+            },
+            {
+              "step": 2,
+              "position": 3.0,
+              "cash": -300.0,
+              "equity": 0.0
+            },
+            {
+              "step": 3,
+              "position": 5.0,
+              "cash": -500.0,
+              "equity": 0.0
+            }
+          ],
+          "fills": [
+            {
+              "step": 1,
+              "id": 1,
+              "side": "Buy",
+              "qty": 1.0,
+              "price": 100.0
+            },
+            {
+              "step": 2,
+              "id": 1,
+              "side": "Buy",
+              "qty": 2.0,
+              "price": 100.0
+            },
+            {
+              "step": 3,
+              "id": 1,
+              "side": "Buy",
+              "qty": 2.0,
+              "price": 100.0
+            }
+          ],
+          "native_pnl": 0.0,
+          "native_diagnostics": {
+            "cached_portfolio_pnl": 0.0,
+            "fresh_portfolio_pnl": 0.0,
+            "account_pnl": 0.0,
+            "exact_fill_pnl": 0.0,
+            "rounded_margin_pnl": 0.0,
+            "currency_quantization_bound": 0.005,
+            "account_rounding_delta": 0.0
+          },
+          "matching_input": "trade"
+        },
+        "nautilus_tick_consuming": {
+          "position": 3.0,
+          "cash": -300.0,
+          "checkpoints": [
+            {
+              "step": 0,
+              "position": 0,
+              "cash": 0,
+              "equity": 0
+            },
+            {
+              "step": 1,
+              "position": 1.0,
+              "cash": -100.0,
+              "equity": 0.0
+            },
+            {
+              "step": 2,
+              "position": 3.0,
+              "cash": -300.0,
+              "equity": 0.0
+            },
+            {
+              "step": 3,
+              "position": 3.0,
+              "cash": -300.0,
+              "equity": 0.0
+            }
+          ],
+          "fills": [
+            {
+              "step": 1,
+              "id": 1,
+              "side": "Buy",
+              "qty": 1.0,
+              "price": 100.0
+            },
+            {
+              "step": 2,
+              "id": 1,
+              "side": "Buy",
+              "qty": 2.0,
+              "price": 100.0
+            }
+          ],
+          "native_pnl": 0.0,
+          "native_diagnostics": {
+            "cached_portfolio_pnl": 0.0,
+            "fresh_portfolio_pnl": 0.0,
+            "account_pnl": 0.0,
+            "exact_fill_pnl": 0.0,
+            "rounded_margin_pnl": 0.0,
+            "currency_quantization_bound": 0.005,
+            "account_rounding_delta": 0.0
+          },
+          "matching_input": "trade"
+        }
+      }
+    },
+    {
+      "case": "zero_volume",
+      "workload": {
+        "steps": [
+          {
+            "price": 101,
+            "volume": 100,
+            "taker": "Sell",
+            "actions": [
+              {
+                "kind": "Submit",
+                "id": 1,
+                "side": "Buy",
+                "qty": 2,
+                "limit": 100
+              }
+            ]
+          },
+          {
+            "price": 100,
+            "volume": 0,
+            "taker": "Sell",
+            "actions": []
+          },
+          {
+            "price": 100,
+            "volume": 2,
+            "taker": "Sell",
+            "actions": []
+          }
+        ]
+      },
+      "results": {
+        "mini": {
+          "cash": -200,
+          "checkpoints": [
+            {
+              "cash": 0,
+              "equity": 0,
+              "position": 0,
+              "step": 0
+            },
+            {
+              "cash": 0,
+              "equity": 0,
+              "position": 0,
+              "step": 1
+            },
+            {
+              "cash": -200,
+              "equity": 0,
+              "position": 2,
+              "step": 2
+            }
+          ],
+          "events": 8,
+          "fills": [
+            {
+              "id": 1,
+              "price": 100,
+              "qty": 2,
+              "side": "Buy",
+              "step": 2
+            }
+          ],
+          "position": 2,
+          "probe_quotes": 0,
+          "retained_fills": 1,
+          "retained_orders": 1
+        },
+        "backtrader_default": {
+          "fills": [
+            {
+              "step": 1,
+              "id": 1,
+              "side": "Buy",
+              "qty": 2,
+              "price": 100.0
+            }
+          ],
+          "checkpoints": [
+            {
+              "step": 0,
+              "position": 0,
+              "cash": 0.0,
+              "equity": 0.0
+            },
+            {
+              "step": 1,
+              "position": 2,
+              "cash": -200.0,
+              "equity": 0.0
+            },
+            {
+              "step": 2,
+              "position": 2,
+              "cash": -200.0,
+              "equity": 0.0
+            }
+          ],
+          "position": 2,
+          "cash": -200.0
+        },
+        "backtrader_fixed_filler": {
+          "fills": [
+            {
+              "step": 2,
+              "id": 1,
+              "side": "Buy",
+              "qty": 2.0,
+              "price": 100.0
+            }
+          ],
+          "checkpoints": [
+            {
+              "step": 0,
+              "position": 0,
+              "cash": 0.0,
+              "equity": 0.0
+            },
+            {
+              "step": 1,
+              "position": 0,
+              "cash": 0.0,
+              "equity": 0.0
+            },
+            {
+              "step": 2,
+              "position": 2.0,
+              "cash": -200.0,
+              "equity": 0.0
+            }
+          ],
+          "position": 2.0,
+          "cash": -200.0
+        },
+        "backtrader_shared_filler": {
+          "fills": [
+            {
+              "step": 2,
+              "id": 1,
+              "side": "Buy",
+              "qty": 2,
+              "price": 100.0
+            }
+          ],
+          "checkpoints": [
+            {
+              "step": 0,
+              "position": 0,
+              "cash": 0.0,
+              "equity": 0.0
+            },
+            {
+              "step": 1,
+              "position": 0,
+              "cash": 0.0,
+              "equity": 0.0
+            },
+            {
+              "step": 2,
+              "position": 2,
+              "cash": -200.0,
+              "equity": 0.0
+            }
+          ],
+          "position": 2,
+          "cash": -200.0
+        },
+        "nautilus_bar": {
+          "position": 1.0,
+          "cash": -100.0,
+          "checkpoints": [
+            {
+              "step": 0,
+              "position": 0,
+              "cash": 0,
+              "equity": 0
+            },
+            {
+              "step": 1,
+              "position": 1.0,
+              "cash": -100.0,
+              "equity": 0.0
+            },
+            {
+              "step": 2,
+              "position": 1.0,
+              "cash": -100.0,
+              "equity": 0.0
+            }
+          ],
+          "fills": [
+            {
+              "step": 1,
+              "id": 1,
+              "side": "Buy",
+              "qty": 1.0,
+              "price": 100.0
+            }
+          ],
+          "native_pnl": 0.0,
+          "native_diagnostics": {
+            "cached_portfolio_pnl": 0.0,
+            "fresh_portfolio_pnl": 0.0,
+            "account_pnl": 0.0,
+            "exact_fill_pnl": 0.0,
+            "rounded_margin_pnl": 0.0,
+            "currency_quantization_bound": 0.005,
+            "account_rounding_delta": 0.0
+          },
+          "matching_input": "bar"
+        },
+        "nautilus_tick": {
+          "position": 2.0,
+          "cash": -200.0,
+          "checkpoints": [
+            {
+              "step": 0,
+              "position": 0,
+              "cash": 0,
+              "equity": 0
+            },
+            {
+              "step": 1,
+              "position": 0,
+              "cash": 0,
+              "equity": 0
+            },
+            {
+              "step": 2,
+              "position": 2.0,
+              "cash": -200.0,
+              "equity": 0.0
+            }
+          ],
+          "fills": [
+            {
+              "step": 2,
+              "id": 1,
+              "side": "Buy",
+              "qty": 2.0,
+              "price": 100.0
+            }
+          ],
+          "native_pnl": 0.0,
+          "native_diagnostics": {
+            "cached_portfolio_pnl": 0.0,
+            "fresh_portfolio_pnl": 0.0,
+            "account_pnl": 0.0,
+            "exact_fill_pnl": 0.0,
+            "rounded_margin_pnl": 0.0,
+            "currency_quantization_bound": 0.005,
+            "account_rounding_delta": 0.0
+          },
+          "matching_input": "trade"
+        },
+        "nautilus_tick_consuming": {
+          "position": 2.0,
+          "cash": -200.0,
+          "checkpoints": [
+            {
+              "step": 0,
+              "position": 0,
+              "cash": 0,
+              "equity": 0
+            },
+            {
+              "step": 1,
+              "position": 0,
+              "cash": 0,
+              "equity": 0
+            },
+            {
+              "step": 2,
+              "position": 2.0,
+              "cash": -200.0,
+              "equity": 0.0
+            }
+          ],
+          "fills": [
+            {
+              "step": 2,
+              "id": 1,
+              "side": "Buy",
+              "qty": 2.0,
+              "price": 100.0
+            }
+          ],
+          "native_pnl": 0.0,
+          "native_diagnostics": {
+            "cached_portfolio_pnl": 0.0,
+            "fresh_portfolio_pnl": 0.0,
+            "account_pnl": 0.0,
+            "exact_fill_pnl": 0.0,
+            "rounded_margin_pnl": 0.0,
+            "currency_quantization_bound": 0.005,
+            "account_rounding_delta": 0.0
+          },
+          "matching_input": "trade"
+        }
+      }
+    },
+    {
+      "case": "shared_liquidity",
+      "workload": {
+        "steps": [
+          {
+            "price": 101,
+            "volume": 100,
+            "taker": "Sell",
+            "actions": [
+              {
+                "kind": "Submit",
+                "id": 1,
+                "side": "Buy",
+                "qty": 2,
+                "limit": 100
+              },
+              {
+                "kind": "Submit",
+                "id": 2,
+                "side": "Buy",
+                "qty": 2,
+                "limit": 100
+              }
+            ]
+          },
+          {
+            "price": 100,
+            "volume": 2,
+            "taker": "Sell",
+            "actions": []
+          }
+        ]
+      },
+      "results": {
+        "mini": {
+          "cash": -200,
+          "checkpoints": [
+            {
+              "cash": 0,
+              "equity": 0,
+              "position": 0,
+              "step": 0
+            },
+            {
+              "cash": -200,
+              "equity": 0,
+              "position": 2,
+              "step": 1
+            }
+          ],
+          "events": 9,
+          "fills": [
+            {
+              "id": 1,
+              "price": 100,
+              "qty": 2,
+              "side": "Buy",
+              "step": 1
+            }
+          ],
+          "position": 2,
+          "probe_quotes": 0,
+          "retained_fills": 1,
+          "retained_orders": 2
+        },
+        "backtrader_default": {
+          "fills": [
+            {
+              "step": 1,
+              "id": 1,
+              "side": "Buy",
+              "qty": 2,
+              "price": 100.0
+            },
+            {
+              "step": 1,
+              "id": 2,
+              "side": "Buy",
+              "qty": 2,
+              "price": 100.0
+            }
+          ],
+          "checkpoints": [
+            {
+              "step": 0,
+              "position": 0,
+              "cash": 0.0,
+              "equity": 0.0
+            },
+            {
+              "step": 1,
+              "position": 4,
+              "cash": -400.0,
+              "equity": 0.0
+            }
+          ],
+          "position": 4,
+          "cash": -400.0
+        },
+        "backtrader_fixed_filler": {
+          "fills": [
+            {
+              "step": 1,
+              "id": 1,
+              "side": "Buy",
+              "qty": 2.0,
+              "price": 100.0
+            },
+            {
+              "step": 1,
+              "id": 2,
+              "side": "Buy",
+              "qty": 2.0,
+              "price": 100.0
+            }
+          ],
+          "checkpoints": [
+            {
+              "step": 0,
+              "position": 0,
+              "cash": 0.0,
+              "equity": 0.0
+            },
+            {
+              "step": 1,
+              "position": 4.0,
+              "cash": -400.0,
+              "equity": 0.0
+            }
+          ],
+          "position": 4.0,
+          "cash": -400.0
+        },
+        "backtrader_shared_filler": {
+          "fills": [
+            {
+              "step": 1,
+              "id": 1,
+              "side": "Buy",
+              "qty": 2,
+              "price": 100.0
+            }
+          ],
+          "checkpoints": [
+            {
+              "step": 0,
+              "position": 0,
+              "cash": 0.0,
+              "equity": 0.0
+            },
+            {
+              "step": 1,
+              "position": 2,
+              "cash": -200.0,
+              "equity": 0.0
+            }
+          ],
+          "position": 2,
+          "cash": -200.0
+        },
+        "nautilus_bar": {
+          "position": 2.0,
+          "cash": -200.0,
+          "checkpoints": [
+            {
+              "step": 0,
+              "position": 0,
+              "cash": 0,
+              "equity": 0
+            },
+            {
+              "step": 1,
+              "position": 2.0,
+              "cash": -200.0,
+              "equity": 0.0
+            }
+          ],
+          "fills": [
+            {
+              "step": 1,
+              "id": 1,
+              "side": "Buy",
+              "qty": 1.0,
+              "price": 100.0
+            },
+            {
+              "step": 1,
+              "id": 2,
+              "side": "Buy",
+              "qty": 1.0,
+              "price": 100.0
+            }
+          ],
+          "native_pnl": 0.0,
+          "native_diagnostics": {
+            "cached_portfolio_pnl": 0.0,
+            "fresh_portfolio_pnl": 0.0,
+            "account_pnl": 0.0,
+            "exact_fill_pnl": 0.0,
+            "rounded_margin_pnl": 0.0,
+            "currency_quantization_bound": 0.005,
+            "account_rounding_delta": 0.0
+          },
+          "matching_input": "bar"
+        },
+        "nautilus_tick": {
+          "position": 4.0,
+          "cash": -400.0,
+          "checkpoints": [
+            {
+              "step": 0,
+              "position": 0,
+              "cash": 0,
+              "equity": 0
+            },
+            {
+              "step": 1,
+              "position": 4.0,
+              "cash": -400.0,
+              "equity": 0.0
+            }
+          ],
+          "fills": [
+            {
+              "step": 1,
+              "id": 1,
+              "side": "Buy",
+              "qty": 2.0,
+              "price": 100.0
+            },
+            {
+              "step": 1,
+              "id": 2,
+              "side": "Buy",
+              "qty": 2.0,
+              "price": 100.0
+            }
+          ],
+          "native_pnl": 0.0,
+          "native_diagnostics": {
+            "cached_portfolio_pnl": 0.0,
+            "fresh_portfolio_pnl": 0.0,
+            "account_pnl": 0.0,
+            "exact_fill_pnl": 0.0,
+            "rounded_margin_pnl": 0.0,
+            "currency_quantization_bound": 0.005,
+            "account_rounding_delta": 0.0
+          },
+          "matching_input": "trade"
+        },
+        "nautilus_tick_consuming": {
+          "position": 2.0,
+          "cash": -200.0,
+          "checkpoints": [
+            {
+              "step": 0,
+              "position": 0,
+              "cash": 0,
+              "equity": 0
+            },
+            {
+              "step": 1,
+              "position": 2.0,
+              "cash": -200.0,
+              "equity": 0.0
+            }
+          ],
+          "fills": [
+            {
+              "step": 1,
+              "id": 1,
+              "side": "Buy",
+              "qty": 2.0,
+              "price": 100.0
+            }
+          ],
+          "native_pnl": 0.0,
+          "native_diagnostics": {
+            "cached_portfolio_pnl": 0.0,
+            "fresh_portfolio_pnl": 0.0,
+            "account_pnl": 0.0,
+            "exact_fill_pnl": 0.0,
+            "rounded_margin_pnl": 0.0,
+            "currency_quantization_bound": 0.005,
+            "account_rounding_delta": 0.0
+          },
+          "matching_input": "trade"
+        }
+      }
+    },
+    {
+      "case": "id_priority",
+      "workload": {
+        "steps": [
+          {
+            "price": 101,
+            "volume": 100,
+            "taker": "Sell",
+            "actions": [
+              {
+                "kind": "Submit",
+                "id": 20,
+                "side": "Buy",
+                "qty": 2,
+                "limit": 100
+              },
+              {
+                "kind": "Submit",
+                "id": 10,
+                "side": "Buy",
+                "qty": 2,
+                "limit": 100
+              }
+            ]
+          },
+          {
+            "price": 100,
+            "volume": 2,
+            "taker": "Sell",
+            "actions": []
+          }
+        ]
+      },
+      "results": {
+        "mini": {
+          "cash": -200,
+          "checkpoints": [
+            {
+              "cash": 0,
+              "equity": 0,
+              "position": 0,
+              "step": 0
+            },
+            {
+              "cash": -200,
+              "equity": 0,
+              "position": 2,
+              "step": 1
+            }
+          ],
+          "events": 9,
+          "fills": [
+            {
+              "id": 10,
+              "price": 100,
+              "qty": 2,
+              "side": "Buy",
+              "step": 1
+            }
+          ],
+          "position": 2,
+          "probe_quotes": 0,
+          "retained_fills": 1,
+          "retained_orders": 2
+        },
+        "backtrader_default": {
+          "fills": [
+            {
+              "step": 1,
+              "id": 20,
+              "side": "Buy",
+              "qty": 2,
+              "price": 100.0
+            },
+            {
+              "step": 1,
+              "id": 10,
+              "side": "Buy",
+              "qty": 2,
+              "price": 100.0
+            }
+          ],
+          "checkpoints": [
+            {
+              "step": 0,
+              "position": 0,
+              "cash": 0.0,
+              "equity": 0.0
+            },
+            {
+              "step": 1,
+              "position": 4,
+              "cash": -400.0,
+              "equity": 0.0
+            }
+          ],
+          "position": 4,
+          "cash": -400.0
+        },
+        "backtrader_fixed_filler": {
+          "fills": [
+            {
+              "step": 1,
+              "id": 20,
+              "side": "Buy",
+              "qty": 2.0,
+              "price": 100.0
+            },
+            {
+              "step": 1,
+              "id": 10,
+              "side": "Buy",
+              "qty": 2.0,
+              "price": 100.0
+            }
+          ],
+          "checkpoints": [
+            {
+              "step": 0,
+              "position": 0,
+              "cash": 0.0,
+              "equity": 0.0
+            },
+            {
+              "step": 1,
+              "position": 4.0,
+              "cash": -400.0,
+              "equity": 0.0
+            }
+          ],
+          "position": 4.0,
+          "cash": -400.0
+        },
+        "backtrader_shared_filler": {
+          "fills": [
+            {
+              "step": 1,
+              "id": 20,
+              "side": "Buy",
+              "qty": 2,
+              "price": 100.0
+            }
+          ],
+          "checkpoints": [
+            {
+              "step": 0,
+              "position": 0,
+              "cash": 0.0,
+              "equity": 0.0
+            },
+            {
+              "step": 1,
+              "position": 2,
+              "cash": -200.0,
+              "equity": 0.0
+            }
+          ],
+          "position": 2,
+          "cash": -200.0
+        },
+        "nautilus_bar": {
+          "position": 2.0,
+          "cash": -200.0,
+          "checkpoints": [
+            {
+              "step": 0,
+              "position": 0,
+              "cash": 0,
+              "equity": 0
+            },
+            {
+              "step": 1,
+              "position": 2.0,
+              "cash": -200.0,
+              "equity": 0.0
+            }
+          ],
+          "fills": [
+            {
+              "step": 1,
+              "id": 20,
+              "side": "Buy",
+              "qty": 1.0,
+              "price": 100.0
+            },
+            {
+              "step": 1,
+              "id": 10,
+              "side": "Buy",
+              "qty": 1.0,
+              "price": 100.0
+            }
+          ],
+          "native_pnl": 0.0,
+          "native_diagnostics": {
+            "cached_portfolio_pnl": 0.0,
+            "fresh_portfolio_pnl": 0.0,
+            "account_pnl": 0.0,
+            "exact_fill_pnl": 0.0,
+            "rounded_margin_pnl": 0.0,
+            "currency_quantization_bound": 0.005,
+            "account_rounding_delta": 0.0
+          },
+          "matching_input": "bar"
+        },
+        "nautilus_tick": {
+          "position": 4.0,
+          "cash": -400.0,
+          "checkpoints": [
+            {
+              "step": 0,
+              "position": 0,
+              "cash": 0,
+              "equity": 0
+            },
+            {
+              "step": 1,
+              "position": 4.0,
+              "cash": -400.0,
+              "equity": 0.0
+            }
+          ],
+          "fills": [
+            {
+              "step": 1,
+              "id": 20,
+              "side": "Buy",
+              "qty": 2.0,
+              "price": 100.0
+            },
+            {
+              "step": 1,
+              "id": 10,
+              "side": "Buy",
+              "qty": 2.0,
+              "price": 100.0
+            }
+          ],
+          "native_pnl": 0.0,
+          "native_diagnostics": {
+            "cached_portfolio_pnl": 0.0,
+            "fresh_portfolio_pnl": 0.0,
+            "account_pnl": 0.0,
+            "exact_fill_pnl": 0.0,
+            "rounded_margin_pnl": 0.0,
+            "currency_quantization_bound": 0.005,
+            "account_rounding_delta": 0.0
+          },
+          "matching_input": "trade"
+        },
+        "nautilus_tick_consuming": {
+          "position": 2.0,
+          "cash": -200.0,
+          "checkpoints": [
+            {
+              "step": 0,
+              "position": 0,
+              "cash": 0,
+              "equity": 0
+            },
+            {
+              "step": 1,
+              "position": 2.0,
+              "cash": -200.0,
+              "equity": 0.0
+            }
+          ],
+          "fills": [
+            {
+              "step": 1,
+              "id": 20,
+              "side": "Buy",
+              "qty": 2.0,
+              "price": 100.0
+            }
+          ],
+          "native_pnl": 0.0,
+          "native_diagnostics": {
+            "cached_portfolio_pnl": 0.0,
+            "fresh_portfolio_pnl": 0.0,
+            "account_pnl": 0.0,
+            "exact_fill_pnl": 0.0,
+            "rounded_margin_pnl": 0.0,
+            "currency_quantization_bound": 0.005,
+            "account_rounding_delta": 0.0
+          },
+          "matching_input": "trade"
+        }
+      }
+    },
+    {
+      "case": "price_priority",
+      "workload": {
+        "steps": [
+          {
+            "price": 101,
+            "volume": 100,
+            "taker": "Sell",
+            "actions": [
+              {
+                "kind": "Submit",
+                "id": 1,
+                "side": "Buy",
+                "qty": 2,
+                "limit": 99
+              },
+              {
+                "kind": "Submit",
+                "id": 2,
+                "side": "Buy",
+                "qty": 2,
+                "limit": 100
+              }
+            ]
+          },
+          {
+            "price": 99,
+            "volume": 2,
+            "taker": "Sell",
+            "actions": []
+          }
+        ]
+      },
+      "results": {
+        "mini": {
+          "cash": -198,
+          "checkpoints": [
+            {
+              "cash": 0,
+              "equity": 0,
+              "position": 0,
+              "step": 0
+            },
+            {
+              "cash": -198,
+              "equity": 0,
+              "position": 2,
+              "step": 1
+            }
+          ],
+          "events": 9,
+          "fills": [
+            {
+              "id": 1,
+              "price": 99,
+              "qty": 2,
+              "side": "Buy",
+              "step": 1
+            }
+          ],
+          "position": 2,
+          "probe_quotes": 0,
+          "retained_fills": 1,
+          "retained_orders": 2
+        },
+        "backtrader_default": {
+          "fills": [
+            {
+              "step": 1,
+              "id": 1,
+              "side": "Buy",
+              "qty": 2,
+              "price": 99.0
+            },
+            {
+              "step": 1,
+              "id": 2,
+              "side": "Buy",
+              "qty": 2,
+              "price": 99.0
+            }
+          ],
+          "checkpoints": [
+            {
+              "step": 0,
+              "position": 0,
+              "cash": 0.0,
+              "equity": 0.0
+            },
+            {
+              "step": 1,
+              "position": 4,
+              "cash": -396.0,
+              "equity": 0.0
+            }
+          ],
+          "position": 4,
+          "cash": -396.0
+        },
+        "backtrader_fixed_filler": {
+          "fills": [
+            {
+              "step": 1,
+              "id": 1,
+              "side": "Buy",
+              "qty": 2.0,
+              "price": 99.0
+            },
+            {
+              "step": 1,
+              "id": 2,
+              "side": "Buy",
+              "qty": 2.0,
+              "price": 99.0
+            }
+          ],
+          "checkpoints": [
+            {
+              "step": 0,
+              "position": 0,
+              "cash": 0.0,
+              "equity": 0.0
+            },
+            {
+              "step": 1,
+              "position": 4.0,
+              "cash": -396.0,
+              "equity": 0.0
+            }
+          ],
+          "position": 4.0,
+          "cash": -396.0
+        },
+        "backtrader_shared_filler": {
+          "fills": [
+            {
+              "step": 1,
+              "id": 1,
+              "side": "Buy",
+              "qty": 2,
+              "price": 99.0
+            }
+          ],
+          "checkpoints": [
+            {
+              "step": 0,
+              "position": 0,
+              "cash": 0.0,
+              "equity": 0.0
+            },
+            {
+              "step": 1,
+              "position": 2,
+              "cash": -198.0,
+              "equity": 0.0
+            }
+          ],
+          "position": 2,
+          "cash": -198.0
+        },
+        "nautilus_bar": {
+          "position": 2.0,
+          "cash": -200.0,
+          "checkpoints": [
+            {
+              "step": 0,
+              "position": 0,
+              "cash": 0,
+              "equity": 0
+            },
+            {
+              "step": 1,
+              "position": 2.0,
+              "cash": -200.0,
+              "equity": -2.0
+            }
+          ],
+          "fills": [
+            {
+              "step": 1,
+              "id": 2,
+              "side": "Buy",
+              "qty": 1.0,
+              "price": 100.0
+            },
+            {
+              "step": 1,
+              "id": 2,
+              "side": "Buy",
+              "qty": 1.0,
+              "price": 100.0
+            }
+          ],
+          "native_pnl": -2.0,
+          "native_diagnostics": {
+            "cached_portfolio_pnl": -2.0,
+            "fresh_portfolio_pnl": -2.0,
+            "account_pnl": -2.0,
+            "exact_fill_pnl": -2.0,
+            "rounded_margin_pnl": -2.0,
+            "currency_quantization_bound": 0.005,
+            "account_rounding_delta": 0.0
+          },
+          "matching_input": "bar"
+        },
+        "nautilus_tick": {
+          "position": 2.0,
+          "cash": -200.0,
+          "checkpoints": [
+            {
+              "step": 0,
+              "position": 0,
+              "cash": 0,
+              "equity": 0
+            },
+            {
+              "step": 1,
+              "position": 2.0,
+              "cash": -200.0,
+              "equity": -2.0
+            }
+          ],
+          "fills": [
+            {
+              "step": 1,
+              "id": 2,
+              "side": "Buy",
+              "qty": 2.0,
+              "price": 100.0
+            }
+          ],
+          "native_pnl": -2.0,
+          "native_diagnostics": {
+            "cached_portfolio_pnl": -2.0,
+            "fresh_portfolio_pnl": -2.0,
+            "account_pnl": -2.0,
+            "exact_fill_pnl": -2.0,
+            "rounded_margin_pnl": -2.0,
+            "currency_quantization_bound": 0.005,
+            "account_rounding_delta": 0.0
+          },
+          "matching_input": "trade"
+        },
+        "nautilus_tick_consuming": {
+          "position": 2.0,
+          "cash": -200.0,
+          "checkpoints": [
+            {
+              "step": 0,
+              "position": 0,
+              "cash": 0,
+              "equity": 0
+            },
+            {
+              "step": 1,
+              "position": 2.0,
+              "cash": -200.0,
+              "equity": -2.0
+            }
+          ],
+          "fills": [
+            {
+              "step": 1,
+              "id": 2,
+              "side": "Buy",
+              "qty": 2.0,
+              "price": 100.0
+            }
+          ],
+          "native_pnl": -2.0,
+          "native_diagnostics": {
+            "cached_portfolio_pnl": -2.0,
+            "fresh_portfolio_pnl": -2.0,
+            "account_pnl": -2.0,
+            "exact_fill_pnl": -2.0,
+            "rounded_margin_pnl": -2.0,
+            "currency_quantization_bound": 0.005,
+            "account_rounding_delta": 0.0
+          },
+          "matching_input": "trade"
+        }
+      }
+    },
+    {
+      "case": "cancel_after_partial",
+      "workload": {
+        "steps": [
+          {
+            "price": 101,
+            "volume": 100,
+            "taker": "Sell",
+            "actions": [
+              {
+                "kind": "Submit",
+                "id": 1,
+                "side": "Buy",
+                "qty": 5,
+                "limit": 100
+              }
+            ]
+          },
+          {
+            "price": 100,
+            "volume": 1,
+            "taker": "Sell",
+            "actions": [
+              {
+                "kind": "Cancel",
+                "id": 1
+              }
+            ]
+          },
+          {
+            "price": 100,
+            "volume": 2,
+            "taker": "Sell",
+            "actions": []
+          },
+          {
+            "price": 99,
+            "volume": 100,
+            "taker": "Sell",
+            "actions": []
+          }
+        ]
+      },
+      "results": {
+        "mini": {
+          "cash": -100,
+          "checkpoints": [
+            {
+              "cash": 0,
+              "equity": 0,
+              "position": 0,
+              "step": 0
+            },
+            {
+              "cash": -100,
+              "equity": 0,
+              "position": 1,
+              "step": 1
+            },
+            {
+              "cash": -100,
+              "equity": 0,
+              "position": 1,
+              "step": 2
+            },
+            {
+              "cash": -100,
+              "equity": -1,
+              "position": 1,
+              "step": 3
+            }
+          ],
+          "events": 13,
+          "fills": [
+            {
+              "id": 1,
+              "price": 100,
+              "qty": 1,
+              "side": "Buy",
+              "step": 1
+            }
+          ],
+          "position": 1,
+          "probe_quotes": 0,
+          "retained_fills": 1,
+          "retained_orders": 1
+        },
+        "backtrader_default": {
+          "fills": [
+            {
+              "step": 1,
+              "id": 1,
+              "side": "Buy",
+              "qty": 5,
+              "price": 100.0
+            }
+          ],
+          "checkpoints": [
+            {
+              "step": 0,
+              "position": 0,
+              "cash": 0.0,
+              "equity": 0.0
+            },
+            {
+              "step": 1,
+              "position": 5,
+              "cash": -500.0,
+              "equity": 0.0
+            },
+            {
+              "step": 2,
+              "position": 5,
+              "cash": -500.0,
+              "equity": 0.0
+            },
+            {
+              "step": 3,
+              "position": 5,
+              "cash": -500.0,
+              "equity": -5.0
+            }
+          ],
+          "position": 5,
+          "cash": -500.0
+        },
+        "backtrader_fixed_filler": {
+          "fills": [
+            {
+              "step": 1,
+              "id": 1,
+              "side": "Buy",
+              "qty": 1.0,
+              "price": 100.0
+            }
+          ],
+          "checkpoints": [
+            {
+              "step": 0,
+              "position": 0,
+              "cash": 0.0,
+              "equity": 0.0
+            },
+            {
+              "step": 1,
+              "position": 1.0,
+              "cash": -100.0,
+              "equity": 0.0
+            },
+            {
+              "step": 2,
+              "position": 1.0,
+              "cash": -100.0,
+              "equity": 0.0
+            },
+            {
+              "step": 3,
+              "position": 1.0,
+              "cash": -100.0,
+              "equity": -1.0
+            }
+          ],
+          "position": 1.0,
+          "cash": -100.0
+        },
+        "backtrader_shared_filler": {
+          "fills": [
+            {
+              "step": 1,
+              "id": 1,
+              "side": "Buy",
+              "qty": 1.0,
+              "price": 100.0
+            }
+          ],
+          "checkpoints": [
+            {
+              "step": 0,
+              "position": 0,
+              "cash": 0.0,
+              "equity": 0.0
+            },
+            {
+              "step": 1,
+              "position": 1.0,
+              "cash": -100.0,
+              "equity": 0.0
+            },
+            {
+              "step": 2,
+              "position": 1.0,
+              "cash": -100.0,
+              "equity": 0.0
+            },
+            {
+              "step": 3,
+              "position": 1.0,
+              "cash": -100.0,
+              "equity": -1.0
+            }
+          ],
+          "position": 1.0,
+          "cash": -100.0
+        },
+        "nautilus_bar": {
+          "position": 1.0,
+          "cash": -100.0,
+          "checkpoints": [
+            {
+              "step": 0,
+              "position": 0,
+              "cash": 0,
+              "equity": 0
+            },
+            {
+              "step": 1,
+              "position": 1.0,
+              "cash": -100.0,
+              "equity": 0.0
+            },
+            {
+              "step": 2,
+              "position": 1.0,
+              "cash": -100.0,
+              "equity": 0.0
+            },
+            {
+              "step": 3,
+              "position": 1.0,
+              "cash": -100.0,
+              "equity": -1.0
+            }
+          ],
+          "fills": [
+            {
+              "step": 1,
+              "id": 1,
+              "side": "Buy",
+              "qty": 1.0,
+              "price": 100.0
+            }
+          ],
+          "native_pnl": -1.0,
+          "native_diagnostics": {
+            "cached_portfolio_pnl": -1.0,
+            "fresh_portfolio_pnl": -1.0,
+            "account_pnl": -1.0,
+            "exact_fill_pnl": -1.0,
+            "rounded_margin_pnl": -1.0,
+            "currency_quantization_bound": 0.005,
+            "account_rounding_delta": 0.0
+          },
+          "matching_input": "bar"
+        },
+        "nautilus_tick": {
+          "position": 1.0,
+          "cash": -100.0,
+          "checkpoints": [
+            {
+              "step": 0,
+              "position": 0,
+              "cash": 0,
+              "equity": 0
+            },
+            {
+              "step": 1,
+              "position": 1.0,
+              "cash": -100.0,
+              "equity": 0.0
+            },
+            {
+              "step": 2,
+              "position": 1.0,
+              "cash": -100.0,
+              "equity": 0.0
+            },
+            {
+              "step": 3,
+              "position": 1.0,
+              "cash": -100.0,
+              "equity": -1.0
+            }
+          ],
+          "fills": [
+            {
+              "step": 1,
+              "id": 1,
+              "side": "Buy",
+              "qty": 1.0,
+              "price": 100.0
+            }
+          ],
+          "native_pnl": -1.0,
+          "native_diagnostics": {
+            "cached_portfolio_pnl": -1.0,
+            "fresh_portfolio_pnl": -1.0,
+            "account_pnl": -1.0,
+            "exact_fill_pnl": -1.0,
+            "rounded_margin_pnl": -1.0,
+            "currency_quantization_bound": 0.005,
+            "account_rounding_delta": 0.0
+          },
+          "matching_input": "trade"
+        },
+        "nautilus_tick_consuming": {
+          "position": 1.0,
+          "cash": -100.0,
+          "checkpoints": [
+            {
+              "step": 0,
+              "position": 0,
+              "cash": 0,
+              "equity": 0
+            },
+            {
+              "step": 1,
+              "position": 1.0,
+              "cash": -100.0,
+              "equity": 0.0
+            },
+            {
+              "step": 2,
+              "position": 1.0,
+              "cash": -100.0,
+              "equity": 0.0
+            },
+            {
+              "step": 3,
+              "position": 1.0,
+              "cash": -100.0,
+              "equity": -1.0
+            }
+          ],
+          "fills": [
+            {
+              "step": 1,
+              "id": 1,
+              "side": "Buy",
+              "qty": 1.0,
+              "price": 100.0
+            }
+          ],
+          "native_pnl": -1.0,
+          "native_diagnostics": {
+            "cached_portfolio_pnl": -1.0,
+            "fresh_portfolio_pnl": -1.0,
+            "account_pnl": -1.0,
+            "exact_fill_pnl": -1.0,
+            "rounded_margin_pnl": -1.0,
+            "currency_quantization_bound": 0.005,
+            "account_rounding_delta": 0.0
+          },
+          "matching_input": "trade"
+        }
+      }
+    }
+  ],
+  "l1_refresh": [
+    {
+      "workload": {
+        "steps": [
+          {
+            "price": 101,
+            "volume": 100,
+            "taker": "Sell",
+            "actions": [
+              {
+                "kind": "Submit",
+                "id": 1,
+                "side": "Buy",
+                "qty": 6,
+                "limit": 100
+              }
+            ]
+          },
+          {
+            "price": 100,
+            "volume": 1,
+            "taker": "Sell",
+            "actions": []
+          },
+          {
+            "price": 100,
+            "volume": 2,
+            "taker": "Sell",
+            "actions": []
+          },
+          {
+            "price": 100,
+            "volume": 2,
+            "taker": "Sell",
+            "actions": []
+          }
+        ]
+      },
+      "result": {
+        "position": 3.0,
+        "cash": -300.0,
+        "checkpoints": [
+          {
+            "step": 0,
+            "position": 0,
+            "cash": 0,
+            "equity": 0
+          },
+          {
+            "step": 1,
+            "position": 1.0,
+            "cash": -100.0,
+            "equity": 0.0
+          },
+          {
+            "step": 2,
+            "position": 3.0,
+            "cash": -300.0,
+            "equity": 0.0
+          },
+          {
+            "step": 3,
+            "position": 3.0,
+            "cash": -300.0,
+            "equity": 0.0
+          }
+        ],
+        "fills": [
+          {
+            "step": 1,
+            "id": 1,
+            "side": "Buy",
+            "qty": 1.0,
+            "price": 100.0
+          },
+          {
+            "step": 2,
+            "id": 1,
+            "side": "Buy",
+            "qty": 2.0,
+            "price": 100.0
+          }
+        ],
+        "native_pnl": 0.0,
+        "native_diagnostics": {
+          "cached_portfolio_pnl": 0.0,
+          "fresh_portfolio_pnl": 0.0,
+          "account_pnl": 0.0,
+          "exact_fill_pnl": 0.0,
+          "rounded_margin_pnl": 0.0,
+          "currency_quantization_bound": 0.005,
+          "account_rounding_delta": 0.0
+        },
+        "matching_input": "trade"
+      },
+      "available_trade_volume": 5
+    },
+    {
+      "workload": {
+        "steps": [
+          {
+            "price": 101,
+            "volume": 100,
+            "taker": "Sell",
+            "actions": [
+              {
+                "kind": "Submit",
+                "id": 1,
+                "side": "Buy",
+                "qty": 6,
+                "limit": 100
+              }
+            ]
+          },
+          {
+            "price": 100,
+            "volume": 1,
+            "taker": "Sell",
+            "actions": []
+          },
+          {
+            "price": 100,
+            "volume": 2,
+            "taker": "Sell",
+            "actions": []
+          },
+          {
+            "price": 100,
+            "volume": 3,
+            "taker": "Sell",
+            "actions": []
+          }
+        ]
+      },
+      "result": {
+        "position": 6.0,
+        "cash": -600.0,
+        "checkpoints": [
+          {
+            "step": 0,
+            "position": 0,
+            "cash": 0,
+            "equity": 0
+          },
+          {
+            "step": 1,
+            "position": 1.0,
+            "cash": -100.0,
+            "equity": 0.0
+          },
+          {
+            "step": 2,
+            "position": 3.0,
+            "cash": -300.0,
+            "equity": 0.0
+          },
+          {
+            "step": 3,
+            "position": 6.0,
+            "cash": -600.0,
+            "equity": 0.0
+          }
+        ],
+        "fills": [
+          {
+            "step": 1,
+            "id": 1,
+            "side": "Buy",
+            "qty": 1.0,
+            "price": 100.0
+          },
+          {
+            "step": 2,
+            "id": 1,
+            "side": "Buy",
+            "qty": 2.0,
+            "price": 100.0
+          },
+          {
+            "step": 3,
+            "id": 1,
+            "side": "Buy",
+            "qty": 3.0,
+            "price": 100.0
+          }
+        ],
+        "native_pnl": 0.0,
+        "native_diagnostics": {
+          "cached_portfolio_pnl": 0.0,
+          "fresh_portfolio_pnl": 0.0,
+          "account_pnl": 0.0,
+          "exact_fill_pnl": 0.0,
+          "rounded_margin_pnl": 0.0,
+          "currency_quantization_bound": 0.005,
+          "account_rounding_delta": 0.0
+        },
+        "matching_input": "trade"
+      },
+      "available_trade_volume": 6
+    },
+    {
+      "workload": {
+        "steps": [
+          {
+            "price": 101,
+            "volume": 100,
+            "taker": "Sell",
+            "actions": [
+              {
+                "kind": "Submit",
+                "id": 1,
+                "side": "Buy",
+                "qty": 6,
+                "limit": 100
+              }
+            ]
+          },
+          {
+            "price": 100,
+            "volume": 2,
+            "taker": "Sell",
+            "actions": []
+          },
+          {
+            "price": 100,
+            "volume": 2,
+            "taker": "Sell",
+            "actions": []
+          },
+          {
+            "price": 100,
+            "volume": 2,
+            "taker": "Sell",
+            "actions": []
+          }
+        ]
+      },
+      "result": {
+        "position": 2.0,
+        "cash": -200.0,
+        "checkpoints": [
+          {
+            "step": 0,
+            "position": 0,
+            "cash": 0,
+            "equity": 0
+          },
+          {
+            "step": 1,
+            "position": 2.0,
+            "cash": -200.0,
+            "equity": 0.0
+          },
+          {
+            "step": 2,
+            "position": 2.0,
+            "cash": -200.0,
+            "equity": 0.0
+          },
+          {
+            "step": 3,
+            "position": 2.0,
+            "cash": -200.0,
+            "equity": 0.0
+          }
+        ],
+        "fills": [
+          {
+            "step": 1,
+            "id": 1,
+            "side": "Buy",
+            "qty": 2.0,
+            "price": 100.0
+          }
+        ],
+        "native_pnl": 0.0,
+        "native_diagnostics": {
+          "cached_portfolio_pnl": 0.0,
+          "fresh_portfolio_pnl": 0.0,
+          "account_pnl": 0.0,
+          "exact_fill_pnl": 0.0,
+          "rounded_margin_pnl": 0.0,
+          "currency_quantization_bound": 0.005,
+          "account_rounding_delta": 0.0
+        },
+        "matching_input": "trade"
+      },
+      "available_trade_volume": 6
+    },
+    {
+      "workload": {
+        "steps": [
+          {
+            "price": 101,
+            "volume": 100,
+            "taker": "Sell",
+            "actions": [
+              {
+                "kind": "Submit",
+                "id": 1,
+                "side": "Buy",
+                "qty": 6,
+                "limit": 100
+              }
+            ]
+          },
+          {
+            "price": 100,
+            "volume": 2,
+            "taker": "Sell",
+            "actions": []
+          },
+          {
+            "price": 100,
+            "volume": 1,
+            "taker": "Sell",
+            "actions": []
+          },
+          {
+            "price": 100,
+            "volume": 2,
+            "taker": "Sell",
+            "actions": []
+          }
+        ]
+      },
+      "result": {
+        "position": 5.0,
+        "cash": -500.0,
+        "checkpoints": [
+          {
+            "step": 0,
+            "position": 0,
+            "cash": 0,
+            "equity": 0
+          },
+          {
+            "step": 1,
+            "position": 2.0,
+            "cash": -200.0,
+            "equity": 0.0
+          },
+          {
+            "step": 2,
+            "position": 3.0,
+            "cash": -300.0,
+            "equity": 0.0
+          },
+          {
+            "step": 3,
+            "position": 5.0,
+            "cash": -500.0,
+            "equity": 0.0
+          }
+        ],
+        "fills": [
+          {
+            "step": 1,
+            "id": 1,
+            "side": "Buy",
+            "qty": 2.0,
+            "price": 100.0
+          },
+          {
+            "step": 2,
+            "id": 1,
+            "side": "Buy",
+            "qty": 1.0,
+            "price": 100.0
+          },
+          {
+            "step": 3,
+            "id": 1,
+            "side": "Buy",
+            "qty": 2.0,
+            "price": 100.0
+          }
+        ],
+        "native_pnl": 0.0,
+        "native_diagnostics": {
+          "cached_portfolio_pnl": 0.0,
+          "fresh_portfolio_pnl": 0.0,
+          "account_pnl": 0.0,
+          "exact_fill_pnl": 0.0,
+          "rounded_margin_pnl": 0.0,
+          "currency_quantization_bound": 0.005,
+          "account_rounding_delta": 0.0
+        },
+        "matching_input": "trade"
+      },
+      "available_trade_volume": 5
+    }
+  ]
+}

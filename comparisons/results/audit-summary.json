@@ -1,0 +1,31 @@
+{
+  "cross_platform_cases": 65,
+  "fixed_cases": 15,
+  "random_passive_cases": 50,
+  "observations_per_random_case": 200,
+  "full_ledger_matches_against_mini": {
+    "mini": 65,
+    "backtrader": 58,
+    "backtrader_volume": 61,
+    "vnpy": 58,
+    "nautilus": 7,
+    "nautilus_tick": 10
+  },
+  "random_fill_step_id_side_qty_matches": {
+    "mini": 50,
+    "backtrader": 50,
+    "backtrader_volume": 50,
+    "vnpy": 50,
+    "nautilus": 50,
+    "nautilus_tick": 50
+  },
+  "nautilus_account_rounding_delta_range": [
+    -0.029999999999972715,
+    0.040000000000020464
+  ],
+  "input_digest": "93e8ab18096a53bde49e043959810097404a0e02419955a54a749c196d0e3579",
+  "durable_cases": 18,
+  "raw_run_directory": "runs/platform-audit-complete",
+  "durable_raw_run_directory": "runs/durable-audit-fixed",
+  "interpretation": "Equality counts describe model differences, not platform quality or a bug count."
+}

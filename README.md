@@ -144,3 +144,10 @@ execution, bounded Testnet runs, recovery and deterministic replay.
 
 See [order churn and latency experiments](docs/order-stress.md) for cancel/fill races,
 versioned target guards, delayed reports and independent venue/journal verification.
+
+## 跨平台 correctness / performance audit
+
+已實際比較 Backtrader、NautilusTrader、vn.py 原生回測引擎，包括逐筆成交、
+部分成交／撤單、SMA 訊號、持倉與 PnL，以及不同歷史長度下的效能。
+見 [發現、成因、修正方法與實測數字](docs/backtest-comparison.md)，以及
+[可重跑的比較工具](comparisons/README.md)。所有案例均為離線合成數據。
