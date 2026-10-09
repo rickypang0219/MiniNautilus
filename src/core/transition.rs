@@ -101,18 +101,17 @@ impl<'a> Prepared<'a> {
         transition.header.commit(core);
         match transition.writes {
             Writes::None => {}
-            Writes::Order(id, order) => {
-                core.orders.insert(id, order);
-            }
+            Writes::Order(id, order) => core.put_order(id, order),
             Writes::Fill(update) => update.commit(core),
             Writes::Orders(orders) => {
                 for (id, order) in orders {
-                    core.orders.insert(id, order);
+                    core.put_order(id, order);
                 }
             }
             Writes::Rebuilt(rebuilt) => {
                 core.orders = rebuilt.orders;
                 core.fills = rebuilt.fills;
+                core.index = rebuilt.index;
             }
         }
         transition.effects
@@ -273,9 +272,7 @@ impl Transition {
             }
             Event::Tick => {
                 let orders: Vec<_> = core
-                    .orders
-                    .iter()
-                    .filter(|(_, o)| o.deadline.is_some_and(|t| t <= self.header.now))
+                    .expired_orders(self.header.now)
                     .map(|(id, original)| {
                         let mut order = original.clone();
                         order.uncertain = true;
@@ -298,8 +295,7 @@ impl Transition {
                 self.header.health = Health::Disconnected;
                 self.header.quote = None;
                 self.writes = Writes::Orders(
-                    core.orders
-                        .iter()
+                    core.open_orders()
                         .filter(|(_, o)| !o.lifecycle.terminal())
                         .map(|(id, original)| {
                             let mut order = original.clone();
@@ -485,7 +481,7 @@ impl FillUpdate {
     pub(super) fn commit(self, core: &mut Core) {
         core.position = self.position;
         core.cash = self.cash;
-        core.orders.insert(self.fill.order_id, self.order);
+        core.put_order(self.fill.order_id, self.order);
         core.fills.insert(self.fill.execution_id, self.fill);
     }
 }

@@ -5,6 +5,8 @@ use std::collections::{BTreeMap, BTreeSet};
 mod transition;
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+// Derived (inherent) functions; the trait impls below rebuild the order index.
+#[serde(remote = "Self")]
 pub struct Core {
     pub config: Config,
     pub seq: u64,
@@ -25,6 +27,63 @@ pub struct Core {
     pub last_target_revision: u64,
     /// Tick-lot cash, without fees; i128 prevents multiplying two i64s from overflowing.
     pub cash: i128,
+    /// Derived from `orders`; never serialized. Code that mutates `orders` directly
+    /// (outside transitions) must call `reindex` before applying further events.
+    #[serde(skip)]
+    index: OrderIndex,
+}
+
+impl Serialize for Core {
+    fn serialize<S: serde::Serializer>(&self, serializer: S) -> Result<S::Ok, S::Error> {
+        Core::serialize(self, serializer)
+    }
+}
+
+impl<'de> Deserialize<'de> for Core {
+    fn deserialize<D: serde::Deserializer<'de>>(deserializer: D) -> Result<Self, D::Error> {
+        let mut core = Core::deserialize(deserializer)?;
+        core.reindex();
+        Ok(core)
+    }
+}
+
+/// Orders that can still reserve exposure: not terminal, or terminal but uncertain.
+/// Exactly the orders for which `Order::remaining` may be non-zero.
+fn is_open(order: &Order) -> bool {
+    !order.lifecycle.terminal() || order.uncertain
+}
+
+/// Secondary indexes so risk, timers and barriers scan open orders, not history.
+#[derive(Clone, Debug, Default, PartialEq, Eq)]
+struct OrderIndex {
+    open: BTreeSet<OrderId>,
+    deadlines: BTreeSet<(Time, OrderId)>,
+}
+
+impl OrderIndex {
+    fn build(orders: &BTreeMap<OrderId, Order>) -> Self {
+        let mut index = Self::default();
+        for (id, order) in orders {
+            index.add(*id, order);
+        }
+        index
+    }
+
+    fn add(&mut self, id: OrderId, order: &Order) {
+        if is_open(order) {
+            self.open.insert(id);
+        }
+        if let Some(deadline) = order.deadline {
+            self.deadlines.insert((deadline, id));
+        }
+    }
+
+    fn remove(&mut self, id: OrderId, order: &Order) {
+        self.open.remove(&id);
+        if let Some(deadline) = order.deadline {
+            self.deadlines.remove(&(deadline, id));
+        }
+    }
 }
 
 impl Core {
@@ -56,7 +115,40 @@ impl Core {
             target: None,
             last_target_revision: 0,
             cash: 0,
+            index: OrderIndex::default(),
         })
+    }
+
+    /// Rebuild derived indexes after editing `orders` outside a transition.
+    pub fn reindex(&mut self) {
+        self.index = OrderIndex::build(&self.orders);
+    }
+
+    /// True when the derived indexes match a full scan of `orders` (test oracle).
+    pub fn index_consistent(&self) -> bool {
+        self.index == OrderIndex::build(&self.orders)
+    }
+
+    /// Orders that can still fill or reserve risk, in ID order. O(open), not O(history).
+    pub fn open_orders(&self) -> impl Iterator<Item = (&OrderId, &Order)> {
+        self.index.open.iter().map(|id| (id, &self.orders[id]))
+    }
+
+    /// Orders whose submit/cancel deadline is at or before `now`, in deadline order.
+    fn expired_orders(&self, now: Time) -> impl Iterator<Item = (&OrderId, &Order)> {
+        self.index
+            .deadlines
+            .range(..=(now, OrderId::MAX))
+            .map(|(_, id)| (id, &self.orders[id]))
+    }
+
+    /// The only write path for `orders` inside transitions; keeps indexes in step.
+    fn put_order(&mut self, id: OrderId, order: Order) {
+        if let Some(previous) = self.orders.get(&id) {
+            self.index.remove(id, previous);
+        }
+        self.index.add(id, &order);
+        self.orders.insert(id, order);
     }
 
     /// Prepare a transition without changing published state, then commit it.
@@ -75,7 +167,7 @@ impl Core {
     pub fn exposure_bounds(&self) -> (i128, i128) {
         let mut lo = self.position as i128;
         let mut hi = lo;
-        for order in self.orders.values() {
+        for (_, order) in self.open_orders() {
             match order.intent.side {
                 Side::Buy => hi += order.remaining() as i128,
                 Side::Sell => lo -= order.remaining() as i128,
@@ -142,11 +234,7 @@ impl Core {
         if expected_position != self.position {
             return Some("position changed since intent calculation");
         }
-        if self
-            .orders
-            .values()
-            .any(|o| !o.lifecycle.terminal() || o.uncertain)
-        {
+        if !self.index.open.is_empty() {
             return Some("previous order unresolved; cancel/replace barrier closed");
         }
         let delta = target.position as i128 - self.position as i128;
@@ -233,6 +321,8 @@ impl Core {
         if rebuilt.position != snapshot.position {
             return Err("venue position disagrees with fills".into());
         }
+        // Built during preparation so commit only moves the replacement in.
+        rebuilt.reindex();
         Ok(rebuilt)
     }
 }

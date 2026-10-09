@@ -34,6 +34,8 @@ Backtrader 的通知 clone 共用 `order.executed.exbits`，但每個通知另�
 
 ## clone 移除後，仍然隨歷史增長的 code
 
+> 2026-10-09 更新：下面第 1–3 項已改為 open-order index，第 4 項（完整 Core JSON）仍未處理。結果見 [驗收條件](acceptance.md)。
+
 `examples/history_paths.rs` 先建立實際成交、已完全結束的訂單，setup 不計時。對每個 history size 做一次暖機及三次測量，使用 `black_box`；不涉及 IPC、磁碟或 Python。以下是該次中位數，單位 µs/呼叫：
 
 | 已完成訂單 / fills | exposure_bounds | Core Tick | PaperExchange trade，無新成交 | 完整 Core JSON |

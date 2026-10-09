@@ -23,6 +23,16 @@ impl Pair {
             serde_json::to_string(&self.reference).unwrap(),
             "state: {input:?}"
         );
+        // Derived open/deadline indexes must equal a full scan after every event.
+        assert!(self.core.index_consistent(), "index: {input:?}");
+        let (mut lo, mut hi) = (self.core.position as i128, self.core.position as i128);
+        for order in self.core.orders.values() {
+            match order.intent.side {
+                Side::Buy => hi += order.remaining() as i128,
+                Side::Sell => lo -= order.remaining() as i128,
+            }
+        }
+        assert_eq!(self.core.exposure_bounds(), (lo, hi), "exposure: {input:?}");
     }
     fn send(&mut self, at: Time, event: Event) {
         self.envelope(Envelope {

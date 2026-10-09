@@ -19,6 +19,10 @@ Commit performs no recoverable business validation or callbacks; collection inse
 may allocate, so this does not promise OOM or arbitrary panic recovery. Full
 reconciliation still builds and validates replacement history. BTreeMaps retain all
 orders/fills for ID deduplication; there is no retention/compaction policy yet.
+A derived, unserialized index (open orders and `(deadline, id)`) is updated by every
+committed order write and rebuilt on deserialization, so risk bounds, timeouts, the
+target barrier and disconnect handling walk open orders only. `PaperExchange` keeps a
+separate resting set and still matches in ID order. See [acceptance](acceptance.md).
 See [the state-transition walkthrough and measurements](core-state-transitions.md).
 
 Python uses JSON-lines IPC, not PyO3. That makes process boundaries explicit and

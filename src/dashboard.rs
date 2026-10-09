@@ -394,7 +394,7 @@ impl Projection {
         json!({"ready":true,"seq":core.seq.to_string(),"engine_time":core.now,"symbol":symbol,"mode":metadata["mode"].as_str().or_else(|| metadata["parameters"][1].as_str()).unwrap_or("journal"),
             "tick":tick,"lot":lot,"unit":unit,"health":core.health,"killed":core.killed,"position":core.position,
             "target":core.target,"lower":lower.to_string(),"upper":upper.to_string(),"refusals":self.refusals,"recoveries":self.recoveries,
-            "fill_count":core.fills.len(),"order_count":core.orders.len(),"open_orders":core.orders.values().filter(|o|!o.lifecycle.terminal()||o.uncertain).count(),
+            "fill_count":core.fills.len(),"order_count":core.orders.len(),"open_orders":core.open_orders().count(),
             "pnl":{"gross":gross,"realized":realized,"unrealized":unrealized,"net":gross.zip(fee_quote).map(|(g,f)|g-f),"fees":fee_quote,"exact_gross_tick_lots":exact.map(|n|n.to_string())},
             "mark":mark,"mark_at":self.last_quote.map(|q|q.2),"mark_stale":core.quote.is_none()||self.last_quote.is_none_or(|q|core.now.saturating_sub(q.2)>core.config.market_stale_ms),
             "history":history,"time":self.current_time,"mark_time":self.mark_time,"events":self.events.iter().rev().collect::<Vec<_>>(),

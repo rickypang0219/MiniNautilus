@@ -4,7 +4,7 @@
 
 已實作 deterministic core、故障 simulator、durable journal/recovery、Python strategy、Binance Spot Testnet adapter，以及獨立效能實驗。範圍係 **一個 account、一個 instrument、limit order + cancel**。
 
-目前係可執行嘅 reference implementation，**未係 production/HFT engine**：Core 已改為 validate/prepare/commit，避免每個事件 clone 全份 state；journal 仍每個事件做 `sync_all`，Python bridge 用完整 state JSON IPC，Binance 用 REST polling。剩餘歷史掃描及 IPC 成本見 [架構後續審查](docs/post-refactor-audit.md)。
+目前係可執行嘅 reference implementation，**未係 production/HFT engine**：Core 已改為 validate/prepare/commit，避免每個事件 clone 全份 state；journal 仍每個事件做 `sync_all`，Python bridge 用完整 state JSON IPC，Binance 用 REST polling。風控、timer 和 paper 撮合只走 open-order index，不再掃描完整歷史；完整 state 的 IPC 成本仍隨歷史增長。各部分「做到甚麼才算夠」見 [驗收條件](docs/acceptance.md)。
 
 ## 先跑第一個 milestone
 
@@ -156,3 +156,5 @@ Core 與 Journal 的每事件 full clone 已改為 prepare／commit；見
 [逐段 code 導讀、全局影響與前後測量](docs/core-state-transitions.md)。
 
 最新驗證：[架構改動後的跨平台結果、adapter 修正及剩餘性能瓶頸](docs/post-refactor-audit.md)。
+
+驗收條件、現狀及量度工具：[docs/acceptance.md](docs/acceptance.md)（`cargo run --release --example acceptance`）。
