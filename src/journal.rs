@@ -167,34 +167,26 @@ impl DurableEngine {
             at,
             event,
         };
-        let mut next = self.core.clone();
-        let effects = next.apply(&input).map_err(invalid)?;
-        // No effect is exposed before the durable write acknowledges.
-        self.append(&Payload::Input(RecordedInput { input, time }))?;
-        self.core = next;
-        Ok(effects)
+        let prepared = self.core.prepare(&input).map_err(invalid)?;
+        // The Core is still unchanged. The token holds its exclusive borrow while
+        // disjoint journal fields are written. On error, dropping it aborts safely.
+        append_frame(
+            &mut self.file,
+            &mut self.checksum,
+            &mut self.poisoned,
+            &Payload::Input(RecordedInput { input, time }),
+        )?;
+        // No published state or effect precedes the durable write acknowledgment.
+        Ok(prepared.commit())
     }
 
     fn append(&mut self, payload: &Payload) -> io::Result<()> {
-        let payload = serde_json::to_string(payload).map_err(invalid)?;
-        let hash = checksum(self.checksum, payload.as_bytes());
-        let frame = Frame {
-            previous: self.checksum,
-            checksum: hash,
+        append_frame(
+            &mut self.file,
+            &mut self.checksum,
+            &mut self.poisoned,
             payload,
-        };
-        let mut bytes = serde_json::to_vec(&frame).map_err(invalid)?;
-        bytes.push(b'\n');
-        if let Err(error) = self
-            .file
-            .write_all(&bytes)
-            .and_then(|()| self.file.sync_all())
-        {
-            self.poisoned = true;
-            return Err(error);
-        }
-        self.checksum = hash;
-        Ok(())
+        )
     }
 
     pub fn snapshot(&self, path: &Path) -> io::Result<()> {
@@ -213,6 +205,30 @@ impl DurableEngine {
             },
         )
     }
+}
+
+// Separate field borrows keep Core exclusively reserved by Prepared until commit.
+fn append_frame(
+    file: &mut File,
+    previous: &mut u64,
+    poisoned: &mut bool,
+    payload: &Payload,
+) -> io::Result<()> {
+    let payload = serde_json::to_string(payload).map_err(invalid)?;
+    let hash = checksum(*previous, payload.as_bytes());
+    let frame = Frame {
+        previous: *previous,
+        checksum: hash,
+        payload,
+    };
+    let mut bytes = serde_json::to_vec(&frame).map_err(invalid)?;
+    bytes.push(b'\n');
+    if let Err(error) = file.write_all(&bytes).and_then(|()| file.sync_all()) {
+        *poisoned = true;
+        return Err(error);
+    }
+    *previous = hash;
+    Ok(())
 }
 
 fn write_snapshot(path: &Path, snapshot: &Snapshot) -> io::Result<()> {
@@ -454,6 +470,80 @@ impl JournalFollower {
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[test]
+    fn failed_journal_discards_market_fill_cancel_and_rebuild_transitions() {
+        for case in 0..6 {
+            let path = std::env::temp_dir().join(format!(
+                "mini-prepared-failure-{}-{case}",
+                std::process::id()
+            ));
+            let mut engine = DurableEngine::create(&path, Config::default()).unwrap();
+            engine
+                .process(0, Event::Quote { bid: 99, ask: 101 })
+                .unwrap();
+            let intent = Intent {
+                id: 1,
+                side: Side::Buy,
+                qty: 3,
+                limit: 100,
+                based_on_seq: 1,
+                valid_until: 100,
+            };
+            engine.process(0, Event::Submit(intent.clone())).unwrap();
+            engine
+                .process(
+                    0,
+                    Event::Execution {
+                        epoch: 0,
+                        venue_seq: 1,
+                        report: Report::Accepted { id: 1 },
+                    },
+                )
+                .unwrap();
+            if case == 5 {
+                engine.process(0, Event::Reconnect).unwrap();
+            }
+            let event = match case {
+                0 => Event::Quote { bid: 102, ask: 103 },
+                1 => Event::Execution {
+                    epoch: 0,
+                    venue_seq: 2,
+                    report: Report::Fill(Fill {
+                        execution_id: 1,
+                        order_id: 1,
+                        qty: 1,
+                        price: 100,
+                    }),
+                },
+                2 => Event::Cancel { id: 1 },
+                3 => Event::Quote { bid: 0, ask: 1 }, // would gate only after commit
+                4 => Event::Disconnect,
+                _ => Event::Reconcile(Reconciliation {
+                    epoch: 1,
+                    watermark: 1,
+                    orders: vec![VenueOrder {
+                        intent,
+                        filled: 0,
+                        lifecycle: Lifecycle::Accepted,
+                    }],
+                    fills: vec![],
+                    position: 0,
+                }),
+            };
+            let original = engine.core.clone();
+            let checksum = engine.checksum;
+            let bytes = fs::read(&path).unwrap();
+            engine.file = File::open(&path).unwrap();
+            assert!(engine.process(1, event).is_err());
+            assert_eq!(engine.core, original, "case {case}");
+            assert_eq!(engine.checksum, checksum);
+            assert_eq!(fs::read(&path).unwrap(), bytes);
+            assert!(engine.poisoned);
+            drop(engine);
+            fs::remove_file(path).unwrap();
+        }
+    }
+
     #[test]
     fn persistence_error_exposes_no_effects_and_poison_is_sticky() {
         let path =

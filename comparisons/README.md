@@ -6,6 +6,9 @@ are offline, synthetic, single instrument, integer ticks/lots, zero fees and zer
 slippage. No exchange keys or live orders are involved.
 
 The Chinese findings and measured results are in [the audit report](../docs/backtest-comparison.md).
+The follow-up Core/Journal prepare-and-commit refactor is explained in
+[the state transition walkthrough](../docs/core-state-transitions.md); its new
+measurements are separate from the original audit baselines.
 
 ## Reproduce
 
@@ -123,3 +126,7 @@ queue position, exchange calendars, live latency, market impact and real dataset
 need separate tests. Different defaults are not automatically programming errors.
 Keep explicit semantic fixtures when changing any fill model; never tune parameters
 just to force equal final PnL.
+
+## Post-refactor audit
+
+See [the post-refactor report](../docs/post-refactor-audit.md) for multi-order native comparisons, the Backtrader notification regression, and measured remaining history scans. `expanded.py` requires a separately compiled pre-refactor `0580ad1` checkout via `--baseline-root`; `test_native.py` runs the native adapter regression tests using this pinned environment. `examples/history_paths.rs` measures isolated risk, timeout, matching and serialization costs with completed history.

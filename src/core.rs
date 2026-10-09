@@ -2,6 +2,8 @@ use crate::model::*;
 use serde::{Deserialize, Serialize};
 use std::collections::{BTreeMap, BTreeSet};
 
+mod transition;
+
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct Core {
     pub config: Config,
@@ -57,35 +59,16 @@ impl Core {
         })
     }
 
-    /// Transactional reference implementation. Clone cost is intentional in v0.
-    /// There is no I/O or wall clock access in this state machine.
+    /// Prepare a transition without changing published state, then commit it.
+    /// Quote/Trade preparation never copies order or execution history.
     pub fn apply(&mut self, input: &Envelope) -> Result<Vec<Effect>, String> {
-        if self.seq.checked_add(1) != Some(input.seq) || input.at < self.now {
-            return Err("non-contiguous engine sequence or clock moved backwards".into());
-        }
-        let mut next = self.clone();
-        next.seq = input.seq;
-        next.now = input.at;
-        let mut effects = Vec::new();
-        if let Err(reason) = next.handle(&input.event, &mut effects) {
-            // An invalid external report must not partially mutate accounting or
-            // disappear silently. Consume it and gate the account for reconciliation.
-            next = self.clone();
-            next.seq = input.seq;
-            next.now = input.at;
-            effects.clear();
-            next.gate(&reason, &mut effects);
-        }
-        *self = next;
-        Ok(effects)
+        Ok(self.prepare(input)?.commit())
     }
 
-    fn gate(&mut self, reason: &str, out: &mut Vec<Effect>) {
-        if self.health != Health::Disconnected {
-            self.health = Health::Reconciling;
-        }
-        out.push(Effect::Alert(reason.into()));
-        out.push(Effect::QueryState { epoch: self.epoch });
+    /// The exclusive borrow prevents state changes between prepare and commit.
+    /// Dropping this value (for example after a journal failure) changes nothing.
+    pub(crate) fn prepare(&mut self, input: &Envelope) -> Result<transition::Prepared<'_>, String> {
+        transition::Prepared::new(self, input)
     }
 
     /// Independent buy/sell bounds: offsetting pending orders cannot net away risk.
@@ -101,7 +84,7 @@ impl Core {
         (lo, hi)
     }
 
-    fn refusal(&self, intent: &Intent) -> Option<&'static str> {
+    fn refusal(&self, intent: &Intent, seq: u64, now: Time) -> Option<&'static str> {
         if self.orders.contains_key(&intent.id) {
             return Some("client order ID already used");
         }
@@ -116,19 +99,19 @@ impl Core {
         {
             return Some("order limit exceeded");
         }
-        if intent.valid_until < self.now
-            || intent.based_on_seq >= self.seq
-            || (self.seq - 1).saturating_sub(intent.based_on_seq) > self.config.max_signal_lag
+        if intent.valid_until < now
+            || intent.based_on_seq >= seq
+            || (seq - 1).saturating_sub(intent.based_on_seq) > self.config.max_signal_lag
         {
             return Some("expired or stale strategy intent");
         }
         if self
             .quote
-            .is_none_or(|(_, _, at)| self.now - at > self.config.market_stale_ms)
+            .is_none_or(|(_, _, at)| now - at > self.config.market_stale_ms)
         {
             return Some("market data stale");
         }
-        if self.now - self.last_private_at > self.config.private_stale_ms {
+        if now - self.last_private_at > self.config.private_stale_ms {
             return Some("private stream stale");
         }
         let (mut lo, mut hi) = self.exposure_bounds();
@@ -148,11 +131,12 @@ impl Core {
         intent: &Intent,
         revision: u64,
         expected_position: i64,
+        now: Time,
     ) -> Option<&'static str> {
         let Some(target) = &self.target else {
             return Some("no active target");
         };
-        if target.revision != revision || target.valid_until < self.now {
+        if target.revision != revision || target.valid_until < now {
             return Some("target superseded or expired");
         }
         if expected_position != self.position {
@@ -175,302 +159,14 @@ impl Core {
         None
     }
 
-    fn handle(&mut self, event: &Event, out: &mut Vec<Effect>) -> Result<(), String> {
-        match event {
-            Event::MarketUnavailable => self.quote = None,
-            Event::QuoteObserved {
-                bid,
-                ask,
-                observed_at,
-            } => {
-                if *bid <= 0 || ask < bid || *observed_at > self.now {
-                    return Err("invalid observed quote".into());
-                }
-                self.quote = Some((*bid, *ask, *observed_at));
-            }
-            Event::Trade { price, qty, .. } => {
-                if *price <= 0 || *qty <= 0 {
-                    return Err("invalid market trade".into());
-                }
-            }
-            Event::Quote { bid, ask } => {
-                if *bid <= 0 || ask < bid {
-                    return Err("invalid quote".into());
-                }
-                self.quote = Some((*bid, *ask, self.now));
-            }
-            Event::SetTarget(target) => {
-                if target.revision <= self.last_target_revision
-                    || target.valid_until < self.now
-                    || (target.position as i128).abs() > self.config.max_abs_position as i128
-                {
-                    out.push(Effect::SignalRefused {
-                        revision: target.revision,
-                        reason: "stale, expired or out-of-bounds target".into(),
-                    });
-                } else {
-                    self.last_target_revision = target.revision;
-                    self.target = Some(target.clone());
-                }
-            }
-            Event::SubmitTargeted {
-                intent,
-                revision,
-                expected_position,
-            } => {
-                if let Some(reason) = self.targeted_refusal(intent, *revision, *expected_position) {
-                    out.push(Effect::Refused {
-                        id: intent.id,
-                        reason: reason.into(),
-                    });
-                } else {
-                    self.handle(&Event::Submit(intent.clone()), out)?;
-                }
-            }
-            Event::Submit(intent) => {
-                if let Some(reason) = self.refusal(intent) {
-                    out.push(Effect::Refused {
-                        id: intent.id,
-                        reason: reason.into(),
-                    });
-                } else {
-                    let deadline = self
-                        .now
-                        .checked_add(self.config.request_timeout_ms)
-                        .ok_or("deadline overflow")?;
-                    self.orders.insert(
-                        intent.id,
-                        Order {
-                            intent: intent.clone(),
-                            filled: 0,
-                            lifecycle: Lifecycle::Pending,
-                            pending: Some(PendingAction::Submit),
-                            deadline: Some(deadline),
-                            uncertain: false,
-                        },
-                    );
-                    out.push(Effect::SendOrder(intent.clone()));
-                }
-            }
-            Event::Cancel { id } => {
-                let Some(order) = self.orders.get_mut(id) else {
-                    out.push(Effect::Refused {
-                        id: *id,
-                        reason: "unknown order".into(),
-                    });
-                    return Ok(());
-                };
-                if self.health == Health::Disconnected
-                    || order.lifecycle.terminal()
-                    || order.pending == Some(PendingAction::Cancel)
-                {
-                    out.push(Effect::Refused {
-                        id: *id,
-                        reason: "cancel unavailable or already pending".into(),
-                    });
-                } else {
-                    order.pending = Some(PendingAction::Cancel);
-                    order.deadline = Some(
-                        self.now
-                            .checked_add(self.config.request_timeout_ms)
-                            .ok_or("deadline overflow")?,
-                    );
-                    out.push(Effect::SendCancel { id: *id });
-                }
-            }
-            Event::Execution {
-                epoch,
-                venue_seq,
-                report,
-            } => {
-                if *epoch != self.epoch || self.health == Health::Disconnected {
-                    return Ok(());
-                }
-                if *venue_seq == 0 {
-                    return Err("invalid venue sequence".into());
-                }
-                if *venue_seq <= self.reconciled_through {
-                    return Ok(());
-                }
-                if *venue_seq > self.venue_seq.saturating_add(1) {
-                    self.gate("private stream sequence gap", out);
-                }
-                self.venue_seq = self.venue_seq.max(*venue_seq);
-                self.last_private_at = self.now;
-                self.report(report, out)?;
-            }
-            Event::Heartbeat { epoch } => {
-                if *epoch == self.epoch && self.health != Health::Disconnected {
-                    self.last_private_at = self.now;
-                }
-            }
-            Event::Tick => {
-                let mut timed_out = false;
-                for order in self.orders.values_mut() {
-                    if order.deadline.is_some_and(|at| at <= self.now) {
-                        order.uncertain = true;
-                        order.deadline = None;
-                        timed_out = true;
-                    }
-                }
-                if timed_out {
-                    self.gate("order action timeout; outcome unknown", out);
-                }
-                if self.health == Health::Healthy
-                    && self.now - self.last_private_at > self.config.private_stale_ms
-                {
-                    self.gate("private stream heartbeat timeout", out);
-                }
-            }
-            Event::Disconnect => {
-                self.target = None;
-                self.health = Health::Disconnected;
-                self.quote = None;
-                for order in self.orders.values_mut().filter(|o| !o.lifecycle.terminal()) {
-                    order.uncertain = true;
-                }
-            }
-            Event::Reconnect => {
-                self.epoch = self.epoch.checked_add(1).ok_or("epoch overflow")?;
-                self.health = Health::Reconciling;
-                self.quote = None;
-                out.push(Effect::QueryState { epoch: self.epoch });
-            }
-            Event::Reconcile(snapshot) => self.reconcile(snapshot)?,
-            Event::Kill => {
-                self.killed = true;
-                out.push(Effect::Alert(
-                    "kill latched; new orders disabled; cancels still allowed".into(),
-                ));
-            }
-        }
-        Ok(())
-    }
-
-    fn report(&mut self, report: &Report, out: &mut Vec<Effect>) -> Result<(), String> {
-        match report {
-            Report::Fill(fill) => self.fill(fill)?,
-            Report::Accepted { id } => {
-                let order = self.orders.get_mut(id).ok_or("ack for unknown order")?;
-                if order.lifecycle == Lifecycle::Rejected {
-                    return Err("acceptance conflicts with rejected order".into());
-                }
-                if !order.lifecycle.terminal() {
-                    order.lifecycle = if order.filled == 0 {
-                        Lifecycle::Accepted
-                    } else {
-                        Lifecycle::Partial
-                    };
-                    if order.pending == Some(PendingAction::Submit) {
-                        order.pending = None;
-                        order.deadline = None;
-                    }
-                }
-            }
-            Report::Canceled {
-                id,
-                cumulative_filled,
-            } => {
-                let order = self.orders.get_mut(id).ok_or("cancel for unknown order")?;
-                if order.lifecycle == Lifecycle::Rejected {
-                    return Err("cancel confirmation conflicts with rejected order".into());
-                }
-                if *cumulative_filled < order.filled || *cumulative_filled > order.intent.qty {
-                    return Err("inconsistent canceled cumulative quantity".into());
-                }
-                if *cumulative_filled != order.filled {
-                    order.uncertain = true;
-                    self.gate("cancel references missing fills", out);
-                } else {
-                    order.lifecycle = if order.filled == order.intent.qty {
-                        Lifecycle::Filled
-                    } else {
-                        Lifecycle::Canceled
-                    };
-                    order.pending = None;
-                    order.deadline = None;
-                    order.uncertain = false;
-                }
-            }
-            Report::Rejected { id } => {
-                let order = self.orders.get_mut(id).ok_or("reject for unknown order")?;
-                if order.lifecycle == Lifecycle::Rejected {
-                    return Ok(());
-                }
-                if order.filled != 0 || order.lifecycle != Lifecycle::Pending {
-                    return Err("submit rejection conflicts with accepted order".into());
-                }
-                order.lifecycle = Lifecycle::Rejected;
-                order.pending = None;
-                order.deadline = None;
-                order.uncertain = false;
-            }
-            Report::CancelRejected { id } => {
-                let order = self
-                    .orders
-                    .get_mut(id)
-                    .ok_or("cancel rejection for unknown order")?;
-                if order.pending == Some(PendingAction::Cancel) {
-                    order.pending = None;
-                    order.deadline = None;
-                    order.uncertain = true;
-                    self.gate("cancel rejected; query actual order state", out);
-                }
-            }
-        }
-        Ok(())
-    }
-
     fn fill(&mut self, fill: &Fill) -> Result<(), String> {
-        if let Some(previous) = self.fills.get(&fill.execution_id) {
-            return if previous == fill {
-                Ok(())
-            } else {
-                Err("execution ID reused with different payload".into())
-            };
+        if let Some(update) = transition::FillUpdate::prepare(self, fill)? {
+            update.commit(self);
         }
-        if fill.execution_id == 0 || fill.qty <= 0 || fill.price <= 0 {
-            return Err("invalid fill".into());
-        }
-        let order = self
-            .orders
-            .get_mut(&fill.order_id)
-            .ok_or("fill for unknown order")?;
-        if fill.qty > order.intent.qty - order.filled {
-            return Err("overfill".into());
-        }
-        if order.lifecycle.terminal() {
-            return Err("new fill after terminal report; reconcile".into());
-        }
-        if (order.intent.side == Side::Buy && fill.price > order.intent.limit)
-            || (order.intent.side == Side::Sell && fill.price < order.intent.limit)
-        {
-            return Err("fill violates limit price".into());
-        }
-        let delta = order.intent.side.sign() * fill.qty;
-        self.position = self
-            .position
-            .checked_add(delta)
-            .ok_or("position overflow")?;
-        self.cash = self
-            .cash
-            .checked_sub(delta as i128 * fill.price as i128)
-            .ok_or("cash overflow")?;
-        order.filled += fill.qty;
-        order.lifecycle = if order.filled == order.intent.qty {
-            Lifecycle::Filled
-        } else {
-            Lifecycle::Partial
-        };
-        if order.lifecycle == Lifecycle::Filled || order.pending == Some(PendingAction::Submit) {
-            order.pending = None;
-            order.deadline = None;
-        }
-        self.fills.insert(fill.execution_id, fill.clone());
         Ok(())
     }
 
-    fn reconcile(&mut self, snapshot: &Reconciliation) -> Result<(), String> {
+    fn rebuild(&self, snapshot: &Reconciliation) -> Result<Core, String> {
         if self.health != Health::Reconciling
             || snapshot.epoch != self.epoch
             || snapshot.watermark < self.venue_seq
@@ -537,14 +233,6 @@ impl Core {
         if rebuilt.position != snapshot.position {
             return Err("venue position disagrees with fills".into());
         }
-        self.orders = rebuilt.orders;
-        self.fills = rebuilt.fills;
-        self.position = rebuilt.position;
-        self.cash = rebuilt.cash;
-        self.venue_seq = snapshot.watermark;
-        self.reconciled_through = snapshot.watermark;
-        self.last_private_at = self.now;
-        self.health = Health::Healthy;
-        Ok(())
+        Ok(rebuilt)
     }
 }

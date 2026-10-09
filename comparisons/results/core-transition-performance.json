@@ -1,0 +1,428 @@
+{
+  "metadata": {
+    "timestamp_utc": "2026-10-08T15:37:57.308335+00:00",
+    "date_hong_kong": "2026-10-08",
+    "rustc": "rustc 1.99.0 (b940084d7 2026-09-28)",
+    "platform": "macOS-15.8.1-arm64-arm-64bit-Mach-O",
+    "baseline_commit": "0580ad114c47853e9d10e6981be4b0a425a902d4",
+    "warmups": 1,
+    "repeats": 3,
+    "timing": "Native replay and fixed-history quote loops exclude IPC/journal. Durable replay includes startup, fsync and full JSON IPC; replay inspection is excluded.",
+    "limitations": "Sequential samples on a shared desktop, not isolated hardware. No end-to-end durable speedup demonstrated.",
+    "source_sha256": {
+      "before": {
+        "src/core.rs": "7b5011092f4c9c0663269ae3b2c4f3fcc956aeb31d112e097702ea5db40e529d",
+        "src/dashboard/index.rs": "f0dd7a220f4ba66955c49f31c64a32036529b9d1faa6220a4ba78b3117c34cc8",
+        "src/dashboard/ledger.rs": "2e99068f878b719dfd9ffe0ee37f5741088a6e4ff167df1aea630974053647af",
+        "src/dashboard.rs": "da41a5e547d5b9e8c542ab4b6b4b7c8675cfa08af1698801af2b51b039f545d3",
+        "src/journal.rs": "c0540d8cd3fa5c5f78020262f8d8552454821bcc282e421eeaec2b042930016d",
+        "src/lib.rs": "f35fa53e56191346712d7551f56c70cccaa0479d9d744fd3050e521f69ef899e",
+        "src/main.rs": "adabab743a97cddbaa643e083272582fbb87cce7385b8453d9bd7d0491eafef2",
+        "src/model.rs": "9c96a1691ed8be61cf90b89f1e0a1f1fcd4f63c8399246cfcf2f56443c786761",
+        "src/queue.rs": "b6047247c017d5b2002c1a654ffb7fa400c7a00b8b0ae296d0df242e724813b6",
+        "src/sim.rs": "58ee321c5388e0416b978d3b470cfbe2849d7b7ab9de4e4758d9809ab07823f0",
+        "src/telemetry.rs": "a986fe090338aaa067b6c0aeae932ad7fcbb8ec7398b60ff04de0c2fa8bd2357",
+        "Cargo.lock": "c854ef8544f7450a608d6ac3dc2350fcc09d1ca02aff5c36b74a5c8ff9163f0a",
+        "examples/compare_engine.rs": "d2f5bad6bdcfa6970890e151e5d68de21a6db2e5681b31a3b3f7cbe69e716ba4",
+        "python/mininautilus/bridge.py": "04aa47f9300b22330bde07ab3e0b199c8b35471e8ef57f6ee3dce5fa4907f03d"
+      },
+      "after": {
+        "src/core/transition.rs": "263d78b658b0aa37dd5fe1d84b44df7122f9c10d77af23bd1d9e5987b555b16f",
+        "src/core.rs": "931af8225b79224b901593838db27e7b514f459312c74b6454f29036fcabc49d",
+        "src/dashboard/index.rs": "f0dd7a220f4ba66955c49f31c64a32036529b9d1faa6220a4ba78b3117c34cc8",
+        "src/dashboard/ledger.rs": "2e99068f878b719dfd9ffe0ee37f5741088a6e4ff167df1aea630974053647af",
+        "src/dashboard.rs": "da41a5e547d5b9e8c542ab4b6b4b7c8675cfa08af1698801af2b51b039f545d3",
+        "src/journal.rs": "8734eb0ffabab388a724b1c934de4319bdcae1d0605c84351876b4a2b45c31ea",
+        "src/lib.rs": "f35fa53e56191346712d7551f56c70cccaa0479d9d744fd3050e521f69ef899e",
+        "src/main.rs": "adabab743a97cddbaa643e083272582fbb87cce7385b8453d9bd7d0491eafef2",
+        "src/model.rs": "9c96a1691ed8be61cf90b89f1e0a1f1fcd4f63c8399246cfcf2f56443c786761",
+        "src/queue.rs": "b6047247c017d5b2002c1a654ffb7fa400c7a00b8b0ae296d0df242e724813b6",
+        "src/sim.rs": "58ee321c5388e0416b978d3b470cfbe2849d7b7ab9de4e4758d9809ab07823f0",
+        "src/telemetry.rs": "a986fe090338aaa067b6c0aeae932ad7fcbb8ec7398b60ff04de0c2fa8bd2357",
+        "Cargo.lock": "c854ef8544f7450a608d6ac3dc2350fcc09d1ca02aff5c36b74a5c8ff9163f0a",
+        "examples/compare_engine.rs": "d2f5bad6bdcfa6970890e151e5d68de21a6db2e5681b31a3b3f7cbe69e716ba4",
+        "python/mininautilus/bridge.py": "04aa47f9300b22330bde07ab3e0b199c8b35471e8ef57f6ee3dce5fa4907f03d"
+      }
+    },
+    "binary_sha256": {
+      "before": {
+        "target/release/examples/compare_engine": "854bae48d30bdc3d14e61ec905681c26961567e004f7dbef75db5d30cd69955d",
+        "target/release/mininautilus": "c930d46604ef775ed180c7551b1baa6e395c8227b2d6e89c499988a57488d04c"
+      },
+      "after": {
+        "target/release/examples/compare_engine": "326008eeb906f0341f40de9386e8e8ff0975b7a24ceb3578ae3af2355f1c8c2a",
+        "target/release/mininautilus": "84fd0b545388097dd4b102f6a3e5aea8cd33a2a7c557a559189fdcae26932925"
+      }
+    },
+    "harness_sha256": {
+      "comparisons/signals.py": "3f0ce36715c3fb6a0184b137af6ad719ee8205c4621ef42b49154aa70f140abf",
+      "comparisons/run.py": "3626593cac1501bd1546a8ee9d35f90c8e69431e56609904e0a19485e1889cd8",
+      "comparisons/nautilus_cycles.py": "07a6a45bc3d62c8111cc746add3215b58f4d5a3fcaf0de0e5ea9e05cea7f4bc9",
+      "comparisons/remedies.py": "587ef05e2fe71e0652f0251c263296df61b0da9c12c026e98df9c8c1e4adaf0e",
+      "comparisons/history_scaling.py": "8e701bc65b15bfa057ec5a5a2fc6bff8c5c6794dc91392fe0ad86030e3d4572a",
+      "comparisons/check_semantics.py": "8d038a53e4b724de19af48d91a6b1246f78e17a4c3f0c16b0e0c7f5edfc20cf9",
+      "comparisons/transition_benchmark.py": "c0e3589c0086ec38951c1095888c1a63960491aa8c25026886d1f8e3f5465bad",
+      "comparisons/cases.py": "6b701ac7b82cc54ed03e32325610c8e9c0db3e0855b4e1c1d2f57ae2606cda68",
+      "comparisons/reproduce_nautilus_pnl.py": "f2048c87dc3ae80813edaae7ed903965639ba6ee1eb86583ea6e3cff5a8924ff",
+      "comparisons/oracle.py": "cb2023abff42bf915e259fcd9aa1cbad9098b28180fcc23a0366e54a25882b4b",
+      "comparisons/fuzz.py": "e18e0aa30451e27bd97c7dc1f3864652a163dfd6d34bbfebff6b8088fafcfff8",
+      "comparisons/adapters.py": "68c4a46d0639cd16fd318711f920b153663b2c2548f760a5d5610177399909a2"
+    }
+  },
+  "validation": {
+    "rust_tests": 46,
+    "python_tests": 43,
+    "javascript_tests": 4,
+    "native_cases": 65,
+    "native_semantic_checks": "passed",
+    "durable_cases": 18,
+    "frozen_reference_commit": "0580ad1",
+    "differential_mixed_events": 16384,
+    "liquidity_fuzz": {
+      "seeds": 1000,
+      "seed_start": 0,
+      "seed_end": 999,
+      "observations_per_seed": 200,
+      "observations": 200000,
+      "input_digest": "5eecc71249e58cecf291294758412fdad030411cb242745cf1aafaaec93c27d4",
+      "checks": [
+        "every fill",
+        "every cash balance",
+        "every position",
+        "every marked equity"
+      ]
+    },
+    "market_data_allocations": 0,
+    "market_data_deallocations": 0,
+    "allocation_guard_histories": [
+      0,
+      100,
+      5000
+    ],
+    "fmt": "passed",
+    "clippy": "passed",
+    "native_input_digest": "93e8ab18096a53bde49e043959810097404a0e02419955a54a749c196d0e3579"
+  },
+  "measurements": {
+    "before": {
+      "performance": [
+        {
+          "platform": "mini",
+          "steps": 1000,
+          "trading": false,
+          "fills": 0,
+          "seconds": [
+            0.000357042,
+            0.000333375,
+            0.000327291
+          ],
+          "median_seconds": 0.000333375,
+          "steps_per_second": 2999625.046869141
+        },
+        {
+          "platform": "mini",
+          "steps": 5000,
+          "trading": false,
+          "fills": 0,
+          "seconds": [
+            0.001341,
+            0.001262875,
+            0.001292458
+          ],
+          "median_seconds": 0.001292458,
+          "steps_per_second": 3868597.664295474
+        },
+        {
+          "platform": "mini",
+          "steps": 10000,
+          "trading": false,
+          "fills": 0,
+          "seconds": [
+            0.002429125,
+            0.002578209,
+            0.002476417
+          ],
+          "median_seconds": 0.002476417,
+          "steps_per_second": 4038092.1306871986
+        },
+        {
+          "platform": "mini",
+          "steps": 1000,
+          "trading": true,
+          "fills": 500,
+          "seconds": [
+            0.023151833,
+            0.023128417,
+            0.023255083
+          ],
+          "median_seconds": 0.023151833,
+          "steps_per_second": 43193.12427659616
+        },
+        {
+          "platform": "mini",
+          "steps": 5000,
+          "trading": true,
+          "fills": 2500,
+          "seconds": [
+            0.591360417,
+            0.598836541,
+            0.587510791
+          ],
+          "median_seconds": 0.591360417,
+          "steps_per_second": 8455.080617950796
+        },
+        {
+          "platform": "mini",
+          "steps": 10000,
+          "trading": true,
+          "fills": 5000,
+          "seconds": [
+            2.637877709,
+            2.478111417,
+            2.548826166
+          ],
+          "median_seconds": 2.548826166,
+          "steps_per_second": 3923.374662970248
+        }
+      ],
+      "history": [
+        {
+          "history_observations": 0,
+          "retained_orders": 0,
+          "retained_fills": 0,
+          "probe_quotes": 5000,
+          "seconds": [
+            0.00014275,
+            0.000115583,
+            0.000118416
+          ],
+          "median_ns_per_quote": 23.6832
+        },
+        {
+          "history_observations": 200,
+          "retained_orders": 100,
+          "retained_fills": 100,
+          "probe_quotes": 5000,
+          "seconds": [
+            0.011174208,
+            0.0110005,
+            0.010807458
+          ],
+          "median_ns_per_quote": 2200.1
+        },
+        {
+          "history_observations": 2000,
+          "retained_orders": 1000,
+          "retained_fills": 1000,
+          "probe_quotes": 5000,
+          "seconds": [
+            0.127474542,
+            0.127844,
+            0.12624375
+          ],
+          "median_ns_per_quote": 25494.9084
+        },
+        {
+          "history_observations": 10000,
+          "retained_orders": 5000,
+          "retained_fills": 5000,
+          "probe_quotes": 5000,
+          "seconds": [
+            0.731378375,
+            0.796303625,
+            0.709896625
+          ],
+          "median_ns_per_quote": 146275.675
+        }
+      ],
+      "durable": [
+        {
+          "platform": "mini_durable",
+          "steps": 1000,
+          "trading": false,
+          "fills": 0,
+          "seconds": [
+            8.570610624999972,
+            8.621861999999965,
+            8.511772083002143
+          ],
+          "median_seconds": 8.570610624999972,
+          "steps_per_second": 116.67780088889562
+        },
+        {
+          "platform": "mini_durable",
+          "steps": 1000,
+          "trading": true,
+          "fills": 500,
+          "seconds": [
+            18.96583566701156,
+            18.991493709007045,
+            19.42155412500142
+          ],
+          "median_seconds": 18.991493709007045,
+          "steps_per_second": 52.65515263424133
+        }
+      ]
+    },
+    "after": {
+      "performance": [
+        {
+          "platform": "mini",
+          "steps": 1000,
+          "trading": false,
+          "fills": 0,
+          "seconds": [
+            0.0002935,
+            0.000317458,
+            0.000260833
+          ],
+          "median_seconds": 0.0002935,
+          "steps_per_second": 3407155.025553663
+        },
+        {
+          "platform": "mini",
+          "steps": 5000,
+          "trading": false,
+          "fills": 0,
+          "seconds": [
+            0.001220291,
+            0.001305208,
+            0.001299917
+          ],
+          "median_seconds": 0.001299917,
+          "steps_per_second": 3846399.423963222
+        },
+        {
+          "platform": "mini",
+          "steps": 10000,
+          "trading": false,
+          "fills": 0,
+          "seconds": [
+            0.0025375,
+            0.002420917,
+            0.002401166
+          ],
+          "median_seconds": 0.002420917,
+          "steps_per_second": 4130666.189712411
+        },
+        {
+          "platform": "mini",
+          "steps": 1000,
+          "trading": true,
+          "fills": 500,
+          "seconds": [
+            0.001506708,
+            0.001439125,
+            0.001444917
+          ],
+          "median_seconds": 0.001444917,
+          "steps_per_second": 692081.2752566411
+        },
+        {
+          "platform": "mini",
+          "steps": 5000,
+          "trading": true,
+          "fills": 2500,
+          "seconds": [
+            0.0268665,
+            0.02701175,
+            0.0269395
+          ],
+          "median_seconds": 0.0269395,
+          "steps_per_second": 185601.0690621578
+        },
+        {
+          "platform": "mini",
+          "steps": 10000,
+          "trading": true,
+          "fills": 5000,
+          "seconds": [
+            0.10444875,
+            0.102916417,
+            0.102566167
+          ],
+          "median_seconds": 0.102916417,
+          "steps_per_second": 97166.22761944773
+        }
+      ],
+      "history": [
+        {
+          "history_observations": 0,
+          "retained_orders": 0,
+          "retained_fills": 0,
+          "probe_quotes": 5000,
+          "seconds": [
+            0.000118125,
+            0.000118,
+            0.000118125
+          ],
+          "median_ns_per_quote": 23.625
+        },
+        {
+          "history_observations": 200,
+          "retained_orders": 100,
+          "retained_fills": 100,
+          "probe_quotes": 5000,
+          "seconds": [
+            0.000123792,
+            0.000121958,
+            0.000121209
+          ],
+          "median_ns_per_quote": 24.3916
+        },
+        {
+          "history_observations": 2000,
+          "retained_orders": 1000,
+          "retained_fills": 1000,
+          "probe_quotes": 5000,
+          "seconds": [
+            0.000117333,
+            0.000117208,
+            0.0001175
+          ],
+          "median_ns_per_quote": 23.4666
+        },
+        {
+          "history_observations": 10000,
+          "retained_orders": 5000,
+          "retained_fills": 5000,
+          "probe_quotes": 5000,
+          "seconds": [
+            0.000117292,
+            0.000117375,
+            0.000117209
+          ],
+          "median_ns_per_quote": 23.4584
+        }
+      ],
+      "durable": [
+        {
+          "platform": "mini_durable",
+          "steps": 1000,
+          "trading": false,
+          "fills": 0,
+          "seconds": [
+            9.744242834000033,
+            8.937130374994013,
+            9.724532749998616
+          ],
+          "median_seconds": 9.724532749998616,
+          "steps_per_second": 102.832704224287
+        },
+        {
+          "platform": "mini_durable",
+          "steps": 1000,
+          "trading": true,
+          "fills": 500,
+          "seconds": [
+            19.7514327079989,
+            20.361923708987888,
+            19.355189624999184
+          ],
+          "median_seconds": 19.7514327079989,
+          "steps_per_second": 50.62923863720639
+        }
+      ]
+    }
+  }
+}

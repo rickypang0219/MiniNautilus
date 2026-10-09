@@ -1,5 +1,8 @@
 # MiniNautilus 跨平台正確性與性能審查
 
+後續更新（2026-10-08）：本文數據保留為原審查基線。Core／Journal 的 full-clone
+瓶頸已完成第一輪改善，新結果及剩餘限制見 [prepare／commit 改寫](core-state-transitions.md)。
+
 日期：2026-10-07。這次實際執行 MiniNautilus、Backtrader、NautilusTrader、vn.py 原生引擎，逐筆比對成交、持倉、現金流及估值，並檢查原生帳戶／portfolio 報表。**已修正 Mini 的三類正確性問題；另重現 Nautilus 指定版本的 PnL 錯誤及 L1 成交量刷新問題。** 撮合模型差異與性能瓶頸另列，避免把不同預設當成 bug。
 
 ## 已修正的 MiniNautilus 問題

@@ -9,10 +9,17 @@ Core transitions are identical in paper and live modes; market/execution adapter
 and the driver clock differ. The initial core assumes a known empty strategy book;
 the live runner verifies no symbol open orders and records the wallet baseline.
 
-The reference implementation clones state to provide rollback on invalid external
-reports. `DurableEngine` also stages the next state before committing the input.
-This deliberately favors clear semantics over throughput. BTreeMaps retain all
+Transitions prepare a fixed-size header and an owned write set without mutating
+the published Core. Ordinary fills copy one order, not historical maps; quote and
+trade validation do not inspect history. A single-use prepared token exclusively
+borrows Core until commit or abort. Invalid external events discard their staged
+writes/effects, then prepare the original gate behavior with consumed sequence/time.
+`DurableEngine` holds this token across journal sync and commits only on success.
+Commit performs no recoverable business validation or callbacks; collection inserts
+may allocate, so this does not promise OOM or arbitrary panic recovery. Full
+reconciliation still builds and validates replacement history. BTreeMaps retain all
 orders/fills for ID deduplication; there is no retention/compaction policy yet.
+See [the state-transition walkthrough and measurements](core-state-transitions.md).
 
 Python uses JSON-lines IPC, not PyO3. That makes process boundaries explicit and
 requires no additional interpreter bindings. The live example uses a separate
@@ -65,7 +72,7 @@ exchange stream packets. WebSocket feed sequencing is a future adapter extension
 
 ## Persistence and the uncertain-send window
 
-1. Validate the next transition on staged state.
+1. Prepare an owned transition while leaving published state unchanged.
 2. Append the complete input frame with chained FNV-1a corruption checksum.
 3. `sync_all` the journal.
 4. Publish the new state and return effects to the transport.

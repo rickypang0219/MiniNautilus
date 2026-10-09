@@ -1,0 +1,5210 @@
+{
+  "collected_utc": "2026-10-09T02:55:25.976973+00:00",
+  "client_date": "2026-10-09",
+  "rustc": "rustc 1.99.0 (b940084d7 2026-09-28)",
+  "metadata": {
+    "python": "3.12.0 (main, Oct  2 2023, 20:56:14) [Clang 16.0.3 ]",
+    "platform": "macOS-15.8.1-arm64-arm-64bit",
+    "machine": "arm64",
+    "timestamp_utc": "2026-10-09T02:52:13.126553+00:00",
+    "git_head": "0580ad114c47853e9d10e6981be4b0a425a902d4",
+    "versions": {
+      "backtrader": "1.9.78.123",
+      "nautilus_trader": "1.230.0",
+      "vnpy": "4.5.0",
+      "vnpy_ctastrategy": "1.4.1"
+    },
+    "source_sha256": {
+      "comparisons/adapters.py": "922b7981e81b132c96ea727ed2a3a35e95a50223b71df126d3df16d3d89d337c",
+      "comparisons/cases.py": "6b701ac7b82cc54ed03e32325610c8e9c0db3e0855b4e1c1d2f57ae2606cda68",
+      "comparisons/check_semantics.py": "8d038a53e4b724de19af48d91a6b1246f78e17a4c3f0c16b0e0c7f5edfc20cf9",
+      "comparisons/expanded.py": "693bc57a7ed7c6c4992588930db0e3ebb55ce257b0d8e298a7c3b8150c57b865",
+      "comparisons/fuzz.py": "e18e0aa30451e27bd97c7dc1f3864652a163dfd6d34bbfebff6b8088fafcfff8",
+      "comparisons/history_scaling.py": "8e701bc65b15bfa057ec5a5a2fc6bff8c5c6794dc91392fe0ad86030e3d4572a",
+      "comparisons/nautilus_cycles.py": "07a6a45bc3d62c8111cc746add3215b58f4d5a3fcaf0de0e5ea9e05cea7f4bc9",
+      "comparisons/oracle.py": "cb2023abff42bf915e259fcd9aa1cbad9098b28180fcc23a0366e54a25882b4b",
+      "comparisons/remedies.py": "587ef05e2fe71e0652f0251c263296df61b0da9c12c026e98df9c8c1e4adaf0e",
+      "comparisons/reproduce_nautilus_pnl.py": "f2048c87dc3ae80813edaae7ed903965639ba6ee1eb86583ea6e3cff5a8924ff",
+      "comparisons/run.py": "3626593cac1501bd1546a8ee9d35f90c8e69431e56609904e0a19485e1889cd8",
+      "comparisons/signals.py": "3f0ce36715c3fb6a0184b137af6ad719ee8205c4621ef42b49154aa70f140abf",
+      "comparisons/test_native.py": "b80beb74f2369b0afdecdb0015253f1baca5a70916a90a064cbc5445c78998da",
+      "comparisons/transition_benchmark.py": "c0e3589c0086ec38951c1095888c1a63960491aa8c25026886d1f8e3f5465bad",
+      "examples/compare_engine.rs": "d2f5bad6bdcfa6970890e151e5d68de21a6db2e5681b31a3b3f7cbe69e716ba4",
+      "src/core/transition.rs": "263d78b658b0aa37dd5fe1d84b44df7122f9c10d77af23bd1d9e5987b555b16f",
+      "src/core.rs": "931af8225b79224b901593838db27e7b514f459312c74b6454f29036fcabc49d",
+      "src/dashboard/index.rs": "f0dd7a220f4ba66955c49f31c64a32036529b9d1faa6220a4ba78b3117c34cc8",
+      "src/dashboard/ledger.rs": "2e99068f878b719dfd9ffe0ee37f5741088a6e4ff167df1aea630974053647af",
+      "src/dashboard.rs": "da41a5e547d5b9e8c542ab4b6b4b7c8675cfa08af1698801af2b51b039f545d3",
+      "src/journal.rs": "8734eb0ffabab388a724b1c934de4319bdcae1d0605c84351876b4a2b45c31ea",
+      "src/lib.rs": "f35fa53e56191346712d7551f56c70cccaa0479d9d744fd3050e521f69ef899e",
+      "src/main.rs": "adabab743a97cddbaa643e083272582fbb87cce7385b8453d9bd7d0491eafef2",
+      "src/model.rs": "9c96a1691ed8be61cf90b89f1e0a1f1fcd4f63c8399246cfcf2f56443c786761",
+      "src/queue.rs": "b6047247c017d5b2002c1a654ffb7fa400c7a00b8b0ae296d0df242e724813b6",
+      "src/sim.rs": "58ee321c5388e0416b978d3b470cfbe2849d7b7ab9de4e4758d9809ab07823f0",
+      "src/telemetry.rs": "a986fe090338aaa067b6c0aeae932ad7fcbb8ec7398b60ff04de0c2fa8bd2357"
+    }
+  },
+  "source_sha256": {
+    "Cargo.lock": "c854ef8544f7450a608d6ac3dc2350fcc09d1ca02aff5c36b74a5c8ff9163f0a",
+    "comparisons/adapters.py": "922b7981e81b132c96ea727ed2a3a35e95a50223b71df126d3df16d3d89d337c",
+    "comparisons/cases.py": "6b701ac7b82cc54ed03e32325610c8e9c0db3e0855b4e1c1d2f57ae2606cda68",
+    "comparisons/check_semantics.py": "8d038a53e4b724de19af48d91a6b1246f78e17a4c3f0c16b0e0c7f5edfc20cf9",
+    "comparisons/expanded.py": "693bc57a7ed7c6c4992588930db0e3ebb55ce257b0d8e298a7c3b8150c57b865",
+    "comparisons/fuzz.py": "e18e0aa30451e27bd97c7dc1f3864652a163dfd6d34bbfebff6b8088fafcfff8",
+    "comparisons/history_scaling.py": "8e701bc65b15bfa057ec5a5a2fc6bff8c5c6794dc91392fe0ad86030e3d4572a",
+    "comparisons/nautilus_cycles.py": "07a6a45bc3d62c8111cc746add3215b58f4d5a3fcaf0de0e5ea9e05cea7f4bc9",
+    "comparisons/oracle.py": "cb2023abff42bf915e259fcd9aa1cbad9098b28180fcc23a0366e54a25882b4b",
+    "comparisons/remedies.py": "587ef05e2fe71e0652f0251c263296df61b0da9c12c026e98df9c8c1e4adaf0e",
+    "comparisons/reproduce_nautilus_pnl.py": "f2048c87dc3ae80813edaae7ed903965639ba6ee1eb86583ea6e3cff5a8924ff",
+    "comparisons/run.py": "3626593cac1501bd1546a8ee9d35f90c8e69431e56609904e0a19485e1889cd8",
+    "comparisons/signals.py": "3f0ce36715c3fb6a0184b137af6ad719ee8205c4621ef42b49154aa70f140abf",
+    "comparisons/test_native.py": "b80beb74f2369b0afdecdb0015253f1baca5a70916a90a064cbc5445c78998da",
+    "comparisons/transition_benchmark.py": "c0e3589c0086ec38951c1095888c1a63960491aa8c25026886d1f8e3f5465bad",
+    "examples/compare_engine.rs": "d2f5bad6bdcfa6970890e151e5d68de21a6db2e5681b31a3b3f7cbe69e716ba4",
+    "examples/history_paths.rs": "ad8dcbe558f65816ef649dde80b659f86d35fb3d2800ecd6e05419d13eba7d27",
+    "src/core/transition.rs": "263d78b658b0aa37dd5fe1d84b44df7122f9c10d77af23bd1d9e5987b555b16f",
+    "src/core.rs": "931af8225b79224b901593838db27e7b514f459312c74b6454f29036fcabc49d",
+    "src/dashboard/index.rs": "f0dd7a220f4ba66955c49f31c64a32036529b9d1faa6220a4ba78b3117c34cc8",
+    "src/dashboard/ledger.rs": "2e99068f878b719dfd9ffe0ee37f5741088a6e4ff167df1aea630974053647af",
+    "src/dashboard.rs": "da41a5e547d5b9e8c542ab4b6b4b7c8675cfa08af1698801af2b51b039f545d3",
+    "src/journal.rs": "8734eb0ffabab388a724b1c934de4319bdcae1d0605c84351876b4a2b45c31ea",
+    "src/lib.rs": "f35fa53e56191346712d7551f56c70cccaa0479d9d744fd3050e521f69ef899e",
+    "src/main.rs": "adabab743a97cddbaa643e083272582fbb87cce7385b8453d9bd7d0491eafef2",
+    "src/model.rs": "9c96a1691ed8be61cf90b89f1e0a1f1fcd4f63c8399246cfcf2f56443c786761",
+    "src/queue.rs": "b6047247c017d5b2002c1a654ffb7fa400c7a00b8b0ae296d0df242e724813b6",
+    "src/sim.rs": "58ee321c5388e0416b978d3b470cfbe2849d7b7ab9de4e4758d9809ab07823f0",
+    "src/telemetry.rs": "a986fe090338aaa067b6c0aeae932ad7fcbb8ec7398b60ff04de0c2fa8bd2357"
+  },
+  "binary_sha256": {
+    "target/release/examples/compare_engine": "326008eeb906f0341f40de9386e8e8ff0975b7a24ceb3578ae3af2355f1c8c2a",
+    "target/release/examples/history_paths": "230ab119625ea5978f9e125002054f2ddfffc2a66cbb1cba1fcbdef2ec342bee",
+    "runs/core-transition/baseline-source/target/release/examples/compare_engine": "854bae48d30bdc3d14e61ec905681c26961567e004f7dbef75db5d30cd69955d"
+  },
+  "native": {
+    "cases": 215,
+    "exact_parity_counts": {
+      "mini": 215,
+      "backtrader": 208,
+      "backtrader_volume": 211,
+      "vnpy": 208,
+      "nautilus": 7,
+      "nautilus_tick": 10
+    },
+    "liquidity_oracle_passes": 200,
+    "input_digest": "254b7997b7789b8371da506cb21490e466adc6ae61dd252d608ff48030759327"
+  },
+  "multiple": {
+    "cases": 54,
+    "exact_parity_counts": {
+      "mini": 54,
+      "backtrader": 53,
+      "backtrader_volume": 53,
+      "vnpy": 54,
+      "nautilus": 52,
+      "nautilus_tick": 52
+    },
+    "baseline_unchanged": 54,
+    "input_digest": "f114849ddb144a33dadd1d937f2c56f7f6ad154f7ac6236640c9d7fd0cdf4d72",
+    "rows": [
+      {
+        "name": "two_sides_one_trade",
+        "architecture_unchanged": true,
+        "parity": {
+          "mini": {
+            "fills": true,
+            "checkpoints": true,
+            "position": true,
+            "cash": true
+          },
+          "backtrader": {
+            "fills": true,
+            "checkpoints": true,
+            "position": true,
+            "cash": true
+          },
+          "backtrader_volume": {
+            "fills": true,
+            "checkpoints": true,
+            "position": true,
+            "cash": true
+          },
+          "vnpy": {
+            "fills": true,
+            "checkpoints": true,
+            "position": true,
+            "cash": true
+          },
+          "nautilus": {
+            "fills": false,
+            "checkpoints": false,
+            "position": true,
+            "cash": true
+          },
+          "nautilus_tick": {
+            "fills": false,
+            "checkpoints": false,
+            "position": true,
+            "cash": true
+          }
+        },
+        "unordered_fills_equal": {
+          "mini": true,
+          "backtrader": true,
+          "backtrader_volume": true,
+          "vnpy": true,
+          "nautilus": false,
+          "nautilus_tick": false
+        }
+      },
+      {
+        "name": "cancel_replace",
+        "architecture_unchanged": true,
+        "parity": {
+          "mini": {
+            "fills": true,
+            "checkpoints": true,
+            "position": true,
+            "cash": true
+          },
+          "backtrader": {
+            "fills": true,
+            "checkpoints": true,
+            "position": true,
+            "cash": true
+          },
+          "backtrader_volume": {
+            "fills": true,
+            "checkpoints": true,
+            "position": true,
+            "cash": true
+          },
+          "vnpy": {
+            "fills": true,
+            "checkpoints": true,
+            "position": true,
+            "cash": true
+          },
+          "nautilus": {
+            "fills": true,
+            "checkpoints": true,
+            "position": true,
+            "cash": true
+          },
+          "nautilus_tick": {
+            "fills": true,
+            "checkpoints": true,
+            "position": true,
+            "cash": true
+          }
+        },
+        "unordered_fills_equal": {
+          "mini": true,
+          "backtrader": true,
+          "backtrader_volume": true,
+          "vnpy": true,
+          "nautilus": true,
+          "nautilus_tick": true
+        }
+      },
+      {
+        "name": "submit_cancel_same_callback",
+        "architecture_unchanged": true,
+        "parity": {
+          "mini": {
+            "fills": true,
+            "checkpoints": true,
+            "position": true,
+            "cash": true
+          },
+          "backtrader": {
+            "fills": false,
+            "checkpoints": false,
+            "position": false,
+            "cash": false
+          },
+          "backtrader_volume": {
+            "fills": false,
+            "checkpoints": false,
+            "position": false,
+            "cash": false
+          },
+          "vnpy": {
+            "fills": true,
+            "checkpoints": true,
+            "position": true,
+            "cash": true
+          },
+          "nautilus": {
+            "fills": false,
+            "checkpoints": false,
+            "position": false,
+            "cash": false
+          },
+          "nautilus_tick": {
+            "fills": false,
+            "checkpoints": false,
+            "position": false,
+            "cash": false
+          }
+        },
+        "unordered_fills_equal": {
+          "mini": true,
+          "backtrader": false,
+          "backtrader_volume": false,
+          "vnpy": true,
+          "nautilus": false,
+          "nautilus_tick": false
+        }
+      },
+      {
+        "name": "cancel_many_resting",
+        "architecture_unchanged": true,
+        "parity": {
+          "mini": {
+            "fills": true,
+            "checkpoints": true,
+            "position": true,
+            "cash": true
+          },
+          "backtrader": {
+            "fills": true,
+            "checkpoints": true,
+            "position": true,
+            "cash": true
+          },
+          "backtrader_volume": {
+            "fills": true,
+            "checkpoints": true,
+            "position": true,
+            "cash": true
+          },
+          "vnpy": {
+            "fills": true,
+            "checkpoints": true,
+            "position": true,
+            "cash": true
+          },
+          "nautilus": {
+            "fills": true,
+            "checkpoints": true,
+            "position": true,
+            "cash": true
+          },
+          "nautilus_tick": {
+            "fills": true,
+            "checkpoints": true,
+            "position": true,
+            "cash": true
+          }
+        },
+        "unordered_fills_equal": {
+          "mini": true,
+          "backtrader": true,
+          "backtrader_volume": true,
+          "vnpy": true,
+          "nautilus": true,
+          "nautilus_tick": true
+        }
+      },
+      {
+        "name": "batch_0",
+        "architecture_unchanged": true,
+        "parity": {
+          "mini": {
+            "fills": true,
+            "checkpoints": true,
+            "position": true,
+            "cash": true
+          },
+          "backtrader": {
+            "fills": true,
+            "checkpoints": true,
+            "position": true,
+            "cash": true
+          },
+          "backtrader_volume": {
+            "fills": true,
+            "checkpoints": true,
+            "position": true,
+            "cash": true
+          },
+          "vnpy": {
+            "fills": true,
+            "checkpoints": true,
+            "position": true,
+            "cash": true
+          },
+          "nautilus": {
+            "fills": true,
+            "checkpoints": true,
+            "position": true,
+            "cash": true
+          },
+          "nautilus_tick": {
+            "fills": true,
+            "checkpoints": true,
+            "position": true,
+            "cash": true
+          }
+        },
+        "unordered_fills_equal": {
+          "mini": true,
+          "backtrader": true,
+          "backtrader_volume": true,
+          "vnpy": true,
+          "nautilus": true,
+          "nautilus_tick": true
+        }
+      },
+      {
+        "name": "batch_1",
+        "architecture_unchanged": true,
+        "parity": {
+          "mini": {
+            "fills": true,
+            "checkpoints": true,
+            "position": true,
+            "cash": true
+          },
+          "backtrader": {
+            "fills": true,
+            "checkpoints": true,
+            "position": true,
+            "cash": true
+          },
+          "backtrader_volume": {
+            "fills": true,
+            "checkpoints": true,
+            "position": true,
+            "cash": true
+          },
+          "vnpy": {
+            "fills": true,
+            "checkpoints": true,
+            "position": true,
+            "cash": true
+          },
+          "nautilus": {
+            "fills": true,
+            "checkpoints": true,
+            "position": true,
+            "cash": true
+          },
+          "nautilus_tick": {
+            "fills": true,
+            "checkpoints": true,
+            "position": true,
+            "cash": true
+          }
+        },
+        "unordered_fills_equal": {
+          "mini": true,
+          "backtrader": true,
+          "backtrader_volume": true,
+          "vnpy": true,
+          "nautilus": true,
+          "nautilus_tick": true
+        }
+      },
+      {
+        "name": "batch_2",
+        "architecture_unchanged": true,
+        "parity": {
+          "mini": {
+            "fills": true,
+            "checkpoints": true,
+            "position": true,
+            "cash": true
+          },
+          "backtrader": {
+            "fills": true,
+            "checkpoints": true,
+            "position": true,
+            "cash": true
+          },
+          "backtrader_volume": {
+            "fills": true,
+            "checkpoints": true,
+            "position": true,
+            "cash": true
+          },
+          "vnpy": {
+            "fills": true,
+            "checkpoints": true,
+            "position": true,
+            "cash": true
+          },
+          "nautilus": {
+            "fills": true,
+            "checkpoints": true,
+            "position": true,
+            "cash": true
+          },
+          "nautilus_tick": {
+            "fills": true,
+            "checkpoints": true,
+            "position": true,
+            "cash": true
+          }
+        },
+        "unordered_fills_equal": {
+          "mini": true,
+          "backtrader": true,
+          "backtrader_volume": true,
+          "vnpy": true,
+          "nautilus": true,
+          "nautilus_tick": true
+        }
+      },
+      {
+        "name": "batch_3",
+        "architecture_unchanged": true,
+        "parity": {
+          "mini": {
+            "fills": true,
+            "checkpoints": true,
+            "position": true,
+            "cash": true
+          },
+          "backtrader": {
+            "fills": true,
+            "checkpoints": true,
+            "position": true,
+            "cash": true
+          },
+          "backtrader_volume": {
+            "fills": true,
+            "checkpoints": true,
+            "position": true,
+            "cash": true
+          },
+          "vnpy": {
+            "fills": true,
+            "checkpoints": true,
+            "position": true,
+            "cash": true
+          },
+          "nautilus": {
+            "fills": true,
+            "checkpoints": true,
+            "position": true,
+            "cash": true
+          },
+          "nautilus_tick": {
+            "fills": true,
+            "checkpoints": true,
+            "position": true,
+            "cash": true
+          }
+        },
+        "unordered_fills_equal": {
+          "mini": true,
+          "backtrader": true,
+          "backtrader_volume": true,
+          "vnpy": true,
+          "nautilus": true,
+          "nautilus_tick": true
+        }
+      },
+      {
+        "name": "batch_4",
+        "architecture_unchanged": true,
+        "parity": {
+          "mini": {
+            "fills": true,
+            "checkpoints": true,
+            "position": true,
+            "cash": true
+          },
+          "backtrader": {
+            "fills": true,
+            "checkpoints": true,
+            "position": true,
+            "cash": true
+          },
+          "backtrader_volume": {
+            "fills": true,
+            "checkpoints": true,
+            "position": true,
+            "cash": true
+          },
+          "vnpy": {
+            "fills": true,
+            "checkpoints": true,
+            "position": true,
+            "cash": true
+          },
+          "nautilus": {
+            "fills": true,
+            "checkpoints": true,
+            "position": true,
+            "cash": true
+          },
+          "nautilus_tick": {
+            "fills": true,
+            "checkpoints": true,
+            "position": true,
+            "cash": true
+          }
+        },
+        "unordered_fills_equal": {
+          "mini": true,
+          "backtrader": true,
+          "backtrader_volume": true,
+          "vnpy": true,
+          "nautilus": true,
+          "nautilus_tick": true
+        }
+      },
+      {
+        "name": "batch_5",
+        "architecture_unchanged": true,
+        "parity": {
+          "mini": {
+            "fills": true,
+            "checkpoints": true,
+            "position": true,
+            "cash": true
+          },
+          "backtrader": {
+            "fills": true,
+            "checkpoints": true,
+            "position": true,
+            "cash": true
+          },
+          "backtrader_volume": {
+            "fills": true,
+            "checkpoints": true,
+            "position": true,
+            "cash": true
+          },
+          "vnpy": {
+            "fills": true,
+            "checkpoints": true,
+            "position": true,
+            "cash": true
+          },
+          "nautilus": {
+            "fills": true,
+            "checkpoints": true,
+            "position": true,
+            "cash": true
+          },
+          "nautilus_tick": {
+            "fills": true,
+            "checkpoints": true,
+            "position": true,
+            "cash": true
+          }
+        },
+        "unordered_fills_equal": {
+          "mini": true,
+          "backtrader": true,
+          "backtrader_volume": true,
+          "vnpy": true,
+          "nautilus": true,
+          "nautilus_tick": true
+        }
+      },
+      {
+        "name": "batch_6",
+        "architecture_unchanged": true,
+        "parity": {
+          "mini": {
+            "fills": true,
+            "checkpoints": true,
+            "position": true,
+            "cash": true
+          },
+          "backtrader": {
+            "fills": true,
+            "checkpoints": true,
+            "position": true,
+            "cash": true
+          },
+          "backtrader_volume": {
+            "fills": true,
+            "checkpoints": true,
+            "position": true,
+            "cash": true
+          },
+          "vnpy": {
+            "fills": true,
+            "checkpoints": true,
+            "position": true,
+            "cash": true
+          },
+          "nautilus": {
+            "fills": true,
+            "checkpoints": true,
+            "position": true,
+            "cash": true
+          },
+          "nautilus_tick": {
+            "fills": true,
+            "checkpoints": true,
+            "position": true,
+            "cash": true
+          }
+        },
+        "unordered_fills_equal": {
+          "mini": true,
+          "backtrader": true,
+          "backtrader_volume": true,
+          "vnpy": true,
+          "nautilus": true,
+          "nautilus_tick": true
+        }
+      },
+      {
+        "name": "batch_7",
+        "architecture_unchanged": true,
+        "parity": {
+          "mini": {
+            "fills": true,
+            "checkpoints": true,
+            "position": true,
+            "cash": true
+          },
+          "backtrader": {
+            "fills": true,
+            "checkpoints": true,
+            "position": true,
+            "cash": true
+          },
+          "backtrader_volume": {
+            "fills": true,
+            "checkpoints": true,
+            "position": true,
+            "cash": true
+          },
+          "vnpy": {
+            "fills": true,
+            "checkpoints": true,
+            "position": true,
+            "cash": true
+          },
+          "nautilus": {
+            "fills": true,
+            "checkpoints": true,
+            "position": true,
+            "cash": true
+          },
+          "nautilus_tick": {
+            "fills": true,
+            "checkpoints": true,
+            "position": true,
+            "cash": true
+          }
+        },
+        "unordered_fills_equal": {
+          "mini": true,
+          "backtrader": true,
+          "backtrader_volume": true,
+          "vnpy": true,
+          "nautilus": true,
+          "nautilus_tick": true
+        }
+      },
+      {
+        "name": "batch_8",
+        "architecture_unchanged": true,
+        "parity": {
+          "mini": {
+            "fills": true,
+            "checkpoints": true,
+            "position": true,
+            "cash": true
+          },
+          "backtrader": {
+            "fills": true,
+            "checkpoints": true,
+            "position": true,
+            "cash": true
+          },
+          "backtrader_volume": {
+            "fills": true,
+            "checkpoints": true,
+            "position": true,
+            "cash": true
+          },
+          "vnpy": {
+            "fills": true,
+            "checkpoints": true,
+            "position": true,
+            "cash": true
+          },
+          "nautilus": {
+            "fills": true,
+            "checkpoints": true,
+            "position": true,
+            "cash": true
+          },
+          "nautilus_tick": {
+            "fills": true,
+            "checkpoints": true,
+            "position": true,
+            "cash": true
+          }
+        },
+        "unordered_fills_equal": {
+          "mini": true,
+          "backtrader": true,
+          "backtrader_volume": true,
+          "vnpy": true,
+          "nautilus": true,
+          "nautilus_tick": true
+        }
+      },
+      {
+        "name": "batch_9",
+        "architecture_unchanged": true,
+        "parity": {
+          "mini": {
+            "fills": true,
+            "checkpoints": true,
+            "position": true,
+            "cash": true
+          },
+          "backtrader": {
+            "fills": true,
+            "checkpoints": true,
+            "position": true,
+            "cash": true
+          },
+          "backtrader_volume": {
+            "fills": true,
+            "checkpoints": true,
+            "position": true,
+            "cash": true
+          },
+          "vnpy": {
+            "fills": true,
+            "checkpoints": true,
+            "position": true,
+            "cash": true
+          },
+          "nautilus": {
+            "fills": true,
+            "checkpoints": true,
+            "position": true,
+            "cash": true
+          },
+          "nautilus_tick": {
+            "fills": true,
+            "checkpoints": true,
+            "position": true,
+            "cash": true
+          }
+        },
+        "unordered_fills_equal": {
+          "mini": true,
+          "backtrader": true,
+          "backtrader_volume": true,
+          "vnpy": true,
+          "nautilus": true,
+          "nautilus_tick": true
+        }
+      },
+      {
+        "name": "batch_10",
+        "architecture_unchanged": true,
+        "parity": {
+          "mini": {
+            "fills": true,
+            "checkpoints": true,
+            "position": true,
+            "cash": true
+          },
+          "backtrader": {
+            "fills": true,
+            "checkpoints": true,
+            "position": true,
+            "cash": true
+          },
+          "backtrader_volume": {
+            "fills": true,
+            "checkpoints": true,
+            "position": true,
+            "cash": true
+          },
+          "vnpy": {
+            "fills": true,
+            "checkpoints": true,
+            "position": true,
+            "cash": true
+          },
+          "nautilus": {
+            "fills": true,
+            "checkpoints": true,
+            "position": true,
+            "cash": true
+          },
+          "nautilus_tick": {
+            "fills": true,
+            "checkpoints": true,
+            "position": true,
+            "cash": true
+          }
+        },
+        "unordered_fills_equal": {
+          "mini": true,
+          "backtrader": true,
+          "backtrader_volume": true,
+          "vnpy": true,
+          "nautilus": true,
+          "nautilus_tick": true
+        }
+      },
+      {
+        "name": "batch_11",
+        "architecture_unchanged": true,
+        "parity": {
+          "mini": {
+            "fills": true,
+            "checkpoints": true,
+            "position": true,
+            "cash": true
+          },
+          "backtrader": {
+            "fills": true,
+            "checkpoints": true,
+            "position": true,
+            "cash": true
+          },
+          "backtrader_volume": {
+            "fills": true,
+            "checkpoints": true,
+            "position": true,
+            "cash": true
+          },
+          "vnpy": {
+            "fills": true,
+            "checkpoints": true,
+            "position": true,
+            "cash": true
+          },
+          "nautilus": {
+            "fills": true,
+            "checkpoints": true,
+            "position": true,
+            "cash": true
+          },
+          "nautilus_tick": {
+            "fills": true,
+            "checkpoints": true,
+            "position": true,
+            "cash": true
+          }
+        },
+        "unordered_fills_equal": {
+          "mini": true,
+          "backtrader": true,
+          "backtrader_volume": true,
+          "vnpy": true,
+          "nautilus": true,
+          "nautilus_tick": true
+        }
+      },
+      {
+        "name": "batch_12",
+        "architecture_unchanged": true,
+        "parity": {
+          "mini": {
+            "fills": true,
+            "checkpoints": true,
+            "position": true,
+            "cash": true
+          },
+          "backtrader": {
+            "fills": true,
+            "checkpoints": true,
+            "position": true,
+            "cash": true
+          },
+          "backtrader_volume": {
+            "fills": true,
+            "checkpoints": true,
+            "position": true,
+            "cash": true
+          },
+          "vnpy": {
+            "fills": true,
+            "checkpoints": true,
+            "position": true,
+            "cash": true
+          },
+          "nautilus": {
+            "fills": true,
+            "checkpoints": true,
+            "position": true,
+            "cash": true
+          },
+          "nautilus_tick": {
+            "fills": true,
+            "checkpoints": true,
+            "position": true,
+            "cash": true
+          }
+        },
+        "unordered_fills_equal": {
+          "mini": true,
+          "backtrader": true,
+          "backtrader_volume": true,
+          "vnpy": true,
+          "nautilus": true,
+          "nautilus_tick": true
+        }
+      },
+      {
+        "name": "batch_13",
+        "architecture_unchanged": true,
+        "parity": {
+          "mini": {
+            "fills": true,
+            "checkpoints": true,
+            "position": true,
+            "cash": true
+          },
+          "backtrader": {
+            "fills": true,
+            "checkpoints": true,
+            "position": true,
+            "cash": true
+          },
+          "backtrader_volume": {
+            "fills": true,
+            "checkpoints": true,
+            "position": true,
+            "cash": true
+          },
+          "vnpy": {
+            "fills": true,
+            "checkpoints": true,
+            "position": true,
+            "cash": true
+          },
+          "nautilus": {
+            "fills": true,
+            "checkpoints": true,
+            "position": true,
+            "cash": true
+          },
+          "nautilus_tick": {
+            "fills": true,
+            "checkpoints": true,
+            "position": true,
+            "cash": true
+          }
+        },
+        "unordered_fills_equal": {
+          "mini": true,
+          "backtrader": true,
+          "backtrader_volume": true,
+          "vnpy": true,
+          "nautilus": true,
+          "nautilus_tick": true
+        }
+      },
+      {
+        "name": "batch_14",
+        "architecture_unchanged": true,
+        "parity": {
+          "mini": {
+            "fills": true,
+            "checkpoints": true,
+            "position": true,
+            "cash": true
+          },
+          "backtrader": {
+            "fills": true,
+            "checkpoints": true,
+            "position": true,
+            "cash": true
+          },
+          "backtrader_volume": {
+            "fills": true,
+            "checkpoints": true,
+            "position": true,
+            "cash": true
+          },
+          "vnpy": {
+            "fills": true,
+            "checkpoints": true,
+            "position": true,
+            "cash": true
+          },
+          "nautilus": {
+            "fills": true,
+            "checkpoints": true,
+            "position": true,
+            "cash": true
+          },
+          "nautilus_tick": {
+            "fills": true,
+            "checkpoints": true,
+            "position": true,
+            "cash": true
+          }
+        },
+        "unordered_fills_equal": {
+          "mini": true,
+          "backtrader": true,
+          "backtrader_volume": true,
+          "vnpy": true,
+          "nautilus": true,
+          "nautilus_tick": true
+        }
+      },
+      {
+        "name": "batch_15",
+        "architecture_unchanged": true,
+        "parity": {
+          "mini": {
+            "fills": true,
+            "checkpoints": true,
+            "position": true,
+            "cash": true
+          },
+          "backtrader": {
+            "fills": true,
+            "checkpoints": true,
+            "position": true,
+            "cash": true
+          },
+          "backtrader_volume": {
+            "fills": true,
+            "checkpoints": true,
+            "position": true,
+            "cash": true
+          },
+          "vnpy": {
+            "fills": true,
+            "checkpoints": true,
+            "position": true,
+            "cash": true
+          },
+          "nautilus": {
+            "fills": true,
+            "checkpoints": true,
+            "position": true,
+            "cash": true
+          },
+          "nautilus_tick": {
+            "fills": true,
+            "checkpoints": true,
+            "position": true,
+            "cash": true
+          }
+        },
+        "unordered_fills_equal": {
+          "mini": true,
+          "backtrader": true,
+          "backtrader_volume": true,
+          "vnpy": true,
+          "nautilus": true,
+          "nautilus_tick": true
+        }
+      },
+      {
+        "name": "batch_16",
+        "architecture_unchanged": true,
+        "parity": {
+          "mini": {
+            "fills": true,
+            "checkpoints": true,
+            "position": true,
+            "cash": true
+          },
+          "backtrader": {
+            "fills": true,
+            "checkpoints": true,
+            "position": true,
+            "cash": true
+          },
+          "backtrader_volume": {
+            "fills": true,
+            "checkpoints": true,
+            "position": true,
+            "cash": true
+          },
+          "vnpy": {
+            "fills": true,
+            "checkpoints": true,
+            "position": true,
+            "cash": true
+          },
+          "nautilus": {
+            "fills": true,
+            "checkpoints": true,
+            "position": true,
+            "cash": true
+          },
+          "nautilus_tick": {
+            "fills": true,
+            "checkpoints": true,
+            "position": true,
+            "cash": true
+          }
+        },
+        "unordered_fills_equal": {
+          "mini": true,
+          "backtrader": true,
+          "backtrader_volume": true,
+          "vnpy": true,
+          "nautilus": true,
+          "nautilus_tick": true
+        }
+      },
+      {
+        "name": "batch_17",
+        "architecture_unchanged": true,
+        "parity": {
+          "mini": {
+            "fills": true,
+            "checkpoints": true,
+            "position": true,
+            "cash": true
+          },
+          "backtrader": {
+            "fills": true,
+            "checkpoints": true,
+            "position": true,
+            "cash": true
+          },
+          "backtrader_volume": {
+            "fills": true,
+            "checkpoints": true,
+            "position": true,
+            "cash": true
+          },
+          "vnpy": {
+            "fills": true,
+            "checkpoints": true,
+            "position": true,
+            "cash": true
+          },
+          "nautilus": {
+            "fills": true,
+            "checkpoints": true,
+            "position": true,
+            "cash": true
+          },
+          "nautilus_tick": {
+            "fills": true,
+            "checkpoints": true,
+            "position": true,
+            "cash": true
+          }
+        },
+        "unordered_fills_equal": {
+          "mini": true,
+          "backtrader": true,
+          "backtrader_volume": true,
+          "vnpy": true,
+          "nautilus": true,
+          "nautilus_tick": true
+        }
+      },
+      {
+        "name": "batch_18",
+        "architecture_unchanged": true,
+        "parity": {
+          "mini": {
+            "fills": true,
+            "checkpoints": true,
+            "position": true,
+            "cash": true
+          },
+          "backtrader": {
+            "fills": true,
+            "checkpoints": true,
+            "position": true,
+            "cash": true
+          },
+          "backtrader_volume": {
+            "fills": true,
+            "checkpoints": true,
+            "position": true,
+            "cash": true
+          },
+          "vnpy": {
+            "fills": true,
+            "checkpoints": true,
+            "position": true,
+            "cash": true
+          },
+          "nautilus": {
+            "fills": true,
+            "checkpoints": true,
+            "position": true,
+            "cash": true
+          },
+          "nautilus_tick": {
+            "fills": true,
+            "checkpoints": true,
+            "position": true,
+            "cash": true
+          }
+        },
+        "unordered_fills_equal": {
+          "mini": true,
+          "backtrader": true,
+          "backtrader_volume": true,
+          "vnpy": true,
+          "nautilus": true,
+          "nautilus_tick": true
+        }
+      },
+      {
+        "name": "batch_19",
+        "architecture_unchanged": true,
+        "parity": {
+          "mini": {
+            "fills": true,
+            "checkpoints": true,
+            "position": true,
+            "cash": true
+          },
+          "backtrader": {
+            "fills": true,
+            "checkpoints": true,
+            "position": true,
+            "cash": true
+          },
+          "backtrader_volume": {
+            "fills": true,
+            "checkpoints": true,
+            "position": true,
+            "cash": true
+          },
+          "vnpy": {
+            "fills": true,
+            "checkpoints": true,
+            "position": true,
+            "cash": true
+          },
+          "nautilus": {
+            "fills": true,
+            "checkpoints": true,
+            "position": true,
+            "cash": true
+          },
+          "nautilus_tick": {
+            "fills": true,
+            "checkpoints": true,
+            "position": true,
+            "cash": true
+          }
+        },
+        "unordered_fills_equal": {
+          "mini": true,
+          "backtrader": true,
+          "backtrader_volume": true,
+          "vnpy": true,
+          "nautilus": true,
+          "nautilus_tick": true
+        }
+      },
+      {
+        "name": "batch_20",
+        "architecture_unchanged": true,
+        "parity": {
+          "mini": {
+            "fills": true,
+            "checkpoints": true,
+            "position": true,
+            "cash": true
+          },
+          "backtrader": {
+            "fills": true,
+            "checkpoints": true,
+            "position": true,
+            "cash": true
+          },
+          "backtrader_volume": {
+            "fills": true,
+            "checkpoints": true,
+            "position": true,
+            "cash": true
+          },
+          "vnpy": {
+            "fills": true,
+            "checkpoints": true,
+            "position": true,
+            "cash": true
+          },
+          "nautilus": {
+            "fills": true,
+            "checkpoints": true,
+            "position": true,
+            "cash": true
+          },
+          "nautilus_tick": {
+            "fills": true,
+            "checkpoints": true,
+            "position": true,
+            "cash": true
+          }
+        },
+        "unordered_fills_equal": {
+          "mini": true,
+          "backtrader": true,
+          "backtrader_volume": true,
+          "vnpy": true,
+          "nautilus": true,
+          "nautilus_tick": true
+        }
+      },
+      {
+        "name": "batch_21",
+        "architecture_unchanged": true,
+        "parity": {
+          "mini": {
+            "fills": true,
+            "checkpoints": true,
+            "position": true,
+            "cash": true
+          },
+          "backtrader": {
+            "fills": true,
+            "checkpoints": true,
+            "position": true,
+            "cash": true
+          },
+          "backtrader_volume": {
+            "fills": true,
+            "checkpoints": true,
+            "position": true,
+            "cash": true
+          },
+          "vnpy": {
+            "fills": true,
+            "checkpoints": true,
+            "position": true,
+            "cash": true
+          },
+          "nautilus": {
+            "fills": true,
+            "checkpoints": true,
+            "position": true,
+            "cash": true
+          },
+          "nautilus_tick": {
+            "fills": true,
+            "checkpoints": true,
+            "position": true,
+            "cash": true
+          }
+        },
+        "unordered_fills_equal": {
+          "mini": true,
+          "backtrader": true,
+          "backtrader_volume": true,
+          "vnpy": true,
+          "nautilus": true,
+          "nautilus_tick": true
+        }
+      },
+      {
+        "name": "batch_22",
+        "architecture_unchanged": true,
+        "parity": {
+          "mini": {
+            "fills": true,
+            "checkpoints": true,
+            "position": true,
+            "cash": true
+          },
+          "backtrader": {
+            "fills": true,
+            "checkpoints": true,
+            "position": true,
+            "cash": true
+          },
+          "backtrader_volume": {
+            "fills": true,
+            "checkpoints": true,
+            "position": true,
+            "cash": true
+          },
+          "vnpy": {
+            "fills": true,
+            "checkpoints": true,
+            "position": true,
+            "cash": true
+          },
+          "nautilus": {
+            "fills": true,
+            "checkpoints": true,
+            "position": true,
+            "cash": true
+          },
+          "nautilus_tick": {
+            "fills": true,
+            "checkpoints": true,
+            "position": true,
+            "cash": true
+          }
+        },
+        "unordered_fills_equal": {
+          "mini": true,
+          "backtrader": true,
+          "backtrader_volume": true,
+          "vnpy": true,
+          "nautilus": true,
+          "nautilus_tick": true
+        }
+      },
+      {
+        "name": "batch_23",
+        "architecture_unchanged": true,
+        "parity": {
+          "mini": {
+            "fills": true,
+            "checkpoints": true,
+            "position": true,
+            "cash": true
+          },
+          "backtrader": {
+            "fills": true,
+            "checkpoints": true,
+            "position": true,
+            "cash": true
+          },
+          "backtrader_volume": {
+            "fills": true,
+            "checkpoints": true,
+            "position": true,
+            "cash": true
+          },
+          "vnpy": {
+            "fills": true,
+            "checkpoints": true,
+            "position": true,
+            "cash": true
+          },
+          "nautilus": {
+            "fills": true,
+            "checkpoints": true,
+            "position": true,
+            "cash": true
+          },
+          "nautilus_tick": {
+            "fills": true,
+            "checkpoints": true,
+            "position": true,
+            "cash": true
+          }
+        },
+        "unordered_fills_equal": {
+          "mini": true,
+          "backtrader": true,
+          "backtrader_volume": true,
+          "vnpy": true,
+          "nautilus": true,
+          "nautilus_tick": true
+        }
+      },
+      {
+        "name": "batch_24",
+        "architecture_unchanged": true,
+        "parity": {
+          "mini": {
+            "fills": true,
+            "checkpoints": true,
+            "position": true,
+            "cash": true
+          },
+          "backtrader": {
+            "fills": true,
+            "checkpoints": true,
+            "position": true,
+            "cash": true
+          },
+          "backtrader_volume": {
+            "fills": true,
+            "checkpoints": true,
+            "position": true,
+            "cash": true
+          },
+          "vnpy": {
+            "fills": true,
+            "checkpoints": true,
+            "position": true,
+            "cash": true
+          },
+          "nautilus": {
+            "fills": true,
+            "checkpoints": true,
+            "position": true,
+            "cash": true
+          },
+          "nautilus_tick": {
+            "fills": true,
+            "checkpoints": true,
+            "position": true,
+            "cash": true
+          }
+        },
+        "unordered_fills_equal": {
+          "mini": true,
+          "backtrader": true,
+          "backtrader_volume": true,
+          "vnpy": true,
+          "nautilus": true,
+          "nautilus_tick": true
+        }
+      },
+      {
+        "name": "batch_25",
+        "architecture_unchanged": true,
+        "parity": {
+          "mini": {
+            "fills": true,
+            "checkpoints": true,
+            "position": true,
+            "cash": true
+          },
+          "backtrader": {
+            "fills": true,
+            "checkpoints": true,
+            "position": true,
+            "cash": true
+          },
+          "backtrader_volume": {
+            "fills": true,
+            "checkpoints": true,
+            "position": true,
+            "cash": true
+          },
+          "vnpy": {
+            "fills": true,
+            "checkpoints": true,
+            "position": true,
+            "cash": true
+          },
+          "nautilus": {
+            "fills": true,
+            "checkpoints": true,
+            "position": true,
+            "cash": true
+          },
+          "nautilus_tick": {
+            "fills": true,
+            "checkpoints": true,
+            "position": true,
+            "cash": true
+          }
+        },
+        "unordered_fills_equal": {
+          "mini": true,
+          "backtrader": true,
+          "backtrader_volume": true,
+          "vnpy": true,
+          "nautilus": true,
+          "nautilus_tick": true
+        }
+      },
+      {
+        "name": "batch_26",
+        "architecture_unchanged": true,
+        "parity": {
+          "mini": {
+            "fills": true,
+            "checkpoints": true,
+            "position": true,
+            "cash": true
+          },
+          "backtrader": {
+            "fills": true,
+            "checkpoints": true,
+            "position": true,
+            "cash": true
+          },
+          "backtrader_volume": {
+            "fills": true,
+            "checkpoints": true,
+            "position": true,
+            "cash": true
+          },
+          "vnpy": {
+            "fills": true,
+            "checkpoints": true,
+            "position": true,
+            "cash": true
+          },
+          "nautilus": {
+            "fills": true,
+            "checkpoints": true,
+            "position": true,
+            "cash": true
+          },
+          "nautilus_tick": {
+            "fills": true,
+            "checkpoints": true,
+            "position": true,
+            "cash": true
+          }
+        },
+        "unordered_fills_equal": {
+          "mini": true,
+          "backtrader": true,
+          "backtrader_volume": true,
+          "vnpy": true,
+          "nautilus": true,
+          "nautilus_tick": true
+        }
+      },
+      {
+        "name": "batch_27",
+        "architecture_unchanged": true,
+        "parity": {
+          "mini": {
+            "fills": true,
+            "checkpoints": true,
+            "position": true,
+            "cash": true
+          },
+          "backtrader": {
+            "fills": true,
+            "checkpoints": true,
+            "position": true,
+            "cash": true
+          },
+          "backtrader_volume": {
+            "fills": true,
+            "checkpoints": true,
+            "position": true,
+            "cash": true
+          },
+          "vnpy": {
+            "fills": true,
+            "checkpoints": true,
+            "position": true,
+            "cash": true
+          },
+          "nautilus": {
+            "fills": true,
+            "checkpoints": true,
+            "position": true,
+            "cash": true
+          },
+          "nautilus_tick": {
+            "fills": true,
+            "checkpoints": true,
+            "position": true,
+            "cash": true
+          }
+        },
+        "unordered_fills_equal": {
+          "mini": true,
+          "backtrader": true,
+          "backtrader_volume": true,
+          "vnpy": true,
+          "nautilus": true,
+          "nautilus_tick": true
+        }
+      },
+      {
+        "name": "batch_28",
+        "architecture_unchanged": true,
+        "parity": {
+          "mini": {
+            "fills": true,
+            "checkpoints": true,
+            "position": true,
+            "cash": true
+          },
+          "backtrader": {
+            "fills": true,
+            "checkpoints": true,
+            "position": true,
+            "cash": true
+          },
+          "backtrader_volume": {
+            "fills": true,
+            "checkpoints": true,
+            "position": true,
+            "cash": true
+          },
+          "vnpy": {
+            "fills": true,
+            "checkpoints": true,
+            "position": true,
+            "cash": true
+          },
+          "nautilus": {
+            "fills": true,
+            "checkpoints": true,
+            "position": true,
+            "cash": true
+          },
+          "nautilus_tick": {
+            "fills": true,
+            "checkpoints": true,
+            "position": true,
+            "cash": true
+          }
+        },
+        "unordered_fills_equal": {
+          "mini": true,
+          "backtrader": true,
+          "backtrader_volume": true,
+          "vnpy": true,
+          "nautilus": true,
+          "nautilus_tick": true
+        }
+      },
+      {
+        "name": "batch_29",
+        "architecture_unchanged": true,
+        "parity": {
+          "mini": {
+            "fills": true,
+            "checkpoints": true,
+            "position": true,
+            "cash": true
+          },
+          "backtrader": {
+            "fills": true,
+            "checkpoints": true,
+            "position": true,
+            "cash": true
+          },
+          "backtrader_volume": {
+            "fills": true,
+            "checkpoints": true,
+            "position": true,
+            "cash": true
+          },
+          "vnpy": {
+            "fills": true,
+            "checkpoints": true,
+            "position": true,
+            "cash": true
+          },
+          "nautilus": {
+            "fills": true,
+            "checkpoints": true,
+            "position": true,
+            "cash": true
+          },
+          "nautilus_tick": {
+            "fills": true,
+            "checkpoints": true,
+            "position": true,
+            "cash": true
+          }
+        },
+        "unordered_fills_equal": {
+          "mini": true,
+          "backtrader": true,
+          "backtrader_volume": true,
+          "vnpy": true,
+          "nautilus": true,
+          "nautilus_tick": true
+        }
+      },
+      {
+        "name": "batch_30",
+        "architecture_unchanged": true,
+        "parity": {
+          "mini": {
+            "fills": true,
+            "checkpoints": true,
+            "position": true,
+            "cash": true
+          },
+          "backtrader": {
+            "fills": true,
+            "checkpoints": true,
+            "position": true,
+            "cash": true
+          },
+          "backtrader_volume": {
+            "fills": true,
+            "checkpoints": true,
+            "position": true,
+            "cash": true
+          },
+          "vnpy": {
+            "fills": true,
+            "checkpoints": true,
+            "position": true,
+            "cash": true
+          },
+          "nautilus": {
+            "fills": true,
+            "checkpoints": true,
+            "position": true,
+            "cash": true
+          },
+          "nautilus_tick": {
+            "fills": true,
+            "checkpoints": true,
+            "position": true,
+            "cash": true
+          }
+        },
+        "unordered_fills_equal": {
+          "mini": true,
+          "backtrader": true,
+          "backtrader_volume": true,
+          "vnpy": true,
+          "nautilus": true,
+          "nautilus_tick": true
+        }
+      },
+      {
+        "name": "batch_31",
+        "architecture_unchanged": true,
+        "parity": {
+          "mini": {
+            "fills": true,
+            "checkpoints": true,
+            "position": true,
+            "cash": true
+          },
+          "backtrader": {
+            "fills": true,
+            "checkpoints": true,
+            "position": true,
+            "cash": true
+          },
+          "backtrader_volume": {
+            "fills": true,
+            "checkpoints": true,
+            "position": true,
+            "cash": true
+          },
+          "vnpy": {
+            "fills": true,
+            "checkpoints": true,
+            "position": true,
+            "cash": true
+          },
+          "nautilus": {
+            "fills": true,
+            "checkpoints": true,
+            "position": true,
+            "cash": true
+          },
+          "nautilus_tick": {
+            "fills": true,
+            "checkpoints": true,
+            "position": true,
+            "cash": true
+          }
+        },
+        "unordered_fills_equal": {
+          "mini": true,
+          "backtrader": true,
+          "backtrader_volume": true,
+          "vnpy": true,
+          "nautilus": true,
+          "nautilus_tick": true
+        }
+      },
+      {
+        "name": "batch_32",
+        "architecture_unchanged": true,
+        "parity": {
+          "mini": {
+            "fills": true,
+            "checkpoints": true,
+            "position": true,
+            "cash": true
+          },
+          "backtrader": {
+            "fills": true,
+            "checkpoints": true,
+            "position": true,
+            "cash": true
+          },
+          "backtrader_volume": {
+            "fills": true,
+            "checkpoints": true,
+            "position": true,
+            "cash": true
+          },
+          "vnpy": {
+            "fills": true,
+            "checkpoints": true,
+            "position": true,
+            "cash": true
+          },
+          "nautilus": {
+            "fills": true,
+            "checkpoints": true,
+            "position": true,
+            "cash": true
+          },
+          "nautilus_tick": {
+            "fills": true,
+            "checkpoints": true,
+            "position": true,
+            "cash": true
+          }
+        },
+        "unordered_fills_equal": {
+          "mini": true,
+          "backtrader": true,
+          "backtrader_volume": true,
+          "vnpy": true,
+          "nautilus": true,
+          "nautilus_tick": true
+        }
+      },
+      {
+        "name": "batch_33",
+        "architecture_unchanged": true,
+        "parity": {
+          "mini": {
+            "fills": true,
+            "checkpoints": true,
+            "position": true,
+            "cash": true
+          },
+          "backtrader": {
+            "fills": true,
+            "checkpoints": true,
+            "position": true,
+            "cash": true
+          },
+          "backtrader_volume": {
+            "fills": true,
+            "checkpoints": true,
+            "position": true,
+            "cash": true
+          },
+          "vnpy": {
+            "fills": true,
+            "checkpoints": true,
+            "position": true,
+            "cash": true
+          },
+          "nautilus": {
+            "fills": true,
+            "checkpoints": true,
+            "position": true,
+            "cash": true
+          },
+          "nautilus_tick": {
+            "fills": true,
+            "checkpoints": true,
+            "position": true,
+            "cash": true
+          }
+        },
+        "unordered_fills_equal": {
+          "mini": true,
+          "backtrader": true,
+          "backtrader_volume": true,
+          "vnpy": true,
+          "nautilus": true,
+          "nautilus_tick": true
+        }
+      },
+      {
+        "name": "batch_34",
+        "architecture_unchanged": true,
+        "parity": {
+          "mini": {
+            "fills": true,
+            "checkpoints": true,
+            "position": true,
+            "cash": true
+          },
+          "backtrader": {
+            "fills": true,
+            "checkpoints": true,
+            "position": true,
+            "cash": true
+          },
+          "backtrader_volume": {
+            "fills": true,
+            "checkpoints": true,
+            "position": true,
+            "cash": true
+          },
+          "vnpy": {
+            "fills": true,
+            "checkpoints": true,
+            "position": true,
+            "cash": true
+          },
+          "nautilus": {
+            "fills": true,
+            "checkpoints": true,
+            "position": true,
+            "cash": true
+          },
+          "nautilus_tick": {
+            "fills": true,
+            "checkpoints": true,
+            "position": true,
+            "cash": true
+          }
+        },
+        "unordered_fills_equal": {
+          "mini": true,
+          "backtrader": true,
+          "backtrader_volume": true,
+          "vnpy": true,
+          "nautilus": true,
+          "nautilus_tick": true
+        }
+      },
+      {
+        "name": "batch_35",
+        "architecture_unchanged": true,
+        "parity": {
+          "mini": {
+            "fills": true,
+            "checkpoints": true,
+            "position": true,
+            "cash": true
+          },
+          "backtrader": {
+            "fills": true,
+            "checkpoints": true,
+            "position": true,
+            "cash": true
+          },
+          "backtrader_volume": {
+            "fills": true,
+            "checkpoints": true,
+            "position": true,
+            "cash": true
+          },
+          "vnpy": {
+            "fills": true,
+            "checkpoints": true,
+            "position": true,
+            "cash": true
+          },
+          "nautilus": {
+            "fills": true,
+            "checkpoints": true,
+            "position": true,
+            "cash": true
+          },
+          "nautilus_tick": {
+            "fills": true,
+            "checkpoints": true,
+            "position": true,
+            "cash": true
+          }
+        },
+        "unordered_fills_equal": {
+          "mini": true,
+          "backtrader": true,
+          "backtrader_volume": true,
+          "vnpy": true,
+          "nautilus": true,
+          "nautilus_tick": true
+        }
+      },
+      {
+        "name": "batch_36",
+        "architecture_unchanged": true,
+        "parity": {
+          "mini": {
+            "fills": true,
+            "checkpoints": true,
+            "position": true,
+            "cash": true
+          },
+          "backtrader": {
+            "fills": true,
+            "checkpoints": true,
+            "position": true,
+            "cash": true
+          },
+          "backtrader_volume": {
+            "fills": true,
+            "checkpoints": true,
+            "position": true,
+            "cash": true
+          },
+          "vnpy": {
+            "fills": true,
+            "checkpoints": true,
+            "position": true,
+            "cash": true
+          },
+          "nautilus": {
+            "fills": true,
+            "checkpoints": true,
+            "position": true,
+            "cash": true
+          },
+          "nautilus_tick": {
+            "fills": true,
+            "checkpoints": true,
+            "position": true,
+            "cash": true
+          }
+        },
+        "unordered_fills_equal": {
+          "mini": true,
+          "backtrader": true,
+          "backtrader_volume": true,
+          "vnpy": true,
+          "nautilus": true,
+          "nautilus_tick": true
+        }
+      },
+      {
+        "name": "batch_37",
+        "architecture_unchanged": true,
+        "parity": {
+          "mini": {
+            "fills": true,
+            "checkpoints": true,
+            "position": true,
+            "cash": true
+          },
+          "backtrader": {
+            "fills": true,
+            "checkpoints": true,
+            "position": true,
+            "cash": true
+          },
+          "backtrader_volume": {
+            "fills": true,
+            "checkpoints": true,
+            "position": true,
+            "cash": true
+          },
+          "vnpy": {
+            "fills": true,
+            "checkpoints": true,
+            "position": true,
+            "cash": true
+          },
+          "nautilus": {
+            "fills": true,
+            "checkpoints": true,
+            "position": true,
+            "cash": true
+          },
+          "nautilus_tick": {
+            "fills": true,
+            "checkpoints": true,
+            "position": true,
+            "cash": true
+          }
+        },
+        "unordered_fills_equal": {
+          "mini": true,
+          "backtrader": true,
+          "backtrader_volume": true,
+          "vnpy": true,
+          "nautilus": true,
+          "nautilus_tick": true
+        }
+      },
+      {
+        "name": "batch_38",
+        "architecture_unchanged": true,
+        "parity": {
+          "mini": {
+            "fills": true,
+            "checkpoints": true,
+            "position": true,
+            "cash": true
+          },
+          "backtrader": {
+            "fills": true,
+            "checkpoints": true,
+            "position": true,
+            "cash": true
+          },
+          "backtrader_volume": {
+            "fills": true,
+            "checkpoints": true,
+            "position": true,
+            "cash": true
+          },
+          "vnpy": {
+            "fills": true,
+            "checkpoints": true,
+            "position": true,
+            "cash": true
+          },
+          "nautilus": {
+            "fills": true,
+            "checkpoints": true,
+            "position": true,
+            "cash": true
+          },
+          "nautilus_tick": {
+            "fills": true,
+            "checkpoints": true,
+            "position": true,
+            "cash": true
+          }
+        },
+        "unordered_fills_equal": {
+          "mini": true,
+          "backtrader": true,
+          "backtrader_volume": true,
+          "vnpy": true,
+          "nautilus": true,
+          "nautilus_tick": true
+        }
+      },
+      {
+        "name": "batch_39",
+        "architecture_unchanged": true,
+        "parity": {
+          "mini": {
+            "fills": true,
+            "checkpoints": true,
+            "position": true,
+            "cash": true
+          },
+          "backtrader": {
+            "fills": true,
+            "checkpoints": true,
+            "position": true,
+            "cash": true
+          },
+          "backtrader_volume": {
+            "fills": true,
+            "checkpoints": true,
+            "position": true,
+            "cash": true
+          },
+          "vnpy": {
+            "fills": true,
+            "checkpoints": true,
+            "position": true,
+            "cash": true
+          },
+          "nautilus": {
+            "fills": true,
+            "checkpoints": true,
+            "position": true,
+            "cash": true
+          },
+          "nautilus_tick": {
+            "fills": true,
+            "checkpoints": true,
+            "position": true,
+            "cash": true
+          }
+        },
+        "unordered_fills_equal": {
+          "mini": true,
+          "backtrader": true,
+          "backtrader_volume": true,
+          "vnpy": true,
+          "nautilus": true,
+          "nautilus_tick": true
+        }
+      },
+      {
+        "name": "batch_40",
+        "architecture_unchanged": true,
+        "parity": {
+          "mini": {
+            "fills": true,
+            "checkpoints": true,
+            "position": true,
+            "cash": true
+          },
+          "backtrader": {
+            "fills": true,
+            "checkpoints": true,
+            "position": true,
+            "cash": true
+          },
+          "backtrader_volume": {
+            "fills": true,
+            "checkpoints": true,
+            "position": true,
+            "cash": true
+          },
+          "vnpy": {
+            "fills": true,
+            "checkpoints": true,
+            "position": true,
+            "cash": true
+          },
+          "nautilus": {
+            "fills": true,
+            "checkpoints": true,
+            "position": true,
+            "cash": true
+          },
+          "nautilus_tick": {
+            "fills": true,
+            "checkpoints": true,
+            "position": true,
+            "cash": true
+          }
+        },
+        "unordered_fills_equal": {
+          "mini": true,
+          "backtrader": true,
+          "backtrader_volume": true,
+          "vnpy": true,
+          "nautilus": true,
+          "nautilus_tick": true
+        }
+      },
+      {
+        "name": "batch_41",
+        "architecture_unchanged": true,
+        "parity": {
+          "mini": {
+            "fills": true,
+            "checkpoints": true,
+            "position": true,
+            "cash": true
+          },
+          "backtrader": {
+            "fills": true,
+            "checkpoints": true,
+            "position": true,
+            "cash": true
+          },
+          "backtrader_volume": {
+            "fills": true,
+            "checkpoints": true,
+            "position": true,
+            "cash": true
+          },
+          "vnpy": {
+            "fills": true,
+            "checkpoints": true,
+            "position": true,
+            "cash": true
+          },
+          "nautilus": {
+            "fills": true,
+            "checkpoints": true,
+            "position": true,
+            "cash": true
+          },
+          "nautilus_tick": {
+            "fills": true,
+            "checkpoints": true,
+            "position": true,
+            "cash": true
+          }
+        },
+        "unordered_fills_equal": {
+          "mini": true,
+          "backtrader": true,
+          "backtrader_volume": true,
+          "vnpy": true,
+          "nautilus": true,
+          "nautilus_tick": true
+        }
+      },
+      {
+        "name": "batch_42",
+        "architecture_unchanged": true,
+        "parity": {
+          "mini": {
+            "fills": true,
+            "checkpoints": true,
+            "position": true,
+            "cash": true
+          },
+          "backtrader": {
+            "fills": true,
+            "checkpoints": true,
+            "position": true,
+            "cash": true
+          },
+          "backtrader_volume": {
+            "fills": true,
+            "checkpoints": true,
+            "position": true,
+            "cash": true
+          },
+          "vnpy": {
+            "fills": true,
+            "checkpoints": true,
+            "position": true,
+            "cash": true
+          },
+          "nautilus": {
+            "fills": true,
+            "checkpoints": true,
+            "position": true,
+            "cash": true
+          },
+          "nautilus_tick": {
+            "fills": true,
+            "checkpoints": true,
+            "position": true,
+            "cash": true
+          }
+        },
+        "unordered_fills_equal": {
+          "mini": true,
+          "backtrader": true,
+          "backtrader_volume": true,
+          "vnpy": true,
+          "nautilus": true,
+          "nautilus_tick": true
+        }
+      },
+      {
+        "name": "batch_43",
+        "architecture_unchanged": true,
+        "parity": {
+          "mini": {
+            "fills": true,
+            "checkpoints": true,
+            "position": true,
+            "cash": true
+          },
+          "backtrader": {
+            "fills": true,
+            "checkpoints": true,
+            "position": true,
+            "cash": true
+          },
+          "backtrader_volume": {
+            "fills": true,
+            "checkpoints": true,
+            "position": true,
+            "cash": true
+          },
+          "vnpy": {
+            "fills": true,
+            "checkpoints": true,
+            "position": true,
+            "cash": true
+          },
+          "nautilus": {
+            "fills": true,
+            "checkpoints": true,
+            "position": true,
+            "cash": true
+          },
+          "nautilus_tick": {
+            "fills": true,
+            "checkpoints": true,
+            "position": true,
+            "cash": true
+          }
+        },
+        "unordered_fills_equal": {
+          "mini": true,
+          "backtrader": true,
+          "backtrader_volume": true,
+          "vnpy": true,
+          "nautilus": true,
+          "nautilus_tick": true
+        }
+      },
+      {
+        "name": "batch_44",
+        "architecture_unchanged": true,
+        "parity": {
+          "mini": {
+            "fills": true,
+            "checkpoints": true,
+            "position": true,
+            "cash": true
+          },
+          "backtrader": {
+            "fills": true,
+            "checkpoints": true,
+            "position": true,
+            "cash": true
+          },
+          "backtrader_volume": {
+            "fills": true,
+            "checkpoints": true,
+            "position": true,
+            "cash": true
+          },
+          "vnpy": {
+            "fills": true,
+            "checkpoints": true,
+            "position": true,
+            "cash": true
+          },
+          "nautilus": {
+            "fills": true,
+            "checkpoints": true,
+            "position": true,
+            "cash": true
+          },
+          "nautilus_tick": {
+            "fills": true,
+            "checkpoints": true,
+            "position": true,
+            "cash": true
+          }
+        },
+        "unordered_fills_equal": {
+          "mini": true,
+          "backtrader": true,
+          "backtrader_volume": true,
+          "vnpy": true,
+          "nautilus": true,
+          "nautilus_tick": true
+        }
+      },
+      {
+        "name": "batch_45",
+        "architecture_unchanged": true,
+        "parity": {
+          "mini": {
+            "fills": true,
+            "checkpoints": true,
+            "position": true,
+            "cash": true
+          },
+          "backtrader": {
+            "fills": true,
+            "checkpoints": true,
+            "position": true,
+            "cash": true
+          },
+          "backtrader_volume": {
+            "fills": true,
+            "checkpoints": true,
+            "position": true,
+            "cash": true
+          },
+          "vnpy": {
+            "fills": true,
+            "checkpoints": true,
+            "position": true,
+            "cash": true
+          },
+          "nautilus": {
+            "fills": true,
+            "checkpoints": true,
+            "position": true,
+            "cash": true
+          },
+          "nautilus_tick": {
+            "fills": true,
+            "checkpoints": true,
+            "position": true,
+            "cash": true
+          }
+        },
+        "unordered_fills_equal": {
+          "mini": true,
+          "backtrader": true,
+          "backtrader_volume": true,
+          "vnpy": true,
+          "nautilus": true,
+          "nautilus_tick": true
+        }
+      },
+      {
+        "name": "batch_46",
+        "architecture_unchanged": true,
+        "parity": {
+          "mini": {
+            "fills": true,
+            "checkpoints": true,
+            "position": true,
+            "cash": true
+          },
+          "backtrader": {
+            "fills": true,
+            "checkpoints": true,
+            "position": true,
+            "cash": true
+          },
+          "backtrader_volume": {
+            "fills": true,
+            "checkpoints": true,
+            "position": true,
+            "cash": true
+          },
+          "vnpy": {
+            "fills": true,
+            "checkpoints": true,
+            "position": true,
+            "cash": true
+          },
+          "nautilus": {
+            "fills": true,
+            "checkpoints": true,
+            "position": true,
+            "cash": true
+          },
+          "nautilus_tick": {
+            "fills": true,
+            "checkpoints": true,
+            "position": true,
+            "cash": true
+          }
+        },
+        "unordered_fills_equal": {
+          "mini": true,
+          "backtrader": true,
+          "backtrader_volume": true,
+          "vnpy": true,
+          "nautilus": true,
+          "nautilus_tick": true
+        }
+      },
+      {
+        "name": "batch_47",
+        "architecture_unchanged": true,
+        "parity": {
+          "mini": {
+            "fills": true,
+            "checkpoints": true,
+            "position": true,
+            "cash": true
+          },
+          "backtrader": {
+            "fills": true,
+            "checkpoints": true,
+            "position": true,
+            "cash": true
+          },
+          "backtrader_volume": {
+            "fills": true,
+            "checkpoints": true,
+            "position": true,
+            "cash": true
+          },
+          "vnpy": {
+            "fills": true,
+            "checkpoints": true,
+            "position": true,
+            "cash": true
+          },
+          "nautilus": {
+            "fills": true,
+            "checkpoints": true,
+            "position": true,
+            "cash": true
+          },
+          "nautilus_tick": {
+            "fills": true,
+            "checkpoints": true,
+            "position": true,
+            "cash": true
+          }
+        },
+        "unordered_fills_equal": {
+          "mini": true,
+          "backtrader": true,
+          "backtrader_volume": true,
+          "vnpy": true,
+          "nautilus": true,
+          "nautilus_tick": true
+        }
+      },
+      {
+        "name": "batch_48",
+        "architecture_unchanged": true,
+        "parity": {
+          "mini": {
+            "fills": true,
+            "checkpoints": true,
+            "position": true,
+            "cash": true
+          },
+          "backtrader": {
+            "fills": true,
+            "checkpoints": true,
+            "position": true,
+            "cash": true
+          },
+          "backtrader_volume": {
+            "fills": true,
+            "checkpoints": true,
+            "position": true,
+            "cash": true
+          },
+          "vnpy": {
+            "fills": true,
+            "checkpoints": true,
+            "position": true,
+            "cash": true
+          },
+          "nautilus": {
+            "fills": true,
+            "checkpoints": true,
+            "position": true,
+            "cash": true
+          },
+          "nautilus_tick": {
+            "fills": true,
+            "checkpoints": true,
+            "position": true,
+            "cash": true
+          }
+        },
+        "unordered_fills_equal": {
+          "mini": true,
+          "backtrader": true,
+          "backtrader_volume": true,
+          "vnpy": true,
+          "nautilus": true,
+          "nautilus_tick": true
+        }
+      },
+      {
+        "name": "batch_49",
+        "architecture_unchanged": true,
+        "parity": {
+          "mini": {
+            "fills": true,
+            "checkpoints": true,
+            "position": true,
+            "cash": true
+          },
+          "backtrader": {
+            "fills": true,
+            "checkpoints": true,
+            "position": true,
+            "cash": true
+          },
+          "backtrader_volume": {
+            "fills": true,
+            "checkpoints": true,
+            "position": true,
+            "cash": true
+          },
+          "vnpy": {
+            "fills": true,
+            "checkpoints": true,
+            "position": true,
+            "cash": true
+          },
+          "nautilus": {
+            "fills": true,
+            "checkpoints": true,
+            "position": true,
+            "cash": true
+          },
+          "nautilus_tick": {
+            "fills": true,
+            "checkpoints": true,
+            "position": true,
+            "cash": true
+          }
+        },
+        "unordered_fills_equal": {
+          "mini": true,
+          "backtrader": true,
+          "backtrader_volume": true,
+          "vnpy": true,
+          "nautilus": true,
+          "nautilus_tick": true
+        }
+      }
+    ]
+  },
+  "notification_regression": {
+    "workload": {
+      "steps": [
+        {
+          "price": 100,
+          "volume": 1000,
+          "taker": "Sell",
+          "actions": [
+            {
+              "kind": "Submit",
+              "id": 1,
+              "side": "Sell",
+              "qty": 1,
+              "limit": 102
+            }
+          ]
+        },
+        {
+          "price": 101,
+          "volume": 1000,
+          "taker": "Buy",
+          "actions": [
+            {
+              "kind": "Submit",
+              "id": 2,
+              "side": "Sell",
+              "qty": 1,
+              "limit": 102
+            }
+          ]
+        },
+        {
+          "price": 102,
+          "volume": 1000,
+          "taker": "Buy",
+          "actions": []
+        }
+      ]
+    },
+    "old": {
+      "fills": [
+        {
+          "step": 2,
+          "id": 2,
+          "side": "Sell",
+          "qty": 1,
+          "price": 102.0
+        },
+        {
+          "step": 2,
+          "id": 1,
+          "side": "Sell",
+          "qty": 1,
+          "price": 102.0
+        }
+      ],
+      "checkpoints": [
+        {
+          "step": 0,
+          "position": 0,
+          "cash": 0.0,
+          "equity": 0.0
+        },
+        {
+          "step": 1,
+          "position": 0,
+          "cash": 0.0,
+          "equity": 0.0
+        },
+        {
+          "step": 2,
+          "position": -2,
+          "cash": 204.0,
+          "equity": 0.0
+        }
+      ],
+      "position": -2,
+      "cash": 204.0,
+      "elapsed_seconds": 0.0016568749997531995
+    },
+    "corrected": {
+      "fills": [
+        {
+          "step": 2,
+          "id": 1,
+          "side": "Sell",
+          "qty": 1,
+          "price": 102.0
+        },
+        {
+          "step": 2,
+          "id": 2,
+          "side": "Sell",
+          "qty": 1,
+          "price": 102.0
+        }
+      ],
+      "checkpoints": [
+        {
+          "step": 0,
+          "position": 0,
+          "cash": 0.0,
+          "equity": 0.0
+        },
+        {
+          "step": 1,
+          "position": 0,
+          "cash": 0.0,
+          "equity": 0.0
+        },
+        {
+          "step": 2,
+          "position": -2,
+          "cash": 204.0,
+          "equity": 0.0
+        }
+      ],
+      "position": -2,
+      "cash": 204.0,
+      "elapsed_seconds": 0.000691167006152682
+    }
+  },
+  "special_cases": {
+    "submit_cancel_same_callback": {
+      "name": "submit_cancel_same_callback",
+      "workload": {
+        "steps": [
+          {
+            "price": 100,
+            "volume": 1000,
+            "taker": "Sell",
+            "actions": [
+              {
+                "kind": "Submit",
+                "id": 1,
+                "side": "Buy",
+                "qty": 2,
+                "limit": 100
+              },
+              {
+                "kind": "Cancel",
+                "id": 1
+              }
+            ]
+          },
+          {
+            "price": 100,
+            "volume": 1000,
+            "taker": "Sell",
+            "actions": []
+          },
+          {
+            "price": 101,
+            "volume": 1000,
+            "taker": "Buy",
+            "actions": []
+          }
+        ]
+      },
+      "results": {
+        "mini": {
+          "cash": 0,
+          "checkpoints": [
+            {
+              "cash": 0,
+              "equity": 0,
+              "position": 0,
+              "step": 0
+            },
+            {
+              "cash": 0,
+              "equity": 0,
+              "position": 0,
+              "step": 1
+            },
+            {
+              "cash": 0,
+              "equity": 0,
+              "position": 0,
+              "step": 2
+            }
+          ],
+          "elapsed_seconds": 4.916e-06,
+          "events": 10,
+          "fills": [],
+          "position": 0,
+          "probe_elapsed_seconds": 0.0,
+          "probe_quotes": 0,
+          "retained_fills": 0,
+          "retained_orders": 1,
+          "wall_seconds": 0.004524125004536472
+        },
+        "backtrader": {
+          "fills": [
+            {
+              "step": 1,
+              "id": 1,
+              "side": "Buy",
+              "qty": 2,
+              "price": 100.0
+            }
+          ],
+          "checkpoints": [
+            {
+              "step": 0,
+              "position": 0,
+              "cash": 0.0,
+              "equity": 0.0
+            },
+            {
+              "step": 1,
+              "position": 2,
+              "cash": -200.0,
+              "equity": 0.0
+            },
+            {
+              "step": 2,
+              "position": 2,
+              "cash": -200.0,
+              "equity": 2.0
+            }
+          ],
+          "position": 2,
+          "cash": -200.0,
+          "elapsed_seconds": 0.0011817089980468154
+        },
+        "backtrader_volume": {
+          "fills": [
+            {
+              "step": 1,
+              "id": 1,
+              "side": "Buy",
+              "qty": 2,
+              "price": 100.0
+            }
+          ],
+          "checkpoints": [
+            {
+              "step": 0,
+              "position": 0,
+              "cash": 0.0,
+              "equity": 0.0
+            },
+            {
+              "step": 1,
+              "position": 2,
+              "cash": -200.0,
+              "equity": 0.0
+            },
+            {
+              "step": 2,
+              "position": 2,
+              "cash": -200.0,
+              "equity": 2.0
+            }
+          ],
+          "position": 2,
+          "cash": -200.0,
+          "elapsed_seconds": 0.0005741249915445223
+        },
+        "vnpy": {
+          "position": 0,
+          "cash": 0,
+          "checkpoints": [
+            {
+              "step": 0,
+              "position": 0,
+              "cash": 0,
+              "equity": 0
+            },
+            {
+              "step": 1,
+              "position": 0,
+              "cash": 0,
+              "equity": 0
+            },
+            {
+              "step": 2,
+              "position": 0,
+              "cash": 0,
+              "equity": 0
+            }
+          ],
+          "fills": [],
+          "elapsed_seconds": 4.616699879989028e-05,
+          "native_pnl": 0.0
+        },
+        "nautilus": {
+          "position": 2.0,
+          "cash": -200.0,
+          "checkpoints": [
+            {
+              "step": 0,
+              "position": 2.0,
+              "cash": -200.0,
+              "equity": 0.0
+            },
+            {
+              "step": 1,
+              "position": 2.0,
+              "cash": -200.0,
+              "equity": 0.0
+            },
+            {
+              "step": 2,
+              "position": 2.0,
+              "cash": -200.0,
+              "equity": 2.0
+            }
+          ],
+          "fills": [
+            {
+              "step": 0,
+              "id": 1,
+              "side": "Buy",
+              "qty": 2.0,
+              "price": 100.0
+            }
+          ],
+          "elapsed_seconds": 0.0010852909908862785,
+          "native_pnl": 2.0,
+          "native_diagnostics": {
+            "cached_portfolio_pnl": 2.0,
+            "fresh_portfolio_pnl": 2.0,
+            "account_pnl": 2.0,
+            "exact_fill_pnl": 2.0,
+            "rounded_margin_pnl": 2.0,
+            "currency_quantization_bound": 0.005,
+            "account_rounding_delta": 0.0
+          },
+          "matching_input": "bar"
+        },
+        "nautilus_tick": {
+          "position": 2.0,
+          "cash": -200.0,
+          "checkpoints": [
+            {
+              "step": 0,
+              "position": 2.0,
+              "cash": -200.0,
+              "equity": 0.0
+            },
+            {
+              "step": 1,
+              "position": 2.0,
+              "cash": -200.0,
+              "equity": 0.0
+            },
+            {
+              "step": 2,
+              "position": 2.0,
+              "cash": -200.0,
+              "equity": 2.0
+            }
+          ],
+          "fills": [
+            {
+              "step": 0,
+              "id": 1,
+              "side": "Buy",
+              "qty": 2.0,
+              "price": 100.0
+            }
+          ],
+          "elapsed_seconds": 0.00046558299800381064,
+          "native_pnl": 2.0,
+          "native_diagnostics": {
+            "cached_portfolio_pnl": 2.0,
+            "fresh_portfolio_pnl": 2.0,
+            "account_pnl": 2.0,
+            "exact_fill_pnl": 2.0,
+            "rounded_margin_pnl": 2.0,
+            "currency_quantization_bound": 0.005,
+            "account_rounding_delta": 0.0
+          },
+          "matching_input": "trade"
+        }
+      },
+      "baseline_mini": {
+        "cash": 0,
+        "checkpoints": [
+          {
+            "cash": 0,
+            "equity": 0,
+            "position": 0,
+            "step": 0
+          },
+          {
+            "cash": 0,
+            "equity": 0,
+            "position": 0,
+            "step": 1
+          },
+          {
+            "cash": 0,
+            "equity": 0,
+            "position": 0,
+            "step": 2
+          }
+        ],
+        "elapsed_seconds": 4.917e-06,
+        "events": 10,
+        "fills": [],
+        "position": 0,
+        "probe_elapsed_seconds": 0.0,
+        "probe_quotes": 0,
+        "retained_fills": 0,
+        "retained_orders": 1,
+        "wall_seconds": 0.005168500007130206
+      },
+      "architecture_unchanged": true,
+      "parity": {
+        "mini": {
+          "fills": true,
+          "checkpoints": true,
+          "position": true,
+          "cash": true
+        },
+        "backtrader": {
+          "fills": false,
+          "checkpoints": false,
+          "position": false,
+          "cash": false
+        },
+        "backtrader_volume": {
+          "fills": false,
+          "checkpoints": false,
+          "position": false,
+          "cash": false
+        },
+        "vnpy": {
+          "fills": true,
+          "checkpoints": true,
+          "position": true,
+          "cash": true
+        },
+        "nautilus": {
+          "fills": false,
+          "checkpoints": false,
+          "position": false,
+          "cash": false
+        },
+        "nautilus_tick": {
+          "fills": false,
+          "checkpoints": false,
+          "position": false,
+          "cash": false
+        }
+      },
+      "unordered_fills_equal": {
+        "mini": true,
+        "backtrader": false,
+        "backtrader_volume": false,
+        "vnpy": true,
+        "nautilus": false,
+        "nautilus_tick": false
+      }
+    },
+    "two_sides_one_trade": {
+      "name": "two_sides_one_trade",
+      "workload": {
+        "steps": [
+          {
+            "price": 101,
+            "volume": 100,
+            "taker": "Sell",
+            "actions": [
+              {
+                "kind": "Submit",
+                "id": 1,
+                "side": "Buy",
+                "qty": 2,
+                "limit": 100
+              },
+              {
+                "kind": "Submit",
+                "id": 2,
+                "side": "Sell",
+                "qty": 2,
+                "limit": 102
+              }
+            ]
+          },
+          {
+            "price": 100,
+            "volume": 2,
+            "taker": "Sell",
+            "actions": [
+              {
+                "kind": "Submit",
+                "id": 3,
+                "side": "Sell",
+                "qty": 2,
+                "limit": 100
+              }
+            ]
+          },
+          {
+            "price": 100,
+            "volume": 2,
+            "taker": "Buy",
+            "actions": []
+          }
+        ]
+      },
+      "results": {
+        "mini": {
+          "cash": 0,
+          "checkpoints": [
+            {
+              "cash": 0,
+              "equity": 0,
+              "position": 0,
+              "step": 0
+            },
+            {
+              "cash": -200,
+              "equity": 0,
+              "position": 2,
+              "step": 1
+            },
+            {
+              "cash": 0,
+              "equity": 0,
+              "position": 0,
+              "step": 2
+            }
+          ],
+          "elapsed_seconds": 2.225e-05,
+          "events": 14,
+          "fills": [
+            {
+              "id": 1,
+              "price": 100,
+              "qty": 2,
+              "side": "Buy",
+              "step": 1
+            },
+            {
+              "id": 3,
+              "price": 100,
+              "qty": 2,
+              "side": "Sell",
+              "step": 2
+            }
+          ],
+          "position": 0,
+          "probe_elapsed_seconds": 4.2e-08,
+          "probe_quotes": 0,
+          "retained_fills": 2,
+          "retained_orders": 3,
+          "wall_seconds": 0.006454582995502278
+        },
+        "backtrader": {
+          "fills": [
+            {
+              "step": 1,
+              "id": 1,
+              "side": "Buy",
+              "qty": 2,
+              "price": 100.0
+            },
+            {
+              "step": 2,
+              "id": 3,
+              "side": "Sell",
+              "qty": 2,
+              "price": 100.0
+            }
+          ],
+          "checkpoints": [
+            {
+              "step": 0,
+              "position": 0,
+              "cash": 0.0,
+              "equity": 0.0
+            },
+            {
+              "step": 1,
+              "position": 2,
+              "cash": -200.0,
+              "equity": 0.0
+            },
+            {
+              "step": 2,
+              "position": 0,
+              "cash": 0.0,
+              "equity": 0.0
+            }
+          ],
+          "position": 0,
+          "cash": 0.0,
+          "elapsed_seconds": 0.0012036249972879887
+        },
+        "backtrader_volume": {
+          "fills": [
+            {
+              "step": 1,
+              "id": 1,
+              "side": "Buy",
+              "qty": 2.0,
+              "price": 100.0
+            },
+            {
+              "step": 2,
+              "id": 3,
+              "side": "Sell",
+              "qty": 2.0,
+              "price": 100.0
+            }
+          ],
+          "checkpoints": [
+            {
+              "step": 0,
+              "position": 0,
+              "cash": 0.0,
+              "equity": 0.0
+            },
+            {
+              "step": 1,
+              "position": 2.0,
+              "cash": -200.0,
+              "equity": 0.0
+            },
+            {
+              "step": 2,
+              "position": 0.0,
+              "cash": 0.0,
+              "equity": 0.0
+            }
+          ],
+          "position": 0.0,
+          "cash": 0.0,
+          "elapsed_seconds": 0.0007348340004682541
+        },
+        "vnpy": {
+          "position": 0,
+          "cash": 0.0,
+          "checkpoints": [
+            {
+              "step": 0,
+              "position": 0,
+              "cash": 0,
+              "equity": 0
+            },
+            {
+              "step": 1,
+              "position": 2,
+              "cash": -200.0,
+              "equity": 0.0
+            },
+            {
+              "step": 2,
+              "position": 0,
+              "cash": 0.0,
+              "equity": 0.0
+            }
+          ],
+          "fills": [
+            {
+              "step": 1,
+              "id": 1,
+              "side": "Buy",
+              "qty": 2,
+              "price": 100.0
+            },
+            {
+              "step": 2,
+              "id": 3,
+              "side": "Sell",
+              "qty": 2,
+              "price": 100.0
+            }
+          ],
+          "elapsed_seconds": 0.00012920799781568348,
+          "native_pnl": 0.0
+        },
+        "nautilus": {
+          "position": 0.0,
+          "cash": 0.0,
+          "checkpoints": [
+            {
+              "step": 0,
+              "position": 0,
+              "cash": 0,
+              "equity": 0
+            },
+            {
+              "step": 1,
+              "position": 0.0,
+              "cash": 0.0,
+              "equity": 0.0
+            },
+            {
+              "step": 2,
+              "position": 0.0,
+              "cash": 0.0,
+              "equity": 0.0
+            }
+          ],
+          "fills": [
+            {
+              "step": 1,
+              "id": 1,
+              "side": "Buy",
+              "qty": 1.0,
+              "price": 100.0
+            },
+            {
+              "step": 1,
+              "id": 3,
+              "side": "Sell",
+              "qty": 1.0,
+              "price": 100.0
+            },
+            {
+              "step": 1,
+              "id": 1,
+              "side": "Buy",
+              "qty": 1.0,
+              "price": 100.0
+            },
+            {
+              "step": 1,
+              "id": 3,
+              "side": "Sell",
+              "qty": 1.0,
+              "price": 100.0
+            }
+          ],
+          "elapsed_seconds": 0.02146887501294259,
+          "native_pnl": 0.0,
+          "native_diagnostics": {
+            "cached_portfolio_pnl": 0.0,
+            "fresh_portfolio_pnl": 0.0,
+            "account_pnl": 0.0,
+            "exact_fill_pnl": 0.0,
+            "rounded_margin_pnl": 0.0,
+            "currency_quantization_bound": 0.01,
+            "account_rounding_delta": 0.0
+          },
+          "matching_input": "bar"
+        },
+        "nautilus_tick": {
+          "position": 0.0,
+          "cash": 0.0,
+          "checkpoints": [
+            {
+              "step": 0,
+              "position": 0,
+              "cash": 0,
+              "equity": 0
+            },
+            {
+              "step": 1,
+              "position": 0.0,
+              "cash": 0.0,
+              "equity": 0.0
+            },
+            {
+              "step": 2,
+              "position": 0.0,
+              "cash": 0.0,
+              "equity": 0.0
+            }
+          ],
+          "fills": [
+            {
+              "step": 1,
+              "id": 1,
+              "side": "Buy",
+              "qty": 2.0,
+              "price": 100.0
+            },
+            {
+              "step": 1,
+              "id": 3,
+              "side": "Sell",
+              "qty": 2.0,
+              "price": 100.0
+            }
+          ],
+          "elapsed_seconds": 0.0014859999937471002,
+          "native_pnl": 0.0,
+          "native_diagnostics": {
+            "cached_portfolio_pnl": 0.0,
+            "fresh_portfolio_pnl": 0.0,
+            "account_pnl": 0.0,
+            "exact_fill_pnl": 0.0,
+            "rounded_margin_pnl": 0.0,
+            "currency_quantization_bound": 0.005,
+            "account_rounding_delta": 0.0
+          },
+          "matching_input": "trade"
+        }
+      },
+      "baseline_mini": {
+        "cash": 0,
+        "checkpoints": [
+          {
+            "cash": 0,
+            "equity": 0,
+            "position": 0,
+            "step": 0
+          },
+          {
+            "cash": -200,
+            "equity": 0,
+            "position": 2,
+            "step": 1
+          },
+          {
+            "cash": 0,
+            "equity": 0,
+            "position": 0,
+            "step": 2
+          }
+        ],
+        "elapsed_seconds": 7.959e-06,
+        "events": 14,
+        "fills": [
+          {
+            "id": 1,
+            "price": 100,
+            "qty": 2,
+            "side": "Buy",
+            "step": 1
+          },
+          {
+            "id": 3,
+            "price": 100,
+            "qty": 2,
+            "side": "Sell",
+            "step": 2
+          }
+        ],
+        "position": 0,
+        "probe_elapsed_seconds": 4.2e-08,
+        "probe_quotes": 0,
+        "retained_fills": 2,
+        "retained_orders": 3,
+        "wall_seconds": 0.009580166995874606
+      },
+      "architecture_unchanged": true,
+      "parity": {
+        "mini": {
+          "fills": true,
+          "checkpoints": true,
+          "position": true,
+          "cash": true
+        },
+        "backtrader": {
+          "fills": true,
+          "checkpoints": true,
+          "position": true,
+          "cash": true
+        },
+        "backtrader_volume": {
+          "fills": true,
+          "checkpoints": true,
+          "position": true,
+          "cash": true
+        },
+        "vnpy": {
+          "fills": true,
+          "checkpoints": true,
+          "position": true,
+          "cash": true
+        },
+        "nautilus": {
+          "fills": false,
+          "checkpoints": false,
+          "position": true,
+          "cash": true
+        },
+        "nautilus_tick": {
+          "fills": false,
+          "checkpoints": false,
+          "position": true,
+          "cash": true
+        }
+      },
+      "unordered_fills_equal": {
+        "mini": true,
+        "backtrader": true,
+        "backtrader_volume": true,
+        "vnpy": true,
+        "nautilus": false,
+        "nautilus_tick": false
+      }
+    },
+    "cancel_replace": {
+      "name": "cancel_replace",
+      "workload": {
+        "steps": [
+          {
+            "price": 102,
+            "volume": 1000,
+            "taker": "Sell",
+            "actions": [
+              {
+                "kind": "Submit",
+                "id": 1,
+                "side": "Buy",
+                "qty": 3,
+                "limit": 100
+              }
+            ]
+          },
+          {
+            "price": 101,
+            "volume": 1000,
+            "taker": "Sell",
+            "actions": [
+              {
+                "kind": "Cancel",
+                "id": 1
+              },
+              {
+                "kind": "Submit",
+                "id": 2,
+                "side": "Buy",
+                "qty": 2,
+                "limit": 100
+              }
+            ]
+          },
+          {
+            "price": 100,
+            "volume": 1000,
+            "taker": "Sell",
+            "actions": [
+              {
+                "kind": "Submit",
+                "id": 3,
+                "side": "Sell",
+                "qty": 2,
+                "limit": 102
+              }
+            ]
+          },
+          {
+            "price": 102,
+            "volume": 1000,
+            "taker": "Buy",
+            "actions": []
+          }
+        ]
+      },
+      "results": {
+        "mini": {
+          "cash": 4,
+          "checkpoints": [
+            {
+              "cash": 0,
+              "equity": 0,
+              "position": 0,
+              "step": 0
+            },
+            {
+              "cash": 0,
+              "equity": 0,
+              "position": 0,
+              "step": 1
+            },
+            {
+              "cash": -200,
+              "equity": 0,
+              "position": 2,
+              "step": 2
+            },
+            {
+              "cash": 4,
+              "equity": 4,
+              "position": 0,
+              "step": 3
+            }
+          ],
+          "elapsed_seconds": 1.0208e-05,
+          "events": 18,
+          "fills": [
+            {
+              "id": 2,
+              "price": 100,
+              "qty": 2,
+              "side": "Buy",
+              "step": 2
+            },
+            {
+              "id": 3,
+              "price": 102,
+              "qty": 2,
+              "side": "Sell",
+              "step": 3
+            }
+          ],
+          "position": 0,
+          "probe_elapsed_seconds": 0.0,
+          "probe_quotes": 0,
+          "retained_fills": 2,
+          "retained_orders": 3,
+          "wall_seconds": 0.004619792001903988
+        },
+        "backtrader": {
+          "fills": [
+            {
+              "step": 2,
+              "id": 2,
+              "side": "Buy",
+              "qty": 2,
+              "price": 100.0
+            },
+            {
+              "step": 3,
+              "id": 3,
+              "side": "Sell",
+              "qty": 2,
+              "price": 102.0
+            }
+          ],
+          "checkpoints": [
+            {
+              "step": 0,
+              "position": 0,
+              "cash": 0.0,
+              "equity": 0.0
+            },
+            {
+              "step": 1,
+              "position": 0,
+              "cash": 0.0,
+              "equity": 0.0
+            },
+            {
+              "step": 2,
+              "position": 2,
+              "cash": -200.0,
+              "equity": 0.0
+            },
+            {
+              "step": 3,
+              "position": 0,
+              "cash": 4.0,
+              "equity": 4.0
+            }
+          ],
+          "position": 0,
+          "cash": 4.0,
+          "elapsed_seconds": 0.0013832919939886779
+        },
+        "backtrader_volume": {
+          "fills": [
+            {
+              "step": 2,
+              "id": 2,
+              "side": "Buy",
+              "qty": 2,
+              "price": 100.0
+            },
+            {
+              "step": 3,
+              "id": 3,
+              "side": "Sell",
+              "qty": 2,
+              "price": 102.0
+            }
+          ],
+          "checkpoints": [
+            {
+              "step": 0,
+              "position": 0,
+              "cash": 0.0,
+              "equity": 0.0
+            },
+            {
+              "step": 1,
+              "position": 0,
+              "cash": 0.0,
+              "equity": 0.0
+            },
+            {
+              "step": 2,
+              "position": 2,
+              "cash": -200.0,
+              "equity": 0.0
+            },
+            {
+              "step": 3,
+              "position": 0,
+              "cash": 4.0,
+              "equity": 4.0
+            }
+          ],
+          "position": 0,
+          "cash": 4.0,
+          "elapsed_seconds": 0.0008384999964619055
+        },
+        "vnpy": {
+          "position": 0,
+          "cash": 4.0,
+          "checkpoints": [
+            {
+              "step": 0,
+              "position": 0,
+              "cash": 0,
+              "equity": 0
+            },
+            {
+              "step": 1,
+              "position": 0,
+              "cash": 0,
+              "equity": 0
+            },
+            {
+              "step": 2,
+              "position": 2,
+              "cash": -200.0,
+              "equity": 0.0
+            },
+            {
+              "step": 3,
+              "position": 0,
+              "cash": 4.0,
+              "equity": 4.0
+            }
+          ],
+          "fills": [
+            {
+              "step": 2,
+              "id": 2,
+              "side": "Buy",
+              "qty": 2,
+              "price": 100.0
+            },
+            {
+              "step": 3,
+              "id": 3,
+              "side": "Sell",
+              "qty": 2,
+              "price": 102.0
+            }
+          ],
+          "elapsed_seconds": 9.14999982342124e-05,
+          "native_pnl": 4.0
+        },
+        "nautilus": {
+          "position": 0.0,
+          "cash": 4.0,
+          "checkpoints": [
+            {
+              "step": 0,
+              "position": 0,
+              "cash": 0,
+              "equity": 0
+            },
+            {
+              "step": 1,
+              "position": 0,
+              "cash": 0,
+              "equity": 0
+            },
+            {
+              "step": 2,
+              "position": 2.0,
+              "cash": -200.0,
+              "equity": 0.0
+            },
+            {
+              "step": 3,
+              "position": 0.0,
+              "cash": 4.0,
+              "equity": 4.0
+            }
+          ],
+          "fills": [
+            {
+              "step": 2,
+              "id": 2,
+              "side": "Buy",
+              "qty": 2.0,
+              "price": 100.0
+            },
+            {
+              "step": 3,
+              "id": 3,
+              "side": "Sell",
+              "qty": 2.0,
+              "price": 102.0
+            }
+          ],
+          "elapsed_seconds": 0.0021846669988008216,
+          "native_pnl": 4.0,
+          "native_diagnostics": {
+            "cached_portfolio_pnl": 4.0,
+            "fresh_portfolio_pnl": 4.0,
+            "account_pnl": 4.0,
+            "exact_fill_pnl": 4.0,
+            "rounded_margin_pnl": 4.0,
+            "currency_quantization_bound": 0.005,
+            "account_rounding_delta": 0.0
+          },
+          "matching_input": "bar"
+        },
+        "nautilus_tick": {
+          "position": 0.0,
+          "cash": 4.0,
+          "checkpoints": [
+            {
+              "step": 0,
+              "position": 0,
+              "cash": 0,
+              "equity": 0
+            },
+            {
+              "step": 1,
+              "position": 0,
+              "cash": 0,
+              "equity": 0
+            },
+            {
+              "step": 2,
+              "position": 2.0,
+              "cash": -200.0,
+              "equity": 0.0
+            },
+            {
+              "step": 3,
+              "position": 0.0,
+              "cash": 4.0,
+              "equity": 4.0
+            }
+          ],
+          "fills": [
+            {
+              "step": 2,
+              "id": 2,
+              "side": "Buy",
+              "qty": 2.0,
+              "price": 100.0
+            },
+            {
+              "step": 3,
+              "id": 3,
+              "side": "Sell",
+              "qty": 2.0,
+              "price": 102.0
+            }
+          ],
+          "elapsed_seconds": 0.0008756659954087809,
+          "native_pnl": 4.0,
+          "native_diagnostics": {
+            "cached_portfolio_pnl": 4.0,
+            "fresh_portfolio_pnl": 4.0,
+            "account_pnl": 4.0,
+            "exact_fill_pnl": 4.0,
+            "rounded_margin_pnl": 4.0,
+            "currency_quantization_bound": 0.005,
+            "account_rounding_delta": 0.0
+          },
+          "matching_input": "trade"
+        }
+      },
+      "baseline_mini": {
+        "cash": 4,
+        "checkpoints": [
+          {
+            "cash": 0,
+            "equity": 0,
+            "position": 0,
+            "step": 0
+          },
+          {
+            "cash": 0,
+            "equity": 0,
+            "position": 0,
+            "step": 1
+          },
+          {
+            "cash": -200,
+            "equity": 0,
+            "position": 2,
+            "step": 2
+          },
+          {
+            "cash": 4,
+            "equity": 4,
+            "position": 0,
+            "step": 3
+          }
+        ],
+        "elapsed_seconds": 9.709e-06,
+        "events": 18,
+        "fills": [
+          {
+            "id": 2,
+            "price": 100,
+            "qty": 2,
+            "side": "Buy",
+            "step": 2
+          },
+          {
+            "id": 3,
+            "price": 102,
+            "qty": 2,
+            "side": "Sell",
+            "step": 3
+          }
+        ],
+        "position": 0,
+        "probe_elapsed_seconds": 0.0,
+        "probe_quotes": 0,
+        "retained_fills": 2,
+        "retained_orders": 3,
+        "wall_seconds": 0.004854166996665299
+      },
+      "architecture_unchanged": true,
+      "parity": {
+        "mini": {
+          "fills": true,
+          "checkpoints": true,
+          "position": true,
+          "cash": true
+        },
+        "backtrader": {
+          "fills": true,
+          "checkpoints": true,
+          "position": true,
+          "cash": true
+        },
+        "backtrader_volume": {
+          "fills": true,
+          "checkpoints": true,
+          "position": true,
+          "cash": true
+        },
+        "vnpy": {
+          "fills": true,
+          "checkpoints": true,
+          "position": true,
+          "cash": true
+        },
+        "nautilus": {
+          "fills": true,
+          "checkpoints": true,
+          "position": true,
+          "cash": true
+        },
+        "nautilus_tick": {
+          "fills": true,
+          "checkpoints": true,
+          "position": true,
+          "cash": true
+        }
+      },
+      "unordered_fills_equal": {
+        "mini": true,
+        "backtrader": true,
+        "backtrader_volume": true,
+        "vnpy": true,
+        "nautilus": true,
+        "nautilus_tick": true
+      }
+    },
+    "cancel_many_resting": {
+      "name": "cancel_many_resting",
+      "workload": {
+        "steps": [
+          {
+            "price": 100,
+            "volume": 1000,
+            "taker": "Sell",
+            "actions": [
+              {
+                "kind": "Submit",
+                "id": 1,
+                "side": "Buy",
+                "qty": 2,
+                "limit": 98
+              },
+              {
+                "kind": "Submit",
+                "id": 2,
+                "side": "Buy",
+                "qty": 2,
+                "limit": 99
+              },
+              {
+                "kind": "Submit",
+                "id": 3,
+                "side": "Sell",
+                "qty": 2,
+                "limit": 102
+              }
+            ]
+          },
+          {
+            "price": 101,
+            "volume": 1000,
+            "taker": "Buy",
+            "actions": [
+              {
+                "kind": "Cancel",
+                "id": 1
+              },
+              {
+                "kind": "Cancel",
+                "id": 2
+              },
+              {
+                "kind": "Cancel",
+                "id": 3
+              }
+            ]
+          },
+          {
+            "price": 100,
+            "volume": 1000,
+            "taker": "Sell",
+            "actions": []
+          },
+          {
+            "price": 99,
+            "volume": 1000,
+            "taker": "Sell",
+            "actions": []
+          }
+        ]
+      },
+      "results": {
+        "mini": {
+          "cash": 0,
+          "checkpoints": [
+            {
+              "cash": 0,
+              "equity": 0,
+              "position": 0,
+              "step": 0
+            },
+            {
+              "cash": 0,
+              "equity": 0,
+              "position": 0,
+              "step": 1
+            },
+            {
+              "cash": 0,
+              "equity": 0,
+              "position": 0,
+              "step": 2
+            },
+            {
+              "cash": 0,
+              "equity": 0,
+              "position": 0,
+              "step": 3
+            }
+          ],
+          "elapsed_seconds": 6.375e-06,
+          "events": 20,
+          "fills": [],
+          "position": 0,
+          "probe_elapsed_seconds": 4.1e-08,
+          "probe_quotes": 0,
+          "retained_fills": 0,
+          "retained_orders": 3,
+          "wall_seconds": 0.0043002499878639355
+        },
+        "backtrader": {
+          "fills": [],
+          "checkpoints": [
+            {
+              "step": 0,
+              "position": 0,
+              "cash": 0.0,
+              "equity": 0.0
+            },
+            {
+              "step": 1,
+              "position": 0,
+              "cash": 0.0,
+              "equity": 0.0
+            },
+            {
+              "step": 2,
+              "position": 0,
+              "cash": 0.0,
+              "equity": 0.0
+            },
+            {
+              "step": 3,
+              "position": 0,
+              "cash": 0.0,
+              "equity": 0.0
+            }
+          ],
+          "position": 0,
+          "cash": 0.0,
+          "elapsed_seconds": 0.001344666990917176
+        },
+        "backtrader_volume": {
+          "fills": [],
+          "checkpoints": [
+            {
+              "step": 0,
+              "position": 0,
+              "cash": 0.0,
+              "equity": 0.0
+            },
+            {
+              "step": 1,
+              "position": 0,
+              "cash": 0.0,
+              "equity": 0.0
+            },
+            {
+              "step": 2,
+              "position": 0,
+              "cash": 0.0,
+              "equity": 0.0
+            },
+            {
+              "step": 3,
+              "position": 0,
+              "cash": 0.0,
+              "equity": 0.0
+            }
+          ],
+          "position": 0,
+          "cash": 0.0,
+          "elapsed_seconds": 0.0007868329994380474
+        },
+        "vnpy": {
+          "position": 0,
+          "cash": 0,
+          "checkpoints": [
+            {
+              "step": 0,
+              "position": 0,
+              "cash": 0,
+              "equity": 0
+            },
+            {
+              "step": 1,
+              "position": 0,
+              "cash": 0,
+              "equity": 0
+            },
+            {
+              "step": 2,
+              "position": 0,
+              "cash": 0,
+              "equity": 0
+            },
+            {
+              "step": 3,
+              "position": 0,
+              "cash": 0,
+              "equity": 0
+            }
+          ],
+          "fills": [],
+          "elapsed_seconds": 6.299999949987978e-05,
+          "native_pnl": 0.0
+        },
+        "nautilus": {
+          "position": 0,
+          "cash": 0,
+          "checkpoints": [
+            {
+              "step": 0,
+              "position": 0,
+              "cash": 0,
+              "equity": 0
+            },
+            {
+              "step": 1,
+              "position": 0,
+              "cash": 0,
+              "equity": 0
+            },
+            {
+              "step": 2,
+              "position": 0,
+              "cash": 0,
+              "equity": 0
+            },
+            {
+              "step": 3,
+              "position": 0,
+              "cash": 0,
+              "equity": 0
+            }
+          ],
+          "fills": [],
+          "elapsed_seconds": 0.0008127089968184009,
+          "native_pnl": 0.0,
+          "native_diagnostics": {
+            "cached_portfolio_pnl": 0.0,
+            "fresh_portfolio_pnl": 0.0,
+            "account_pnl": 0.0,
+            "exact_fill_pnl": 0,
+            "rounded_margin_pnl": 0.0,
+            "currency_quantization_bound": 0.0,
+            "account_rounding_delta": 0.0
+          },
+          "matching_input": "bar"
+        },
+        "nautilus_tick": {
+          "position": 0,
+          "cash": 0,
+          "checkpoints": [
+            {
+              "step": 0,
+              "position": 0,
+              "cash": 0,
+              "equity": 0
+            },
+            {
+              "step": 1,
+              "position": 0,
+              "cash": 0,
+              "equity": 0
+            },
+            {
+              "step": 2,
+              "position": 0,
+              "cash": 0,
+              "equity": 0
+            },
+            {
+              "step": 3,
+              "position": 0,
+              "cash": 0,
+              "equity": 0
+            }
+          ],
+          "fills": [],
+          "elapsed_seconds": 0.0005379169888328761,
+          "native_pnl": 0.0,
+          "native_diagnostics": {
+            "cached_portfolio_pnl": 0.0,
+            "fresh_portfolio_pnl": 0.0,
+            "account_pnl": 0.0,
+            "exact_fill_pnl": 0,
+            "rounded_margin_pnl": 0.0,
+            "currency_quantization_bound": 0.0,
+            "account_rounding_delta": 0.0
+          },
+          "matching_input": "trade"
+        }
+      },
+      "baseline_mini": {
+        "cash": 0,
+        "checkpoints": [
+          {
+            "cash": 0,
+            "equity": 0,
+            "position": 0,
+            "step": 0
+          },
+          {
+            "cash": 0,
+            "equity": 0,
+            "position": 0,
+            "step": 1
+          },
+          {
+            "cash": 0,
+            "equity": 0,
+            "position": 0,
+            "step": 2
+          },
+          {
+            "cash": 0,
+            "equity": 0,
+            "position": 0,
+            "step": 3
+          }
+        ],
+        "elapsed_seconds": 6.708e-06,
+        "events": 20,
+        "fills": [],
+        "position": 0,
+        "probe_elapsed_seconds": 4.1e-08,
+        "probe_quotes": 0,
+        "retained_fills": 0,
+        "retained_orders": 3,
+        "wall_seconds": 0.004688290995545685
+      },
+      "architecture_unchanged": true,
+      "parity": {
+        "mini": {
+          "fills": true,
+          "checkpoints": true,
+          "position": true,
+          "cash": true
+        },
+        "backtrader": {
+          "fills": true,
+          "checkpoints": true,
+          "position": true,
+          "cash": true
+        },
+        "backtrader_volume": {
+          "fills": true,
+          "checkpoints": true,
+          "position": true,
+          "cash": true
+        },
+        "vnpy": {
+          "fills": true,
+          "checkpoints": true,
+          "position": true,
+          "cash": true
+        },
+        "nautilus": {
+          "fills": true,
+          "checkpoints": true,
+          "position": true,
+          "cash": true
+        },
+        "nautilus_tick": {
+          "fills": true,
+          "checkpoints": true,
+          "position": true,
+          "cash": true
+        }
+      },
+      "unordered_fills_equal": {
+        "mini": true,
+        "backtrader": true,
+        "backtrader_volume": true,
+        "vnpy": true,
+        "nautilus": true,
+        "nautilus_tick": true
+      }
+    }
+  },
+  "performance": [
+    {
+      "platform": "mini",
+      "steps": 1000,
+      "trading": false,
+      "fills": 0,
+      "seconds": [
+        0.000236041,
+        0.00023225,
+        0.000256542
+      ],
+      "median_seconds": 0.000236041,
+      "steps_per_second": 4236552.124419062
+    },
+    {
+      "platform": "backtrader",
+      "steps": 1000,
+      "trading": false,
+      "fills": 0,
+      "seconds": [
+        0.0762198750016978,
+        0.07426850000047125,
+        0.07196820799435955
+      ],
+      "median_seconds": 0.07426850000047125,
+      "steps_per_second": 13464.658637156463
+    },
+    {
+      "platform": "backtrader_volume",
+      "steps": 1000,
+      "trading": false,
+      "fills": 0,
+      "seconds": [
+        0.07212054199771956,
+        0.07443641699501313,
+        0.0740940420073457
+      ],
+      "median_seconds": 0.0740940420073457,
+      "steps_per_second": 13496.361824893555
+    },
+    {
+      "platform": "vnpy",
+      "steps": 1000,
+      "trading": false,
+      "fills": 0,
+      "seconds": [
+        0.0007379169983323663,
+        0.0007489999989047647,
+        0.0007261669961735606
+      ],
+      "median_seconds": 0.0007379169983323663,
+      "steps_per_second": 1355165.9634619073
+    },
+    {
+      "platform": "nautilus",
+      "steps": 1000,
+      "trading": false,
+      "fills": 0,
+      "seconds": [
+        0.01021891699929256,
+        0.011782208006479777,
+        0.011336041992763057
+      ],
+      "median_seconds": 0.011336041992763057,
+      "steps_per_second": 88214.21097755294
+    },
+    {
+      "platform": "nautilus_tick",
+      "steps": 1000,
+      "trading": false,
+      "fills": 0,
+      "seconds": [
+        0.004921999992802739,
+        0.004635332996258512,
+        0.0048829580046003684
+      ],
+      "median_seconds": 0.0048829580046003684,
+      "steps_per_second": 204793.8972765837
+    },
+    {
+      "platform": "mini",
+      "steps": 5000,
+      "trading": false,
+      "fills": 0,
+      "seconds": [
+        0.001246875,
+        0.001403834,
+        0.001243583
+      ],
+      "median_seconds": 0.001246875,
+      "steps_per_second": 4010025.062656642
+    },
+    {
+      "platform": "backtrader",
+      "steps": 5000,
+      "trading": false,
+      "fills": 0,
+      "seconds": [
+        0.3905959999974584,
+        0.38144979100616183,
+        0.36012012499850243
+      ],
+      "median_seconds": 0.38144979100616183,
+      "steps_per_second": 13107.885016298858
+    },
+    {
+      "platform": "backtrader_volume",
+      "steps": 5000,
+      "trading": false,
+      "fills": 0,
+      "seconds": [
+        0.3831331249966752,
+        0.3760627920128172,
+        0.36980979099462274
+      ],
+      "median_seconds": 0.3760627920128172,
+      "steps_per_second": 13295.651966093967
+    },
+    {
+      "platform": "vnpy",
+      "steps": 5000,
+      "trading": false,
+      "fills": 0,
+      "seconds": [
+        0.003647417004685849,
+        0.0035976250073872507,
+        0.003657499997643754
+      ],
+      "median_seconds": 0.003647417004685849,
+      "steps_per_second": 1370833.1110965605
+    },
+    {
+      "platform": "nautilus",
+      "steps": 5000,
+      "trading": false,
+      "fills": 0,
+      "seconds": [
+        0.054933457999140956,
+        0.051591333001852036,
+        0.05025800000294112
+      ],
+      "median_seconds": 0.051591333001852036,
+      "steps_per_second": 96915.50322649172
+    },
+    {
+      "platform": "nautilus_tick",
+      "steps": 5000,
+      "trading": false,
+      "fills": 0,
+      "seconds": [
+        0.023108249995857477,
+        0.021288583011482842,
+        0.021362250001402572
+      ],
+      "median_seconds": 0.021362250001402572,
+      "steps_per_second": 234057.74202959507
+    },
+    {
+      "platform": "mini",
+      "steps": 10000,
+      "trading": false,
+      "fills": 0,
+      "seconds": [
+        0.002643875,
+        0.002388125,
+        0.002492917
+      ],
+      "median_seconds": 0.002492917,
+      "steps_per_second": 4011364.9993160623
+    },
+    {
+      "platform": "backtrader",
+      "steps": 10000,
+      "trading": false,
+      "fills": 0,
+      "seconds": [
+        0.7550120840023737,
+        0.7262843339995015,
+        0.7610092499962775
+      ],
+      "median_seconds": 0.7550120840023737,
+      "steps_per_second": 13244.821125231898
+    },
+    {
+      "platform": "backtrader_volume",
+      "steps": 10000,
+      "trading": false,
+      "fills": 0,
+      "seconds": [
+        0.7415739169955486,
+        0.7350405420002062,
+        0.7499165420013014
+      ],
+      "median_seconds": 0.7415739169955486,
+      "steps_per_second": 13484.832423063803
+    },
+    {
+      "platform": "vnpy",
+      "steps": 10000,
+      "trading": false,
+      "fills": 0,
+      "seconds": [
+        0.0072391249996144325,
+        0.007421082991641015,
+        0.007194624995463528
+      ],
+      "median_seconds": 0.0072391249996144325,
+      "steps_per_second": 1381382.4185288437
+    },
+    {
+      "platform": "nautilus",
+      "steps": 10000,
+      "trading": false,
+      "fills": 0,
+      "seconds": [
+        0.10329995799111202,
+        0.10406820799107663,
+        0.10346383400610648
+      ],
+      "median_seconds": 0.10346383400610648,
+      "steps_per_second": 96652.13063155765
+    },
+    {
+      "platform": "nautilus_tick",
+      "steps": 10000,
+      "trading": false,
+      "fills": 0,
+      "seconds": [
+        0.0426801669964334,
+        0.046593832987127826,
+        0.04249599999457132
+      ],
+      "median_seconds": 0.0426801669964334,
+      "steps_per_second": 234300.86393138193
+    },
+    {
+      "platform": "mini",
+      "steps": 1000,
+      "trading": true,
+      "fills": 500,
+      "seconds": [
+        0.001446,
+        0.001434833,
+        0.00144
+      ],
+      "median_seconds": 0.00144,
+      "steps_per_second": 694444.4444444444
+    },
+    {
+      "platform": "backtrader",
+      "steps": 1000,
+      "trading": true,
+      "fills": 500,
+      "seconds": [
+        0.11786216699692886,
+        0.12352216699218843,
+        0.12340125000628177
+      ],
+      "median_seconds": 0.12340125000628177,
+      "steps_per_second": 8103.645627164188
+    },
+    {
+      "platform": "backtrader_volume",
+      "steps": 1000,
+      "trading": true,
+      "fills": 500,
+      "seconds": [
+        0.12387524999212474,
+        0.12804587499704212,
+        0.13842233300965745
+      ],
+      "median_seconds": 0.12804587499704212,
+      "steps_per_second": 7809.701015539159
+    },
+    {
+      "platform": "vnpy",
+      "steps": 1000,
+      "trading": true,
+      "fills": 500,
+      "seconds": [
+        0.002947667002445087,
+        0.0033975410042330623,
+        0.0030482920119538903
+      ],
+      "median_seconds": 0.0030482920119538903,
+      "steps_per_second": 328052.5606072173
+    },
+    {
+      "platform": "nautilus",
+      "steps": 1000,
+      "trading": true,
+      "fills": 500,
+      "seconds": [
+        0.206511500000488,
+        0.26903583300008904,
+        0.19988924999779556
+      ],
+      "median_seconds": 0.206511500000488,
+      "steps_per_second": 4842.34534153128
+    },
+    {
+      "platform": "nautilus_tick",
+      "steps": 1000,
+      "trading": true,
+      "fills": 500,
+      "seconds": [
+        0.19172345800325274,
+        0.21500220900634304,
+        0.19608629199501593
+      ],
+      "median_seconds": 0.19608629199501593,
+      "steps_per_second": 5099.795553405731
+    },
+    {
+      "platform": "mini",
+      "steps": 5000,
+      "trading": true,
+      "fills": 2500,
+      "seconds": [
+        0.026728833,
+        0.026539209,
+        0.026470958
+      ],
+      "median_seconds": 0.026539209,
+      "steps_per_second": 188400.49076067036
+    },
+    {
+      "platform": "backtrader",
+      "steps": 5000,
+      "trading": true,
+      "fills": 2500,
+      "seconds": [
+        0.6360419580014423,
+        0.7062414999963949,
+        0.636096499991254
+      ],
+      "median_seconds": 0.636096499991254,
+      "steps_per_second": 7860.442558745014
+    },
+    {
+      "platform": "backtrader_volume",
+      "steps": 5000,
+      "trading": true,
+      "fills": 2500,
+      "seconds": [
+        0.6405056670046179,
+        0.6314760829991428,
+        0.6428465839999262
+      ],
+      "median_seconds": 0.6405056670046179,
+      "steps_per_second": 7806.33218029584
+    },
+    {
+      "platform": "vnpy",
+      "steps": 5000,
+      "trading": true,
+      "fills": 2500,
+      "seconds": [
+        0.015739208000013605,
+        0.016832207998959348,
+        0.01619475000188686
+      ],
+      "median_seconds": 0.01619475000188686,
+      "steps_per_second": 308742.03056036355
+    },
+    {
+      "platform": "nautilus",
+      "steps": 5000,
+      "trading": true,
+      "fills": 2500,
+      "seconds": [
+        1.4433567500091158,
+        1.5877665000007255,
+        1.7470832920080284
+      ],
+      "median_seconds": 1.5877665000007255,
+      "steps_per_second": 3149.0776509
+    },
+    {
+      "platform": "nautilus_tick",
+      "steps": 5000,
+      "trading": true,
+      "fills": 2500,
+      "seconds": [
+        1.567970542004332,
+        1.5172509999974864,
+        1.4935264170053415
+      ],
+      "median_seconds": 1.5172509999974864,
+      "steps_per_second": 3295.433649414819
+    },
+    {
+      "platform": "mini",
+      "steps": 10000,
+      "trading": true,
+      "fills": 5000,
+      "seconds": [
+        0.105526875,
+        0.108571,
+        0.128324458
+      ],
+      "median_seconds": 0.108571,
+      "steps_per_second": 92105.6267327371
+    },
+    {
+      "platform": "backtrader",
+      "steps": 10000,
+      "trading": true,
+      "fills": 5000,
+      "seconds": [
+        1.3715204580075806,
+        1.240156375002698,
+        1.2300962909939699
+      ],
+      "median_seconds": 1.240156375002698,
+      "steps_per_second": 8063.4992502282175
+    },
+    {
+      "platform": "backtrader_volume",
+      "steps": 10000,
+      "trading": true,
+      "fills": 5000,
+      "seconds": [
+        1.3050205829931656,
+        1.3264551250031218,
+        1.245513583009597
+      ],
+      "median_seconds": 1.3050205829931656,
+      "steps_per_second": 7662.7143895801455
+    },
+    {
+      "platform": "vnpy",
+      "steps": 10000,
+      "trading": true,
+      "fills": 5000,
+      "seconds": [
+        0.031889625010080636,
+        0.02992966699821409,
+        0.05700145800074097
+      ],
+      "median_seconds": 0.031889625010080636,
+      "steps_per_second": 313581.61147517094
+    },
+    {
+      "platform": "nautilus",
+      "steps": 10000,
+      "trading": true,
+      "fills": 5000,
+      "seconds": [
+        4.811824332995457,
+        4.695020042010583,
+        4.758906791990739
+      ],
+      "median_seconds": 4.758906791990739,
+      "steps_per_second": 2101.3229376187915
+    },
+    {
+      "platform": "nautilus_tick",
+      "steps": 10000,
+      "trading": true,
+      "fills": 5000,
+      "seconds": [
+        4.58716654201271,
+        4.575839500001166,
+        4.716199750007945
+      ],
+      "median_seconds": 4.58716654201271,
+      "steps_per_second": 2179.9949725854735
+    }
+  ],
+  "history_paths": [
+    {
+      "history_orders": 0,
+      "iterations": 2000,
+      "ns_per_call": [
+        2.771,
+        2.75,
+        2.6875
+      ],
+      "operation": "exposure_bounds",
+      "state_json_bytes": 396
+    },
+    {
+      "history_orders": 0,
+      "iterations": 2000,
+      "ns_per_call": [
+        26.1665,
+        26.104,
+        26.083
+      ],
+      "operation": "tick",
+      "state_json_bytes": 399
+    },
+    {
+      "history_orders": 0,
+      "iterations": 2000,
+      "ns_per_call": [
+        6.1875,
+        3.75,
+        3.771
+      ],
+      "operation": "venue_trade",
+      "state_json_bytes": 399
+    },
+    {
+      "history_orders": 0,
+      "iterations": 100,
+      "ns_per_call": [
+        485.0,
+        482.92,
+        483.33
+      ],
+      "operation": "serialize_core",
+      "state_json_bytes": 399
+    },
+    {
+      "history_orders": 100,
+      "iterations": 2000,
+      "ns_per_call": [
+        192.875,
+        189.729,
+        188.8335
+      ],
+      "operation": "exposure_bounds",
+      "state_json_bytes": 24072
+    },
+    {
+      "history_orders": 100,
+      "iterations": 2000,
+      "ns_per_call": [
+        316.833,
+        315.0,
+        315.354
+      ],
+      "operation": "tick",
+      "state_json_bytes": 24073
+    },
+    {
+      "history_orders": 100,
+      "iterations": 2000,
+      "ns_per_call": [
+        164.75,
+        163.375,
+        161.2085
+      ],
+      "operation": "venue_trade",
+      "state_json_bytes": 24073
+    },
+    {
+      "history_orders": 100,
+      "iterations": 100,
+      "ns_per_call": [
+        27797.91,
+        25430.42,
+        28872.91
+      ],
+      "operation": "serialize_core",
+      "state_json_bytes": 24073
+    },
+    {
+      "history_orders": 1000,
+      "iterations": 2000,
+      "ns_per_call": [
+        3367.6455,
+        3319.1875,
+        3038.375
+      ],
+      "operation": "exposure_bounds",
+      "state_json_bytes": 242996
+    },
+    {
+      "history_orders": 1000,
+      "iterations": 2000,
+      "ns_per_call": [
+        3884.479,
+        3885.667,
+        3847.875
+      ],
+      "operation": "tick",
+      "state_json_bytes": 242997
+    },
+    {
+      "history_orders": 1000,
+      "iterations": 2000,
+      "ns_per_call": [
+        1721.833,
+        1670.375,
+        1666.9585
+      ],
+      "operation": "venue_trade",
+      "state_json_bytes": 242997
+    },
+    {
+      "history_orders": 1000,
+      "iterations": 100,
+      "ns_per_call": [
+        246627.5,
+        245865.0,
+        246287.08
+      ],
+      "operation": "serialize_core",
+      "state_json_bytes": 242997
+    },
+    {
+      "history_orders": 5000,
+      "iterations": 2000,
+      "ns_per_call": [
+        12138.0625,
+        12172.4165,
+        12224.417
+      ],
+      "operation": "exposure_bounds",
+      "state_json_bytes": 1238665
+    },
+    {
+      "history_orders": 5000,
+      "iterations": 2000,
+      "ns_per_call": [
+        19447.292,
+        19551.125,
+        19317.708
+      ],
+      "operation": "tick",
+      "state_json_bytes": 1238665
+    },
+    {
+      "history_orders": 5000,
+      "iterations": 2000,
+      "ns_per_call": [
+        10725.9165,
+        10713.333,
+        10747.292
+      ],
+      "operation": "venue_trade",
+      "state_json_bytes": 1238665
+    },
+    {
+      "history_orders": 5000,
+      "iterations": 100,
+      "ns_per_call": [
+        1320872.92,
+        1334523.33,
+        1353129.59
+      ],
+      "operation": "serialize_core",
+      "state_json_bytes": 1238665
+    }
+  ],
+  "validation": {
+    "rust_tests": 46,
+    "native_adapter_regressions": 2,
+    "clippy": "passed -D warnings",
+    "fmt": "passed",
+    "pinned_semantics": "passed"
+  },
+  "caveats": [
+    "Adapter-native timed loops have different reporting and risk scope; not production throughput rankings.",
+    "No journal/fsync in Mini pure-loop timing.",
+    "Shared macOS desktop; no CPU isolation; three timed samples after one warmup.",
+    "Synthetic integer single-instrument zero-fee inputs only."
+  ]
+}

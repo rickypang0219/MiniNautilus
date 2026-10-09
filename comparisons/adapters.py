@@ -126,17 +126,15 @@ def backtrader(workload, volume_filler=False):
     class Strategy(bt.Strategy):
         def __init__(self):
             self.by_id = {}
-            self.executions = {}
 
         def notify_order(self, order):
-            # exbits is cumulative; notifications may share the same execution bits.
-            bits = list(order.executed.exbits)
-            seen = self.executions.get(order.ref, 0)
-            for bit in bits[seen:]:
+            # exbits is shared across notification clones: Submitted/Accepted can
+            # already expose future fills. iterpending() is the notification's
+            # own execution slice and preserves actual broker delivery order.
+            for bit in order.executed.iterpending():
                 dt = bt.num2date(bit.dt).replace(tzinfo=None)
                 i = round((dt-START).total_seconds()/60)
                 fills.append(dict(step=i,id=order.info.fixture_id,side='Buy' if bit.size>0 else 'Sell',qty=abs(bit.size),price=bit.price))
-            self.executions[order.ref] = len(bits)
 
         def next(self):
             i = len(self.data)-1
