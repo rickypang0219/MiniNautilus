@@ -165,6 +165,7 @@ impl PaperExchange {
             orders: self.orders.values().cloned().collect(),
             fills: self.fills.clone(),
             position: self.position,
+            absent: vec![],
         }
     }
 }

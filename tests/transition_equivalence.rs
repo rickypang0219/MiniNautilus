@@ -157,6 +157,7 @@ fn gaps_duplicates_and_reconciliation_match_full_clone() {
             lifecycle: Lifecycle::Canceled,
         }],
         fills: p.core.fills.values().cloned().collect(),
+        absent: vec![],
     };
     let mut invalid = snapshot.clone();
     invalid.position = 2;
@@ -264,6 +265,7 @@ fn seeded_mixed_events_preserve_every_state_and_effect() {
                         })
                         .collect(),
                     fills: p.core.fills.values().cloned().collect(),
+                    absent: vec![],
                 }),
             };
             p.send(at, event);

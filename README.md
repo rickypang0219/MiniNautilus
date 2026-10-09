@@ -4,7 +4,7 @@
 
 已實作 deterministic core、故障 simulator、durable journal/recovery、Python strategy、Binance Spot Testnet adapter，以及獨立效能實驗。範圍係 **一個 account、一個 instrument、limit order + cancel**。
 
-目前係可執行嘅 reference implementation，**未係 production/HFT engine**：Core 已改為 validate/prepare/commit，避免每個事件 clone 全份 state；journal 仍每個事件做 `sync_all`，Python bridge 用完整 state JSON IPC，Binance 用 REST polling。風控、timer 和 paper 撮合只走 open-order index，不再掃描完整歷史；完整 state 的 IPC 成本仍隨歷史增長。各部分「做到甚麼才算夠」見 [驗收條件](docs/acceptance.md)。
+目前係可執行嘅 reference implementation，**未係 production/HFT engine**：Core 已改為 validate/prepare/commit，避免每個事件 clone 全份 state；journal 預設每個事件做 `sync_all`（可選 `--sync outbox`），Python bridge 用 JSON IPC（protocol 2 只送 delta），Binance 用 REST polling。風控、timer 和 paper 撮合只走 open-order index，不再掃描完整歷史。各部分「做到甚麼才算夠」見 [驗收條件](docs/acceptance.md)。
 
 ## 先跑第一個 milestone
 
@@ -95,7 +95,7 @@ target/debug/mininautilus serve runs/my-backtest.jsonl --recover runs/my-backtes
 
 `inspect` / `snapshot` 唔修改 journal，亦唔 dispatch effects。`serve --recover` 會 replay、驗證 snapshot、修復最後未完成一行，然後持久化 `Disconnect`；必須 reconciliation 先再交易。Replay 唔會重發歷史 orders。
 
-`serve` 係 JSON-lines protocol：每行 `{"at":0,"event":{"Quote":{"bid":99,"ask":101}}}`，回覆 `effects` 同 `state`。`at` 係 monotonic engine milliseconds。直接使用 `serve` 嘅 caller 負責 transport、timer 同 execution reports；Python example 已接好呢啲邊界。
+`serve` 係 JSON-lines protocol：每行 `{"at":0,"event":{"Quote":{"bid":99,"ask":101}}}`（亦可用 `events` 或 `batch` 一次送多個），第一個回覆係完整 `state`，之後係 `effects` 加 `delta`（protocol 2，見 `src/protocol.rs`）。`at` 係 monotonic engine milliseconds。直接使用 `serve` 嘅 caller 負責 transport、timer 同 execution reports；Python example 已接好呢啲邊界。
 
 Paper server 嘅 venue 係記憶體內模型，唔支援原地 restart；要恢復分析可 `inspect`，要重新模擬則用新 journal 重播同一份 market inputs。
 
@@ -120,6 +120,16 @@ MINI_PIN=2,3 MINI_SAMPLES=100000 cargo bench --locked --bench latency
 
 macOS 唔會假裝提供 Linux strict affinity。Linux affinity 已 cross-compile check；要喺 Linux 實機先可以量度。Queue benchmark 唔包含 journal、Python、REST 或 trading core，唔代表整個 engine latency。見 [experiment notes](docs/experiments.md)。
 
+## Backtest（Python strategy）
+
+```sh
+cargo build --release
+python3 examples/heatmap.py --single 20 60     # 5 年 1min 合成資料，單次
+python3 examples/heatmap.py                    # 20×20 參數，多核
+```
+
+Strategy 嘅 target 只依賴市場資料時，用 `run_targets`（Rust 進程內跑，`mininautilus backtest BARS.csv TARGETS.csv`）；要睇成交／倉位先決策時，用 `run_interactive(Engine(sim=True), bars, strategy)`，每根 bar 一次 IPC。兩條路徑逐筆一致，見 [`python/mininautilus/backtest.py`](python/mininautilus/backtest.py) 同 [驗收條件 B1–B4](docs/acceptance.md)。
+
 ## Code map
 
 | File | 責任 |
@@ -130,7 +140,9 @@ macOS 唔會假裝提供 Linux strict affinity。Linux affinity 已 cross-compil
 | `src/journal.rs` | Input-before-effect journal、checksum chain、snapshot、replay |
 | `src/telemetry.rs` | Bounded cold-path worker |
 | `src/queue.rs` | Experimental SPSC、memory ordering、bitmap、Linux pinning |
-| `src/main.rs` | CLI / JSON-lines runtime |
+| `src/main.rs` | CLI / JSON-lines runtime（serve、paper、sim、backtest、rotate） |
+| `src/protocol.rs` | Protocol 2：完整 state 一次，之後 compact delta |
+| `src/backtest.rs` | Non-durable backtest runner 同執行規則 |
 | `python/mininautilus/` | Python bridge、strategy、Binance Testnet gateway |
 | `examples/` | Offline replay、live/paper runtime、SQLite PnL analysis |
 | `tests/` | Failure scenarios 同跨語言測試 |

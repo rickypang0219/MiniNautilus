@@ -6,6 +6,7 @@ import json
 from pathlib import Path
 import sys
 import tempfile
+import time
 import unittest
 import urllib.error
 from decimal import Decimal
@@ -126,6 +127,34 @@ class AdapterTests(unittest.TestCase):
         self.assertEqual(gateway.last_reconciliation['commissions_by_asset'], {'BTC':'0.000002'})
         gateway.base_balance.return_value = Decimal("2")
         with self.assertRaisesRegex(VenueError, "balance disagrees"):
+            gateway.reconcile(state, "1")
+
+    def test_unacknowledged_absent_order_is_proven_absent_after_recv_window(self):
+        gateway = venue()
+        gateway.created -= 60  # restarted long after the crashed process signed anything
+        state = {"epoch": 2, "venue_seq": 4, "fills": {},
+                 "orders": {"1": {"intent": intent(), "lifecycle": "Pending", "filled": 0}}}
+        gateway.open_orders = Mock(return_value=[])
+        gateway.request = Mock(side_effect=VenueError("missing", code=-2013))
+        gateway.base_balance = Mock(return_value=Decimal("1"))
+        with patch("time.sleep") as sleep:
+            snapshot = gateway.reconcile(state, "1")
+        sleep.assert_not_called()
+        self.assertEqual(snapshot["absent"], [1])
+        self.assertEqual((snapshot["orders"], snapshot["fills"], snapshot["position"]), ([], [], 0))
+        # Right after a send, absence is not yet proof: reconcile waits out recvWindow.
+        gateway.sent_at[1] = time.monotonic()
+        with patch("time.sleep") as sleep:
+            gateway.reconcile(state, "1")
+        self.assertGreater(sleep.call_args.args[0], 5)
+
+    def test_acknowledged_order_missing_at_venue_blocks_recovery(self):
+        gateway = venue()
+        state = {"epoch": 2, "venue_seq": 4, "fills": {},
+                 "orders": {"1": {"intent": intent(), "lifecycle": "Accepted", "filled": 0}}}
+        gateway.open_orders = Mock(return_value=[])
+        gateway.request = Mock(side_effect=VenueError("missing", code=-2013))
+        with self.assertRaisesRegex(VenueError, "manual investigation"):
             gateway.reconcile(state, "1")
 
     def test_available_base_excludes_reserved_inventory(self):

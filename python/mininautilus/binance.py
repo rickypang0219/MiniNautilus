@@ -26,6 +26,16 @@ class VenueError(RuntimeError):
         self.code = code
 
 
+class OrderAbsent(VenueError):
+    """Neither client ID exists at the venue (yet)."""
+
+
+# Binance rejects a signed request that arrives later than timestamp + recvWindow.
+RECV_WINDOW_MS = 5000
+# Allowance for local/server clock offset error and server processing.
+ABSENCE_MARGIN_S = 2.0
+
+
 def units(value, increment):
     result = Decimal(str(value)) / increment
     if not result.is_finite() or result != result.to_integral_value() or not 0 <= result <= 2**63 - 1:
@@ -47,6 +57,10 @@ class BinanceSpot:
         self.tick = self.lot = None
         self.base_asset = None
         self.execution_times = {}
+        # Every request this process signs is signed after `created`; a crashed
+        # predecessor's requests were signed before it. See `reconcile`.
+        self.created = time.monotonic()
+        self.sent_at = {}
 
     def request(self, method, path, params=None, *, signed=False):
         if method != "GET" and not self.execute:
@@ -62,7 +76,7 @@ class BinanceSpot:
         self.next_request = time.monotonic() + 0.25
         params = dict(params or {})
         if signed:
-            params.update(timestamp=int(time.time() * 1000) + self.offset_ms, recvWindow=5000)
+            params.update(timestamp=int(time.time() * 1000) + self.offset_ms, recvWindow=RECV_WINDOW_MS)
         query = urllib.parse.urlencode(params)
         if signed:
             signature = hmac.new(self.secret.encode(), query.encode(), hashlib.sha256).hexdigest()
@@ -136,6 +150,7 @@ class BinanceSpot:
     def submit(self, intent):
         # Exact formatting; the venue remains authoritative for changing filters,
         # available balances, percentage-price limits, and order-count constraints.
+        self.sent_at[intent["id"]] = time.monotonic()
         return self.request("POST", "/api/v3/order", {
             "symbol": self.symbol, "side": intent["side"].upper(), "type": "LIMIT", "timeInForce": "GTC",
             "quantity": format(self.lot * intent["qty"], "f"),
@@ -161,7 +176,7 @@ class BinanceSpot:
                     or units(order["price"], self.tick) != intent["limit"]):
                 raise VenueError("venue order identity/terms disagree with durable intent")
             return order
-        raise VenueError("order absent: unresolved, never automatically resubmit")
+        raise OrderAbsent("order absent: unresolved, never automatically resubmit")
 
     def cancel(self, intent):
         order = self.query(intent)
@@ -238,10 +253,34 @@ class BinanceSpot:
         known = {self.client_id(int(oid)) + suffix for oid in state["orders"] for suffix in ("", "c")}
         if any(order["clientOrderId"] not in known for order in self.open_orders()):
             raise VenueError("unknown open order; manual investigation required")
-        for order in state["orders"].values():
-            self.cancel(order["intent"])
+        # Persisted-but-unacknowledged orders may never have reached the venue.
+        # Absence is proof only once every request that could create them expired:
+        # wait past recvWindow after their last send (or this process's start).
+        unacked = {oid for oid, o in state["orders"].items()
+                   if o.get("lifecycle") == "Pending" and o.get("filled") == 0
+                   and not any(f["order_id"] == int(oid) for f in state.get("fills", {}).values())}
+        if unacked:
+            deadline = max(max(self.sent_at.get(int(oid), self.created), self.created) for oid in unacked)
+            delay = deadline + RECV_WINDOW_MS / 1000 + ABSENCE_MARGIN_S - time.monotonic()
+            if delay > 0:
+                time.sleep(delay)
+        absent = []
+
+        def resolve(oid, error):
+            if oid not in unacked:
+                raise VenueError("acknowledged or filled order missing at venue; manual investigation") from error
+            if int(oid) not in absent:
+                absent.append(int(oid))
+
+        for oid, order in state["orders"].items():
+            try:
+                self.cancel(order["intent"])
+            except OrderAbsent as error:
+                resolve(oid, error)
         orders, fills, raw = [], [], []
-        for order in state["orders"].values():
+        for oid, order in state["orders"].items():
+            if int(oid) in absent:
+                continue
             remote, trades, raw_trades = self.collect(order["intent"])
             if remote["lifecycle"] not in ("Filled", "Canceled", "Rejected"):
                 raise VenueError("recovery requires every owned order to be terminal")
@@ -266,5 +305,6 @@ class BinanceSpot:
             "commissions_by_asset": {asset: str(amount) for asset, amount in commissions.items()},
             "balance_verified": True,
         }
+        self.last_reconciliation["absent_orders"] = sorted(absent)
         return {"epoch": state["epoch"], "watermark": state["venue_seq"],
-                "orders": orders, "fills": fills, "position": position}
+                "orders": orders, "fills": fills, "position": position, "absent": sorted(absent)}

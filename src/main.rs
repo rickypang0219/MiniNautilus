@@ -1,27 +1,72 @@
 use mininautilus::telemetry::Telemetry;
 use mininautilus::{
-    core::Core,
-    journal::{DurableEngine, EventTime},
+    core::{Changes, Core},
+    journal::{DurableEngine, EventTime, SyncPolicy},
     model::*,
+    protocol::Response,
     sim::PaperExchange,
 };
-use serde::{Deserialize, Serialize};
+use serde::Deserialize;
 use std::{
     io::{self, BufRead, Write},
     path::Path,
 };
 
+/// One request may carry a batch of events processed in order (for example a
+/// bar's Quote, Trade and Tick) so a backtest needs one round trip per bar.
 #[derive(Deserialize)]
 struct Request {
     at: Time,
-    event: Event,
+    #[serde(default)]
+    event: Option<Event>,
+    #[serde(default)]
+    events: Vec<Event>,
+    /// `[at, event]` pairs processed after `event`/`events`, each at its own time:
+    /// lets a backtest send the previous bar's decisions with the next bar.
+    #[serde(default)]
+    batch: Vec<(Time, Event)>,
     #[serde(default)]
     time: Option<EventTime>,
 }
-#[derive(Serialize)]
-struct Response<'a> {
-    effects: Vec<Effect>,
-    state: &'a Core,
+
+/// `serve`/`paper` journal every input; `sim` keeps the Core in memory only.
+enum Backend {
+    Durable(DurableEngine),
+    Memory(Core),
+}
+impl Backend {
+    fn core(&self) -> &Core {
+        match self {
+            Self::Durable(engine) => engine.core(),
+            Self::Memory(core) => core,
+        }
+    }
+    fn process(
+        &mut self,
+        at: Time,
+        event: Event,
+        time: Option<EventTime>,
+    ) -> Result<Vec<Effect>, Box<dyn std::error::Error>> {
+        Ok(match self {
+            Self::Durable(engine) => engine.process_timed(at, event, time)?,
+            Self::Memory(core) => {
+                let seq = core.seq + 1;
+                core.apply(&Envelope { seq, at, event })?
+            }
+        })
+    }
+    fn track_changes(&mut self) {
+        match self {
+            Self::Durable(engine) => engine.track_changes(),
+            Self::Memory(core) => core.track_changes(),
+        }
+    }
+    fn take_changes(&mut self) -> Option<Changes> {
+        match self {
+            Self::Durable(engine) => engine.take_changes(),
+            Self::Memory(core) => core.take_changes(),
+        }
+    }
 }
 
 fn main() {
@@ -31,7 +76,13 @@ fn main() {
     }
 }
 fn run() -> Result<(), Box<dyn std::error::Error>> {
-    let args: Vec<_> = std::env::args().collect();
+    let mut args: Vec<_> = std::env::args().collect();
+    // `--sync every|outbox` applies to serve/paper journals (docs/acceptance.md L3).
+    let mut sync = SyncPolicy::EveryInput;
+    if let Some(i) = args.iter().position(|a| a == "--sync") {
+        sync = args.get(i + 1).ok_or("--sync every|outbox")?.parse()?;
+        args.drain(i..i + 2);
+    }
     match args.get(1).map(String::as_str) {
         Some("demo") => demo(),
         Some("dashboard") => {
@@ -54,82 +105,71 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
             println!("{}", serde_json::to_string(&state)?);
             Ok(())
         }
-        Some("serve" | "paper") => {
-            let paper = args[1] == "paper";
-            let path = args
-                .get(2)
-                .ok_or("usage: mininautilus serve JOURNAL [--recover] [CONFIG.json]")?;
-            let mut engine = if args.get(3).is_some_and(|s| s == "--recover") {
-                if paper {
-                    return Err(
-                        "paper restart requires a fresh journal and replayed market inputs".into(),
-                    );
-                }
-                DurableEngine::recover(Path::new(path), args.get(4).map(Path::new))?
-            } else {
-                let config = match args.get(3) {
+        Some("serve" | "paper" | "sim") => {
+            let mode = args[1].as_str();
+            let config_at = |i: usize| -> Result<Config, Box<dyn std::error::Error>> {
+                Ok(match args.get(i) {
                     Some(path) => serde_json::from_slice(&std::fs::read(path)?)?,
                     None => Config::default(),
-                };
-                DurableEngine::create(Path::new(path), config)?
+                })
             };
-            let mut venue = PaperExchange::new();
-            let mut telemetry = std::env::var_os("MINI_TELEMETRY")
-                .map(|path| Telemetry::start(Path::new(&path), 256))
-                .transpose()?;
-            let mut stdout = io::stdout().lock();
-            // A startup response lets the Python bridge resume monotonic time and IDs.
-            serde_json::to_writer(
-                &mut stdout,
-                &Response {
-                    effects: vec![],
-                    state: engine.core(),
-                },
-            )?;
-            writeln!(stdout)?;
-            stdout.flush()?;
-            for line in io::stdin().lock().lines() {
-                let input: Request = serde_json::from_str(&line?)?;
-                let effects =
-                    engine.process_timed(input.at, input.event.clone(), input.time.clone())?;
-                if paper {
-                    let mut events = Vec::new();
-                    for effect in &effects {
-                        events.extend(venue.execute(engine.core().epoch, effect)?);
+            let mut backend = if mode == "sim" {
+                // Backtest: no journal and no fsync; the input file is the truth.
+                Backend::Memory(Core::new(config_at(2)?)?)
+            } else {
+                let path = args
+                    .get(2)
+                    .ok_or("usage: mininautilus serve JOURNAL [--recover] [CONFIG.json]")?;
+                Backend::Durable(if args.get(3).is_some_and(|s| s == "--recover") {
+                    if mode == "paper" {
+                        return Err(
+                            "paper restart requires a fresh journal and replayed market inputs"
+                                .into(),
+                        );
                     }
-                    if let Event::Trade { taker, price, qty } = input.event {
-                        events.extend(venue.trade(engine.core().epoch, taker, price, qty)?);
-                    }
-                    for event in events {
-                        let mut time = input.time.clone();
-                        if let Some(t) = &mut time {
-                            t.source = Some("simulation".into());
-                            t.fill_event_times.clear();
-                        }
-                        engine.process_timed(input.at, event, time)?;
-                    }
-                }
-                if let Some(logger) = telemetry.as_mut() {
-                    logger.emit(format!(
-                        "seq={} position={} health={:?}",
-                        engine.core().seq,
-                        engine.core().position,
-                        engine.core().health
-                    ));
-                }
-                serde_json::to_writer(
-                    &mut stdout,
-                    &Response {
-                        effects,
-                        state: engine.core(),
-                    },
-                )?;
-                writeln!(stdout)?;
-                stdout.flush()?;
+                    DurableEngine::recover(Path::new(path), args.get(4).map(Path::new))?
+                } else {
+                    DurableEngine::create(Path::new(path), config_at(3)?)?
+                })
+            };
+            if let Backend::Durable(engine) = &mut backend {
+                engine.set_sync_policy(sync);
             }
-            if let Some(logger) = telemetry {
-                eprintln!("telemetry_dropped={}", logger.finish()?);
+            serve(backend, mode != "serve")
+        }
+        Some("backtest") => {
+            let usage = "backtest BARS.csv TARGETS.csv [CONFIG.json] [--ledger FILLS.csv] \
+                         [--limit-offset TICKS] [--order-ttl-ms MS]";
+            let mut positional = Vec::new();
+            let mut ledger_path = None;
+            let mut policy = mininautilus::backtest::Policy::default();
+            let mut rest = args[2..].iter();
+            while let Some(arg) = rest.next() {
+                match arg.as_str() {
+                    "--ledger" => ledger_path = Some(rest.next().ok_or(usage)?),
+                    "--limit-offset" => policy.limit_offset = rest.next().ok_or(usage)?.parse()?,
+                    "--order-ttl-ms" => policy.order_ttl_ms = rest.next().ok_or(usage)?.parse()?,
+                    _ => positional.push(arg),
+                }
             }
+            let [bars, targets, config @ ..] = positional.as_slice() else {
+                return Err(usage.into());
+            };
+            let config = match config {
+                [] => Config::default(),
+                [path] => serde_json::from_slice(&std::fs::read(path)?)?,
+                _ => return Err(usage.into()),
+            };
+            backtest(bars, targets, config, policy, ledger_path)
+        }
+        Some("rotate") => {
+            let usage = "rotate OLD_JOURNAL NEW_JOURNAL";
+            let (old, new) = (args.get(2).ok_or(usage)?, args.get(3).ok_or(usage)?);
+            let core = mininautilus::journal::rotate(Path::new(old), Path::new(new))?;
+            println!(
+                "rotated: position={} id_floor={} killed={}",
+                core.position, core.id_floor, core.killed
+            );
             Ok(())
         }
         Some("snapshot") => {
@@ -141,11 +181,119 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
         }
         _ => {
             println!(
-                "MiniNautilus\n  dashboard JOURNAL_OR_DIRECTORY [--port PORT]\n  demo\n  serve JOURNAL [--recover|CONFIG.json]\n  paper JOURNAL [CONFIG.json]\n  inspect JOURNAL\n  snapshot JOURNAL OUTPUT"
+                "MiniNautilus\n  dashboard JOURNAL_OR_DIRECTORY [--port PORT]\n  demo\n  serve JOURNAL [--recover|CONFIG.json] [--sync every|outbox]\n  paper JOURNAL [CONFIG.json] [--sync every|outbox]\n  sim [CONFIG.json]  (in-memory paper venue, no journal)\n  backtest BARS.csv TARGETS.csv [CONFIG.json] [--ledger FILLS.csv]\n  inspect JOURNAL\n  snapshot JOURNAL OUTPUT\n  rotate OLD_JOURNAL NEW_JOURNAL  (archive a flat, healthy session)"
             );
             Ok(())
         }
     }
+}
+
+/// In-process backtest of a precomputed target series; prints a JSON summary.
+fn backtest(
+    bars: &str,
+    targets: &str,
+    config: Config,
+    policy: mininautilus::backtest::Policy,
+    ledger_path: Option<&String>,
+) -> Result<(), Box<dyn std::error::Error>> {
+    use mininautilus::backtest;
+    let started = std::time::Instant::now();
+    let bars = backtest::read_bars(io::BufReader::new(std::fs::File::open(bars)?))?;
+    let targets = backtest::read_targets(
+        io::BufReader::new(std::fs::File::open(targets)?),
+        bars.len(),
+    )?;
+    let loaded = started.elapsed().as_secs_f64();
+    let (run, summary) = backtest::run(&bars, &targets, config, policy, ledger_path.is_some())?;
+    let simulated = started.elapsed().as_secs_f64() - loaded;
+    if let (Some(path), Some(ledger)) = (ledger_path, &run.ledger) {
+        let mut out = io::BufWriter::new(std::fs::File::create(path)?);
+        writeln!(out, "bar,at,order_id,side,qty,price")?;
+        for f in ledger {
+            writeln!(
+                out,
+                "{},{},{},{:?},{},{}",
+                f.bar, f.at, f.order_id, f.side, f.qty, f.price
+            )?;
+        }
+        out.flush()?;
+    }
+    let mut value = serde_json::to_value(&summary)?;
+    value["load_seconds"] = loaded.into();
+    value["simulate_seconds"] = simulated.into();
+    println!("{value}");
+    Ok(())
+}
+
+/// JSON-lines loop shared by serve/paper/sim. `MINI_RESPONSE=full` restores the
+/// protocol-1 behavior of returning the complete state after every request.
+fn serve(mut engine: Backend, simulate: bool) -> Result<(), Box<dyn std::error::Error>> {
+    let full = std::env::var("MINI_RESPONSE").is_ok_and(|v| v == "full");
+    engine.track_changes();
+    let mut venue = PaperExchange::new();
+    let mut telemetry = std::env::var_os("MINI_TELEMETRY")
+        .map(|path| Telemetry::start(Path::new(&path), 256))
+        .transpose()?;
+    let mut stdout = io::BufWriter::new(io::stdout().lock());
+    // A startup response lets the Python bridge resume monotonic time and IDs.
+    engine.take_changes();
+    serde_json::to_writer(&mut stdout, &Response::full(engine.core(), vec![]))?;
+    writeln!(stdout)?;
+    stdout.flush()?;
+    for line in io::stdin().lock().lines() {
+        let request: Request = serde_json::from_str(&line?)?;
+        let mut effects = Vec::new();
+        let at = request.at;
+        let inputs = request
+            .event
+            .into_iter()
+            .chain(request.events)
+            .map(|e| (at, e));
+        for (at, event) in inputs.chain(request.batch) {
+            let produced = engine.process(at, event.clone(), request.time.clone())?;
+            if simulate {
+                let mut reports = Vec::new();
+                for effect in &produced {
+                    reports.extend(venue.execute(engine.core().epoch, effect)?);
+                }
+                if let Event::Trade { taker, price, qty } = event {
+                    reports.extend(venue.trade(engine.core().epoch, taker, price, qty)?);
+                }
+                for report in reports {
+                    let mut time = request.time.clone();
+                    if let Some(t) = &mut time {
+                        t.source = Some("simulation".into());
+                        t.fill_event_times.clear();
+                    }
+                    engine.process(at, report, time)?;
+                }
+            }
+            effects.extend(produced);
+        }
+        if let Some(logger) = telemetry.as_mut() {
+            let core = engine.core();
+            logger.emit(format!(
+                "seq={} position={} health={:?}",
+                core.seq, core.position, core.health
+            ));
+        }
+        let changes = engine.take_changes();
+        let response = if full {
+            Response::full(engine.core(), effects)
+        } else {
+            Response::compact(engine.core(), effects, changes)
+        };
+        serde_json::to_writer(&mut stdout, &response)?;
+        writeln!(stdout)?;
+        stdout.flush()?;
+    }
+    if let Backend::Durable(engine) = &mut engine {
+        engine.sync()?;
+    }
+    if let Some(logger) = telemetry {
+        eprintln!("telemetry_dropped={}", logger.finish()?);
+    }
+    Ok(())
 }
 
 fn step(core: &mut Core, at: Time, event: Event) -> Result<Vec<Effect>, String> {

@@ -27,10 +27,64 @@ pub struct Core {
     pub last_target_revision: u64,
     /// Tick-lot cash, without fees; i128 prevents multiplying two i64s from overflowing.
     pub cash: i128,
+    /// Session opening balances carried over by journal rotation (H4). Venue
+    /// reconciliation positions are relative to the session's opening position.
+    #[serde(default, skip_serializing_if = "is_zero_i64")]
+    pub opening_position: i64,
+    #[serde(default, skip_serializing_if = "is_zero_i128")]
+    pub opening_cash: i128,
+    /// Client order IDs up to this value belong to rotated-out sessions.
+    #[serde(default, skip_serializing_if = "is_zero_u64")]
+    pub id_floor: OrderId,
     /// Derived from `orders`; never serialized. Code that mutates `orders` directly
     /// (outside transitions) must call `reindex` before applying further events.
     #[serde(skip)]
     index: OrderIndex,
+    /// Opt-in record of written order/fill IDs for compact transport responses.
+    #[serde(skip)]
+    changes: ChangeLog,
+}
+
+/// Order and fill IDs written since the last `take_changes`. `replaced` means a
+/// full reconciliation swapped the history; observers must reload full state.
+#[derive(Clone, Debug, Default, PartialEq, Eq)]
+pub struct Changes {
+    pub orders: BTreeSet<OrderId>,
+    pub fills: BTreeSet<u64>,
+    pub replaced: bool,
+}
+
+/// Observer bookkeeping, not trading state: excluded from equality and serde.
+#[derive(Clone, Debug, Default)]
+struct ChangeLog(Option<Changes>);
+impl PartialEq for ChangeLog {
+    fn eq(&self, _: &Self) -> bool {
+        true
+    }
+}
+impl Eq for ChangeLog {}
+
+fn is_zero_i64(v: &i64) -> bool {
+    *v == 0
+}
+fn is_zero_i128(v: &i128) -> bool {
+    *v == 0
+}
+fn is_zero_u64(v: &u64) -> bool {
+    *v == 0
+}
+
+/// Account state a rotated journal starts from. Rotation requires a healthy,
+/// fully resolved book, so no order, fill or reservation needs to carry over.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct Carry {
+    pub now: Time,
+    pub position: i64,
+    pub cash: i128,
+    pub killed: bool,
+    pub epoch: u64,
+    pub last_target_revision: u64,
+    pub id_floor: OrderId,
 }
 
 impl Serialize for Core {
@@ -115,8 +169,66 @@ impl Core {
             target: None,
             last_target_revision: 0,
             cash: 0,
+            opening_position: 0,
+            opening_cash: 0,
+            id_floor: 0,
             index: OrderIndex::default(),
+            changes: ChangeLog::default(),
         })
+    }
+
+    /// A healthy book with nothing open: history can move to an archive.
+    pub fn rotation_ready(&self) -> Result<(), &'static str> {
+        if self.health != Health::Healthy {
+            return Err("rotation requires a healthy, reconciled engine");
+        }
+        if !self.index.open.is_empty() {
+            return Err("rotation requires every order to be terminal and certain");
+        }
+        Ok(())
+    }
+
+    pub fn carry(&self) -> Carry {
+        Carry {
+            now: self.now,
+            position: self.position,
+            cash: self.cash,
+            killed: self.killed,
+            epoch: self.epoch,
+            last_target_revision: self.last_target_revision,
+            id_floor: self
+                .orders
+                .last_key_value()
+                .map_or(self.id_floor, |(id, _)| *id)
+                .max(self.id_floor),
+        }
+    }
+
+    /// The first state of a rotated journal: no history, carried balances and latch.
+    pub fn from_carry(config: Config, carry: &Carry) -> Result<Self, String> {
+        let mut core = Core::new(config)?;
+        core.now = carry.now;
+        core.last_private_at = carry.now;
+        core.position = carry.position;
+        core.cash = carry.cash;
+        core.opening_position = carry.position;
+        core.opening_cash = carry.cash;
+        core.killed = carry.killed;
+        core.epoch = carry.epoch;
+        core.last_target_revision = carry.last_target_revision;
+        core.id_floor = carry.id_floor;
+        Ok(core)
+    }
+
+    /// Start recording written order/fill IDs. Off by default so in-process
+    /// backtests that never drain the log do not accumulate it.
+    pub fn track_changes(&mut self) {
+        self.changes.0.get_or_insert_with(Changes::default);
+    }
+
+    /// Drain the IDs written since the previous call; `None` when not tracking.
+    pub fn take_changes(&mut self) -> Option<Changes> {
+        self.changes.0.as_mut().map(std::mem::take)
     }
 
     /// Rebuild derived indexes after editing `orders` outside a transition.
@@ -149,6 +261,28 @@ impl Core {
         }
         self.index.add(id, &order);
         self.orders.insert(id, order);
+        if let Some(changes) = &mut self.changes.0 {
+            changes.orders.insert(id);
+        }
+    }
+
+    fn put_fill(&mut self, fill: Fill) {
+        if let Some(changes) = &mut self.changes.0 {
+            changes.fills.insert(fill.execution_id);
+        }
+        self.fills.insert(fill.execution_id, fill);
+    }
+
+    fn replace_history(&mut self, rebuilt: Core) {
+        self.orders = rebuilt.orders;
+        self.fills = rebuilt.fills;
+        self.index = rebuilt.index;
+        if let Some(changes) = &mut self.changes.0 {
+            *changes = Changes {
+                replaced: true,
+                ..Changes::default()
+            };
+        }
     }
 
     /// Prepare a transition without changing published state, then commit it.
@@ -177,7 +311,8 @@ impl Core {
     }
 
     fn refusal(&self, intent: &Intent, seq: u64, now: Time) -> Option<&'static str> {
-        if self.orders.contains_key(&intent.id) {
+        if (self.id_floor > 0 && intent.id <= self.id_floor) || self.orders.contains_key(&intent.id)
+        {
             return Some("client order ID already used");
         }
         if self.killed || self.health != Health::Healthy {
@@ -262,6 +397,10 @@ impl Core {
             return Err("stale reconciliation or no active recovery".into());
         }
         let mut rebuilt = Core::new(self.config.clone())?;
+        (rebuilt.position, rebuilt.cash) = (self.opening_position, self.opening_cash);
+        (rebuilt.opening_position, rebuilt.opening_cash) =
+            (self.opening_position, self.opening_cash);
+        rebuilt.id_floor = self.id_floor;
         let mut ids = BTreeSet::new();
         for remote in &snapshot.orders {
             let local = self
@@ -285,6 +424,29 @@ impl Core {
                     intent: remote.intent.clone(),
                     filled: 0,
                     lifecycle: Lifecycle::Accepted,
+                    pending: None,
+                    deadline: None,
+                    uncertain: false,
+                },
+            );
+        }
+        // Proven never received: terminal before fills are applied, so a fill that
+        // names one of these orders fails closed instead of reviving it.
+        for id in &snapshot.absent {
+            let local = self.orders.get(id).ok_or("absent order unknown locally")?;
+            if !ids.insert(*id)
+                || local.lifecycle != Lifecycle::Pending
+                || local.filled != 0
+                || self.fills.values().any(|f| f.order_id == *id)
+            {
+                return Err("venue reports absent an order it acknowledged or filled".into());
+            }
+            rebuilt.orders.insert(
+                *id,
+                Order {
+                    intent: local.intent.clone(),
+                    filled: 0,
+                    lifecycle: Lifecycle::Rejected,
                     pending: None,
                     deadline: None,
                     uncertain: false,
@@ -318,7 +480,8 @@ impl Core {
                 return Err("snapshot omitted or changed a known fill".into());
             }
         }
-        if rebuilt.position != snapshot.position {
+        // Venue positions are session-relative (from the journal's genesis).
+        if rebuilt.position as i128 - self.opening_position as i128 != snapshot.position as i128 {
             return Err("venue position disagrees with fills".into());
         }
         // Built during preparation so commit only moves the replacement in.

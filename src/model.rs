@@ -113,6 +113,12 @@ pub struct Reconciliation {
     pub orders: Vec<VenueOrder>,
     pub fills: Vec<Fill>,
     pub position: i64,
+    /// Local orders the venue proves it never received: queried by client order
+    /// ID after every request that could create them has expired (for Binance,
+    /// after the signed request's recvWindow). Only never-acknowledged, unfilled
+    /// orders may be listed; they become terminal (Rejected) and their IDs stay used.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub absent: Vec<OrderId>,
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]

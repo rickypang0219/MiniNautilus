@@ -94,6 +94,11 @@ impl<'a> Prepared<'a> {
         Ok(Self { core, transition })
     }
 
+    /// Effects that `commit` will return; lets the journal choose a sync policy.
+    pub(crate) fn effects(&self) -> &[Effect] {
+        &self.transition.effects
+    }
+
     /// No Result errors or callbacks after publication starts. Collection inserts
     /// may allocate: this is not a promise of OOM/panic recovery or zero allocation.
     pub(crate) fn commit(self) -> Vec<Effect> {
@@ -108,11 +113,7 @@ impl<'a> Prepared<'a> {
                     core.put_order(id, order);
                 }
             }
-            Writes::Rebuilt(rebuilt) => {
-                core.orders = rebuilt.orders;
-                core.fills = rebuilt.fills;
-                core.index = rebuilt.index;
-            }
+            Writes::Rebuilt(rebuilt) => core.replace_history(*rebuilt),
         }
         transition.effects
     }
@@ -482,7 +483,7 @@ impl FillUpdate {
         core.position = self.position;
         core.cash = self.cash;
         core.put_order(self.fill.order_id, self.order);
-        core.fills.insert(self.fill.execution_id, self.fill);
+        core.put_fill(self.fill);
     }
 }
 

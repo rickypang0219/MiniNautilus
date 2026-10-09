@@ -3,6 +3,8 @@ from collections import deque
 from dataclasses import dataclass
 from fractions import Fraction
 
+from .bridge import next_order_id, open_orders
+
 INTERVALS = {"1s": 1000, "1m": 60_000, "3m": 180_000, "5m": 300_000, "15m": 900_000,
              "30m": 1_800_000, "1h": 3_600_000}
 
@@ -78,14 +80,13 @@ class SmaStrategy:
         # Last finalized bar is valid during the following interval plus 5 s grace.
         if not 0 <= exchange_now_ms - self.last.close_ms <= self.interval_ms + 5000:
             return None
-        if any(not order["lifecycle"] in ("Filled", "Canceled", "Rejected") or order["uncertain"]
-               for order in state["orders"].values()):
+        if any(True for _ in open_orders(state)):
             return None
         delta = self.target - state["position"]
         if not delta:
             return None
         bid, ask, _ = state["quote"]
-        return {"id": max(map(int, state["orders"]), default=0) + 1,
+        return {"id": next_order_id(state),
                 "side": "Buy" if delta > 0 else "Sell", "qty": abs(delta),
                 "limit": ask if delta > 0 else bid, "based_on_seq": state["seq"],
                 "valid_until": state["now"] + ttl_ms}

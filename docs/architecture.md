@@ -26,7 +26,12 @@ separate resting set and still matches in ID order. See [acceptance](acceptance.
 See [the state-transition walkthrough and measurements](core-state-transitions.md).
 
 Python uses JSON-lines IPC, not PyO3. That makes process boundaries explicit and
-requires no additional interpreter bindings. The live example uses a separate
+requires no additional interpreter bindings. Protocol 2 (`src/protocol.rs`) sends the
+complete state at startup and after a full reconciliation; every other response is
+a fixed-size header plus the orders/fills that request wrote, so response size does
+not grow with history. The bridge applies deltas to a mirror equal to the full state.
+`sim` runs the same loop with an in-memory Core for backtests; `mininautilus
+backtest` runs a precomputed target series fully in-process (see acceptance B3). The live example uses a separate
 strategy process; the replay example invokes the same callback synchronously.
 Both submit the same typed intent to the same Rust checks. Recorded event ordering,
 including strategy results, is replayable; independently rerunning a parallel
@@ -78,7 +83,9 @@ exchange stream packets. WebSocket feed sequencing is a future adapter extension
 
 1. Prepare an owned transition while leaving published state unchanged.
 2. Append the complete input frame with chained FNV-1a corruption checksum.
-3. `sync_all` the journal.
+3. `sync_all` the journal: after every input (`--sync every`, default), or only
+   before an input whose effects leave the process (`--sync outbox`), which also
+   covers every earlier unsynced input. See acceptance L3 for crash guarantees.
 4. Publish the new state and return effects to the transport.
 
 An I/O error poisons the runtime and returns no effects. The file might nevertheless
@@ -86,9 +93,11 @@ contain the input, so restart always replays without sending historical effects
 and then closes the trading gate. The caller must never retry an old SendOrder
 blindly. Durable intent before sending does not provide exactly-once delivery.
 
-A crash after persistence but before actual send is intentionally unresolved if
-the venue reports no such order. We do not infer rejection or reuse its ID. That
-requires manual evidence or a future explicit never-sent/outbox protocol.
+A crash after persistence but before actual send stays unresolved while the venue
+merely reports no such order: it could still arrive. Only proof of absence resolves
+it: `Reconciliation.absent` lists never-acknowledged, unfilled orders the venue
+cannot have received (Binance: queried by client ID after the request's recvWindow
+expired). Core marks them Rejected and never reuses their IDs (acceptance L4).
 
 Files are exclusively locked for writer lifetime. Inspection takes a shared lock
 and refuses an active writer. Recovery validates all complete records first, then
@@ -99,7 +108,10 @@ whole valid suffix cannot be detected without an external durable high-water mar
 Snapshots use temporary-file sync, rename, and directory sync. They cannot overwrite
 the journal. Snapshot state is checked against full journal-prefix replay before
 replaying the tail; v0 snapshots verify a checkpoint but do not accelerate startup.
-There is no journal rotation or binary schema migration beyond schema version 1.
+Rotation (`mininautilus rotate OLD NEW`) closes a healthy, fully resolved journal
+and starts a successor whose genesis carries balances, kill latch, epoch and the
+highest used client order ID; this bounds retained history (acceptance H4). There
+is no binary schema migration beyond schema version 1.
 Durability depends on filesystem/device sync semantics; no power-loss hardware
 test has been performed. Filesystem calls have been exercised on macOS.
 

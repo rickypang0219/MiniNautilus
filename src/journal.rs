@@ -1,5 +1,8 @@
 //! Durable input-before-effect processing. Replay NEVER dispatches historical effects.
-use crate::{core::Core, model::*};
+use crate::{
+    core::{Carry, Core},
+    model::*,
+};
 use serde::{Deserialize, Serialize};
 use std::{
     fs::{self, File, OpenOptions},
@@ -24,8 +27,26 @@ fn checksum(previous: u64, bytes: &[u8]) -> u64 {
 
 #[derive(Serialize, Deserialize)]
 enum Payload {
-    Genesis { schema: u32, config: Config },
+    Genesis {
+        schema: u32,
+        config: Config,
+        /// Present when this journal continues a rotated predecessor (H4).
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        carry: Option<Carried>,
+    },
     Input(RecordedInput),
+    /// Final record of a rotated journal; nothing may follow it.
+    Closed {
+        successor: String,
+    },
+}
+
+#[derive(Serialize, Deserialize)]
+struct Carried {
+    // Nested, not flattened: serde's flatten buffer cannot hold i128 cash.
+    carry: Carry,
+    /// Chain link to the predecessor's last record, for audit tooling.
+    predecessor_checksum: u64,
 }
 /// Display/audit timestamps. They never drive Core ordering, expiry, or risk.
 #[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
@@ -76,12 +97,52 @@ struct Snapshot {
     core: Core,
 }
 
+/// When the journal is forced to stable storage (see docs/acceptance.md, L3).
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+pub enum SyncPolicy {
+    /// `sync_all` after every input (the original contract).
+    #[default]
+    EveryInput,
+    /// Every input is written before its effects are published, but `sync_all`
+    /// runs only before an input whose effects leave the process (SendOrder,
+    /// SendCancel). That sync also covers every earlier unsynced input, so any
+    /// external action is preceded by its durable cause history. A process crash
+    /// loses nothing (the OS still holds written pages); an OS/power failure may
+    /// lose a suffix of inputs that produced no external action, which recovery's
+    /// forced Disconnect and venue reconciliation re-establish. A torn middle
+    /// frame still fails closed at recovery.
+    Outbox,
+}
+impl std::str::FromStr for SyncPolicy {
+    type Err = String;
+    fn from_str(s: &str) -> Result<Self, String> {
+        match s {
+            "every" => Ok(Self::EveryInput),
+            "outbox" => Ok(Self::Outbox),
+            _ => Err("sync policy must be every or outbox".into()),
+        }
+    }
+}
+
+/// Wall time of each durable-path stage for one input (L2 profiling).
+#[derive(Clone, Copy, Debug, Default, Serialize)]
+pub struct Stages {
+    pub prepare_ns: u64,
+    pub encode_ns: u64,
+    pub write_ns: u64,
+    pub sync_ns: u64,
+    pub commit_ns: u64,
+    pub synced: bool,
+}
+
 pub struct DurableEngine {
     core: Core,
     file: File,
     checksum: u64,
     poisoned: bool,
     journal_path: PathBuf,
+    sync: SyncPolicy,
+    unsynced: bool,
 }
 
 impl DurableEngine {
@@ -99,8 +160,14 @@ impl DurableEngine {
             checksum: 0,
             poisoned: false,
             journal_path: fs::canonicalize(path)?,
+            sync: SyncPolicy::EveryInput,
+            unsynced: false,
         };
-        engine.append(&Payload::Genesis { schema: 1, config })?;
+        engine.append(&Payload::Genesis {
+            schema: 1,
+            config,
+            carry: None,
+        })?;
         sync_parent(path)?;
         Ok(engine)
     }
@@ -132,6 +199,8 @@ impl DurableEngine {
             checksum: previous,
             poisoned: false,
             journal_path: fs::canonicalize(path)?,
+            sync: SyncPolicy::EveryInput,
+            unsynced: false,
         };
         // A recovered local state is not proof of current venue state.
         engine.process(engine.core.now, Event::Disconnect)?;
@@ -142,8 +211,26 @@ impl DurableEngine {
         &self.core
     }
 
+    /// Record written order/fill IDs for compact responses (not journaled state).
+    pub fn track_changes(&mut self) {
+        self.core.track_changes();
+    }
+
+    pub fn take_changes(&mut self) -> Option<crate::core::Changes> {
+        self.core.take_changes()
+    }
+
     pub fn process(&mut self, at: Time, event: Event) -> io::Result<Vec<Effect>> {
         self.process_timed(at, event, None)
+    }
+
+    pub fn set_sync_policy(&mut self, policy: SyncPolicy) {
+        self.sync = policy;
+    }
+
+    /// Force every written input to stable storage (for example at shutdown).
+    pub fn sync(&mut self) -> io::Result<()> {
+        sync_file(&self.file, &mut self.unsynced, &mut self.poisoned)
     }
 
     pub fn process_timed(
@@ -152,6 +239,40 @@ impl DurableEngine {
         event: Event,
         time: Option<EventTime>,
     ) -> io::Result<Vec<Effect>> {
+        self.process_staged(at, event, time, None)
+    }
+
+    /// `process_timed` that also reports how long each stage took.
+    pub fn process_profiled(
+        &mut self,
+        at: Time,
+        event: Event,
+        time: Option<EventTime>,
+    ) -> io::Result<(Vec<Effect>, Stages)> {
+        let mut stages = Stages::default();
+        let effects = self.process_staged(at, event, time, Some(&mut stages))?;
+        Ok((effects, stages))
+    }
+
+    fn process_staged(
+        &mut self,
+        at: Time,
+        event: Event,
+        time: Option<EventTime>,
+        mut stages: Option<&mut Stages>,
+    ) -> io::Result<Vec<Effect>> {
+        let clock = stages.as_ref().map(|_| std::time::Instant::now());
+        let lap = |field: fn(&mut Stages) -> &mut u64, stages: &mut Option<&mut Stages>| {
+            if let (Some(stages), Some(clock)) = (stages.as_deref_mut(), clock) {
+                let total = clock.elapsed().as_nanos() as u64;
+                let spent: u64 = stages.prepare_ns
+                    + stages.encode_ns
+                    + stages.write_ns
+                    + stages.sync_ns
+                    + stages.commit_ns;
+                *field(stages) = total - spent;
+            }
+        };
         if let Some(t) = &time {
             t.validate()?;
         }
@@ -168,16 +289,38 @@ impl DurableEngine {
             event,
         };
         let prepared = self.core.prepare(&input).map_err(invalid)?;
+        lap(|s| &mut s.prepare_ns, &mut stages);
+        let sync = self.sync == SyncPolicy::EveryInput
+            || prepared
+                .effects()
+                .iter()
+                .any(|effect| matches!(effect, Effect::SendOrder(_) | Effect::SendCancel { .. }));
         // The Core is still unchanged. The token holds its exclusive borrow while
         // disjoint journal fields are written. On error, dropping it aborts safely.
-        append_frame(
-            &mut self.file,
-            &mut self.checksum,
-            &mut self.poisoned,
+        let (bytes, hash) = encode_frame(
+            self.checksum,
             &Payload::Input(RecordedInput { input, time }),
         )?;
-        // No published state or effect precedes the durable write acknowledgment.
-        Ok(prepared.commit())
+        lap(|s| &mut s.encode_ns, &mut stages);
+        if let Err(error) = self.file.write_all(&bytes) {
+            self.poisoned = true;
+            return Err(error);
+        }
+        self.checksum = hash;
+        self.unsynced = true;
+        lap(|s| &mut s.write_ns, &mut stages);
+        if sync {
+            sync_file(&self.file, &mut self.unsynced, &mut self.poisoned)?;
+        }
+        lap(|s| &mut s.sync_ns, &mut stages);
+        // No published state or effect precedes the durable write acknowledgment
+        // (under Outbox: no external effect precedes it).
+        let effects = prepared.commit();
+        lap(|s| &mut s.commit_ns, &mut stages);
+        if let Some(stages) = stages {
+            stages.synced = sync;
+        }
+        Ok(effects)
     }
 
     fn append(&mut self, payload: &Payload) -> io::Result<()> {
@@ -189,13 +332,15 @@ impl DurableEngine {
         )
     }
 
-    pub fn snapshot(&self, path: &Path) -> io::Result<()> {
+    /// Syncs the journal first: a snapshot must never be ahead of durable input.
+    pub fn snapshot(&mut self, path: &Path) -> io::Result<()> {
         if path.exists() && fs::canonicalize(path)? == self.journal_path {
             return Err(invalid("snapshot cannot overwrite its journal"));
         }
         if self.poisoned {
             return Err(io::Error::other("cannot snapshot failed journal"));
         }
+        self.sync()?;
         write_snapshot(
             path,
             &Snapshot {
@@ -207,22 +352,39 @@ impl DurableEngine {
     }
 }
 
-// Separate field borrows keep Core exclusively reserved by Prepared until commit.
+// Disjoint field borrows: callable while a Prepared token borrows the Core.
+fn sync_file(file: &File, unsynced: &mut bool, poisoned: &mut bool) -> io::Result<()> {
+    if *unsynced {
+        if let Err(error) = file.sync_all() {
+            *poisoned = true;
+            return Err(error);
+        }
+        *unsynced = false;
+    }
+    Ok(())
+}
+
+/// One checksummed journal line and its chained hash.
+fn encode_frame(previous: u64, payload: &Payload) -> io::Result<(Vec<u8>, u64)> {
+    let payload = serde_json::to_string(payload).map_err(invalid)?;
+    let hash = checksum(previous, payload.as_bytes());
+    let frame = Frame {
+        previous,
+        checksum: hash,
+        payload,
+    };
+    let mut bytes = serde_json::to_vec(&frame).map_err(invalid)?;
+    bytes.push(b'\n');
+    Ok((bytes, hash))
+}
+
 fn append_frame(
     file: &mut File,
     previous: &mut u64,
     poisoned: &mut bool,
     payload: &Payload,
 ) -> io::Result<()> {
-    let payload = serde_json::to_string(payload).map_err(invalid)?;
-    let hash = checksum(*previous, payload.as_bytes());
-    let frame = Frame {
-        previous: *previous,
-        checksum: hash,
-        payload,
-    };
-    let mut bytes = serde_json::to_vec(&frame).map_err(invalid)?;
-    bytes.push(b'\n');
+    let (bytes, hash) = encode_frame(*previous, payload)?;
     if let Err(error) = file.write_all(&bytes).and_then(|()| file.sync_all()) {
         *poisoned = true;
         return Err(error);
@@ -255,10 +417,36 @@ fn sync_parent(path: &Path) -> io::Result<()> {
     File::open(parent)?.sync_all()
 }
 
+fn genesis(config: Config, carry: Option<Carried>) -> io::Result<Core> {
+    match carry {
+        None => Core::new(config),
+        Some(carried) => Core::from_carry(config, &carried.carry),
+    }
+    .map_err(invalid)
+}
+
+/// Replays a journal; `Scanned::closed` names the successor of a rotated one.
+struct Scanned {
+    core: Core,
+    checksum: u64,
+    closed: Option<String>,
+}
+
 fn scan(bytes: &[u8], snapshot: Option<&Snapshot>) -> io::Result<(Core, u64)> {
+    let scanned = scan_all(bytes, snapshot)?;
+    if let Some(successor) = scanned.closed {
+        return Err(invalid(format!(
+            "journal was rotated; continue from successor {successor}"
+        )));
+    }
+    Ok((scanned.core, scanned.checksum))
+}
+
+fn scan_all(bytes: &[u8], snapshot: Option<&Snapshot>) -> io::Result<Scanned> {
     let mut snapshot_matched = snapshot.is_none();
     let mut previous = 0;
     let mut core = None;
+    let mut closed = None;
     for (index, line) in bytes
         .split(|b| *b == b'\n')
         .filter(|s| !s.is_empty())
@@ -272,8 +460,17 @@ fn scan(bytes: &[u8], snapshot: Option<&Snapshot>) -> io::Result<(Core, u64)> {
         }
         let payload: Payload = serde_json::from_str(&frame.payload).map_err(invalid)?;
         match (index, payload) {
-            (0, Payload::Genesis { schema: 1, config }) => {
-                core = Some(Core::new(config).map_err(invalid)?)
+            (
+                0,
+                Payload::Genesis {
+                    schema: 1,
+                    config,
+                    carry,
+                },
+            ) => core = Some(genesis(config, carry)?),
+            (_, Payload::Closed { successor }) => closed = Some(successor),
+            (_, Payload::Input(_)) if closed.is_some() => {
+                return Err(invalid("input after journal was closed by rotation"));
             }
             (_, Payload::Input(event)) => {
                 if let Some(time) = &event.time {
@@ -302,7 +499,69 @@ fn scan(bytes: &[u8], snapshot: Option<&Snapshot>) -> io::Result<(Core, u64)> {
         return Err(invalid("snapshot is ahead of journal"));
     }
     let core = core.ok_or_else(|| invalid("empty or torn genesis"))?;
-    Ok((core, previous))
+    Ok(Scanned {
+        core,
+        checksum: previous,
+        closed,
+    })
+}
+
+/// Offline H4 rotation: archive `old` and start `new` from its carried account
+/// state. Requires no other writer, a complete journal, and a healthy book with
+/// no open orders (for example after a clean shutdown reconciliation). The old
+/// journal is closed first (naming its successor); if the process stops before
+/// `new` exists, running the same rotation again completes it.
+pub fn rotate(old: &Path, new: &Path) -> io::Result<Core> {
+    let mut file = OpenOptions::new().read(true).write(true).open(old)?;
+    file.try_lock().map_err(io::Error::other)?;
+    let mut bytes = Vec::new();
+    file.read_to_end(&mut bytes)?;
+    if !bytes.ends_with(b"\n") {
+        return Err(invalid("incomplete journal; recover before rotating"));
+    }
+    let scanned = scan_all(&bytes, None)?;
+    let successor = new.display().to_string();
+    match &scanned.closed {
+        Some(existing) if *existing != successor => {
+            return Err(invalid(format!("journal already rotated to {existing}")));
+        }
+        Some(_) if new.exists() => return Err(invalid("rotation already completed")),
+        Some(_) => {}
+        None => {
+            scanned.core.rotation_ready().map_err(invalid)?;
+            let mut checksum = scanned.checksum;
+            let mut poisoned = false;
+            file.seek(SeekFrom::End(0))?;
+            append_frame(
+                &mut file,
+                &mut checksum,
+                &mut poisoned,
+                &Payload::Closed {
+                    successor: successor.clone(),
+                },
+            )?;
+        }
+    }
+    let config = scanned.core.config.clone();
+    let carry = scanned.core.carry();
+    let core = Core::from_carry(config.clone(), &carry).map_err(invalid)?;
+    let mut next = OpenOptions::new().write(true).create_new(true).open(new)?;
+    let (mut checksum, mut poisoned) = (0, false);
+    append_frame(
+        &mut next,
+        &mut checksum,
+        &mut poisoned,
+        &Payload::Genesis {
+            schema: 1,
+            config,
+            carry: Some(Carried {
+                carry,
+                predecessor_checksum: scanned.checksum,
+            }),
+        },
+    )?;
+    sync_parent(new)?;
+    Ok(core)
 }
 
 /// Read-only validated replay. Refuses an active writer or an incomplete tail.
@@ -315,7 +574,8 @@ pub fn replay(path: &Path) -> io::Result<Core> {
     if !bytes.ends_with(b"\n") {
         return Err(invalid("incomplete journal; recover before analysis"));
     }
-    Ok(scan(&bytes, None)?.0)
+    // A rotated (closed) journal is an archive: its final state is still valid.
+    Ok(scan_all(&bytes, None)?.core)
 }
 
 /// Create an offline checkpoint without appending to or changing the source journal.
@@ -441,10 +701,19 @@ impl JournalFollower {
             }
             let payload: Payload = serde_json::from_str(&frame.payload).map_err(invalid)?;
             match (self.records, payload) {
-                (0, Payload::Genesis { schema: 1, config }) => {
-                    self.core = Some(Core::new(config).map_err(invalid)?);
+                (
+                    0,
+                    Payload::Genesis {
+                        schema: 1,
+                        config,
+                        carry,
+                    },
+                ) => {
+                    self.core = Some(genesis(config, carry)?);
                     observe(self.core.as_ref().unwrap(), None, &[], None);
                 }
+                // A rotated journal ends here; the successor is a separate session.
+                (_, Payload::Closed { .. }) => {}
                 (_, Payload::Input(input)) => {
                     let core = self
                         .core
@@ -528,6 +797,7 @@ mod tests {
                     }],
                     fills: vec![],
                     position: 0,
+                    absent: vec![],
                 }),
             };
             let original = engine.core.clone();

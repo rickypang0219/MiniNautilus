@@ -283,6 +283,7 @@ fn reconciliation_cannot_reopen_a_confirmed_canceled_order() {
             filled: 0,
             lifecycle: Lifecycle::Accepted,
         }],
+        absent: vec![],
     };
     send(&mut c, 2, Event::Reconcile(snapshot));
     assert_eq!(c.health, Health::Reconciling);
