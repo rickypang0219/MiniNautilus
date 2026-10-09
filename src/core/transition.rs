@@ -491,6 +491,59 @@ impl FillUpdate {
 mod tests {
     use super::*;
 
+    /// `Core::apply`'s in-place header-only path must equal prepare/commit,
+    /// including near deadlines, stale heartbeats and invalid market values.
+    #[test]
+    fn header_only_fast_path_equals_prepare_commit() {
+        let mut rng = 0x9E37_79B9_7F4A_7C15u64;
+        let mut next = || {
+            rng ^= rng << 13;
+            rng ^= rng >> 7;
+            rng ^= rng << 17;
+            rng
+        };
+        for _ in 0..64 {
+            let mut fast = Core::new(Config::default()).unwrap();
+            let mut slow = fast.clone();
+            let mut at = 0;
+            for id in 1..200u64 {
+                at += next() % 40;
+                let event = match next() % 9 {
+                    0 | 1 => Event::Quote {
+                        bid: (next() % 3) as i64 + 98,
+                        ask: (next() % 4) as i64 + 97,
+                    },
+                    2 => Event::Trade {
+                        taker: Side::Buy,
+                        price: (next() % 3) as i64 - 1,
+                        qty: 1,
+                    },
+                    3 => Event::Heartbeat { epoch: next() % 2 },
+                    4 | 5 => Event::Tick,
+                    6 => Event::Submit(Intent {
+                        id,
+                        side: Side::Buy,
+                        qty: 1,
+                        limit: 100,
+                        based_on_seq: fast.seq,
+                        valid_until: at + 1_000,
+                    }),
+                    7 => Event::Reconnect,
+                    _ => Event::Disconnect,
+                };
+                let input = Envelope {
+                    seq: fast.seq + 1,
+                    at,
+                    event,
+                };
+                let a = fast.apply(&input);
+                let b = slow.prepare(&input).map(Prepared::commit);
+                assert_eq!(a, b, "{input:?}");
+                assert_eq!(fast, slow, "{input:?}");
+            }
+        }
+    }
+
     #[test]
     fn preparation_and_abort_never_publish_even_the_gate() {
         let mut core = Core::new(Config::default()).unwrap();

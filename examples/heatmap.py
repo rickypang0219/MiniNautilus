@@ -19,7 +19,9 @@ import sys
 import time
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "python"))
-from mininautilus.backtest import read_bars, run_targets, sma_targets, synthetic_bars, write_bars
+import subprocess
+from mininautilus.backtest import (cumulative, read_prices, run_targets, sma_targets,
+                                   synthetic_bars, write_bars_binary)
 from mininautilus.bridge import ROOT
 
 MINUTES_5Y = 5 * 365 * 24 * 60 + 24 * 60
@@ -29,12 +31,11 @@ CONFIG = {"max_abs_position": 1_000, "max_order_qty": 1_000, "max_order_notional
 _shared = {}
 
 
-def _init(bars_path, config_path, prices):
-    _shared.update(bars=bars_path, config=config_path, prices=prices)
-    prefix = [0]
-    for p in prices:
-        prefix.append(prefix[-1] + p)
-    _shared["prefix"] = prefix
+def _init(bars_path, config_path):
+    # Each worker reads the binary bar file itself (milliseconds) and shares
+    # one prefix-sum array across all of its parameter pairs.
+    prices = read_prices(bars_path)
+    _shared.update(bars=bars_path, config=config_path, prices=prices, prefix=cumulative(prices))
 
 
 def _run(pair):
@@ -69,17 +70,18 @@ def main():
     config = args.output.with_suffix(".config.json")
     config.write_text(json.dumps(CONFIG))
     start = time.perf_counter()
+    bars_path = args.output.with_suffix(".bars.bin")
     if args.input:
-        bars_path, bars = args.input, read_bars(args.input)
+        # CSV (or binary) input is converted once to the binary format.
+        subprocess.check_call([str(ROOT / "target/release/mininautilus"), "convert-bars",
+                               str(args.input), str(bars_path)], stdout=subprocess.DEVNULL)
     else:
-        bars_path = args.output.with_suffix(".bars.csv")
-        bars = synthetic_bars(args.bars)
-        write_bars(bars_path, bars)
-    prices = [b.price for b in bars]
+        write_bars_binary(bars_path, synthetic_bars(args.bars))
+    bar_count = (bars_path.stat().st_size - 8) // 32
     prepare_seconds = time.perf_counter() - start
 
     if args.single:
-        _init(bars_path, config, prices)
+        _init(bars_path, config)
         result = _run(tuple(args.single))
         result["prepare_seconds"] = prepare_seconds
         print(json.dumps(result, indent=2))
@@ -89,16 +91,16 @@ def main():
 
     pairs = [(f, s) for f in grid(*args.fast, args.grid) for s in grid(*args.slow, args.grid) if f < s]
     start = time.perf_counter()
-    with ProcessPoolExecutor(args.workers, initializer=_init, initargs=(bars_path, config, prices)) as pool:
+    with ProcessPoolExecutor(args.workers, initializer=_init, initargs=(bars_path, config)) as pool:
         results = list(pool.map(_run, pairs))
     elapsed = time.perf_counter() - start
-    report = {"bars": len(bars), "pairs": len(pairs), "workers": args.workers,
+    report = {"bars": bar_count, "pairs": len(pairs), "workers": args.workers,
               "prepare_seconds": prepare_seconds, "sweep_seconds": elapsed, "results": results}
     args.output.write_text(json.dumps(report, indent=1))
     best = max(results, key=lambda r: int(r["gross_equity_tick_lots"]))
     print(json.dumps({k: v for k, v in report.items() if k != "results"}
                      | {"best": {k: best[k] for k in ("fast", "slow", "gross_equity_tick_lots", "fills")}}, indent=2))
-    print(f"B2 sweep: {len(pairs)} pairs x {len(bars)} bars in {elapsed:.1f}s with {args.workers} workers "
+    print(f"B2 sweep: {len(pairs)} pairs x {bar_count} bars in {elapsed:.1f}s with {args.workers} workers "
           f"(target <= 600s) -> {'PASS' if elapsed <= 600 else 'FAIL'}", file=sys.stderr)
 
 

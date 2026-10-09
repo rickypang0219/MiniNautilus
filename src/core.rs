@@ -131,13 +131,6 @@ impl OrderIndex {
             self.deadlines.insert((deadline, id));
         }
     }
-
-    fn remove(&mut self, id: OrderId, order: &Order) {
-        self.open.remove(&id);
-        if let Some(deadline) = order.deadline {
-            self.deadlines.remove(&(deadline, id));
-        }
-    }
 }
 
 impl Core {
@@ -256,11 +249,31 @@ impl Core {
 
     /// The only write path for `orders` inside transitions; keeps indexes in step.
     fn put_order(&mut self, id: OrderId, order: Order) {
-        if let Some(previous) = self.orders.get(&id) {
-            self.index.remove(id, previous);
+        match self.orders.get_mut(&id) {
+            Some(slot) => {
+                // Touch the index only where membership actually changes.
+                if is_open(slot) != is_open(&order) {
+                    if is_open(&order) {
+                        self.index.open.insert(id);
+                    } else {
+                        self.index.open.remove(&id);
+                    }
+                }
+                if slot.deadline != order.deadline {
+                    if let Some(due) = slot.deadline {
+                        self.index.deadlines.remove(&(due, id));
+                    }
+                    if let Some(due) = order.deadline {
+                        self.index.deadlines.insert((due, id));
+                    }
+                }
+                *slot = order;
+            }
+            None => {
+                self.index.add(id, &order);
+                self.orders.insert(id, order);
+            }
         }
-        self.index.add(id, &order);
-        self.orders.insert(id, order);
         if let Some(changes) = &mut self.changes.0 {
             changes.orders.insert(id);
         }
@@ -288,7 +301,47 @@ impl Core {
     /// Prepare a transition without changing published state, then commit it.
     /// Quote/Trade preparation never copies order or execution history.
     pub fn apply(&mut self, input: &Envelope) -> Result<Vec<Effect>, String> {
+        if self.apply_header_only(input) {
+            return Ok(Vec::new());
+        }
         Ok(self.prepare(input)?.commit())
+    }
+
+    /// In-place commit for valid market/heartbeat/idle-timer events, which change
+    /// only fixed-size header fields and produce no effects. Once validated they
+    /// cannot fail, so there is nothing to stage. Anything else (an invalid value,
+    /// a due deadline, a stale private stream, a bad envelope) returns false and
+    /// takes the general prepare/commit path, which owns all gating behaviour.
+    /// The journal always uses prepare/commit; tests/transition_equivalence.rs
+    /// checks this path against the frozen reference on every event.
+    fn apply_header_only(&mut self, input: &Envelope) -> bool {
+        if self.seq.checked_add(1) != Some(input.seq) || input.at < self.now {
+            return false;
+        }
+        let now = input.at;
+        match input.event {
+            Event::Quote { bid, ask } if bid > 0 && ask >= bid => {
+                self.quote = Some((bid, ask, now));
+            }
+            Event::Trade { price, qty, .. } if price > 0 && qty > 0 => {}
+            Event::Heartbeat { epoch } => {
+                if epoch == self.epoch && self.health != Health::Disconnected {
+                    self.last_private_at = now;
+                }
+            }
+            Event::Tick
+                if self
+                    .index
+                    .deadlines
+                    .first()
+                    .is_none_or(|(due, _)| *due > now)
+                    && !(self.health == Health::Healthy
+                        && now - self.last_private_at > self.config.private_stale_ms) => {}
+            _ => return false,
+        }
+        self.seq = input.seq;
+        self.now = now;
+        true
     }
 
     /// The exclusive borrow prevents state changes between prepare and commit.

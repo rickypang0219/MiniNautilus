@@ -172,6 +172,14 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
             );
             Ok(())
         }
+        Some("convert-bars") => {
+            let usage = "convert-bars BARS.csv BARS.bin";
+            let (input, output) = (args.get(2).ok_or(usage)?, args.get(3).ok_or(usage)?);
+            let bars = mininautilus::backtest::load_bars(Path::new(input))?;
+            std::fs::write(output, mininautilus::backtest::encode_bars(&bars))?;
+            println!("{} bars", bars.len());
+            Ok(())
+        }
         Some("snapshot") => {
             let journal = args.get(2).ok_or("snapshot JOURNAL OUTPUT")?;
             let output = args.get(3).ok_or("snapshot JOURNAL OUTPUT")?;
@@ -181,7 +189,7 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
         }
         _ => {
             println!(
-                "MiniNautilus\n  dashboard JOURNAL_OR_DIRECTORY [--port PORT]\n  demo\n  serve JOURNAL [--recover|CONFIG.json] [--sync every|outbox]\n  paper JOURNAL [CONFIG.json] [--sync every|outbox]\n  sim [CONFIG.json]  (in-memory paper venue, no journal)\n  backtest BARS.csv TARGETS.csv [CONFIG.json] [--ledger FILLS.csv]\n  inspect JOURNAL\n  snapshot JOURNAL OUTPUT\n  rotate OLD_JOURNAL NEW_JOURNAL  (archive a flat, healthy session)"
+                "MiniNautilus\n  dashboard JOURNAL_OR_DIRECTORY [--port PORT]\n  demo\n  serve JOURNAL [--recover|CONFIG.json] [--sync every|outbox]\n  paper JOURNAL [CONFIG.json] [--sync every|outbox]\n  sim [CONFIG.json]  (in-memory paper venue, no journal)\n  backtest BARS.csv|BARS.bin TARGETS.csv [CONFIG.json] [--ledger FILLS.csv]\n  convert-bars BARS.csv BARS.bin\n  inspect JOURNAL\n  snapshot JOURNAL OUTPUT\n  rotate OLD_JOURNAL NEW_JOURNAL  (archive a flat, healthy session)"
             );
             Ok(())
         }
@@ -198,7 +206,7 @@ fn backtest(
 ) -> Result<(), Box<dyn std::error::Error>> {
     use mininautilus::backtest;
     let started = std::time::Instant::now();
-    let bars = backtest::read_bars(io::BufReader::new(std::fs::File::open(bars)?))?;
+    let bars = backtest::load_bars(Path::new(bars))?;
     let targets = backtest::read_targets(
         io::BufReader::new(std::fs::File::open(targets)?),
         bars.len(),

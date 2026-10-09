@@ -92,3 +92,25 @@ fn bar_and_target_files_are_validated() {
     assert!(backtest::read_targets("bar,position\n1,1\n0,1\n".as_bytes(), 2).is_err());
     assert!(backtest::read_targets("bar,position\n5,1\n".as_bytes(), 2).is_err());
 }
+
+#[test]
+fn binary_bars_round_trip_and_reject_bad_records() {
+    let bars = [bar(0, 100, 1, Side::Buy), bar(1, 101, 2, Side::Sell)];
+    let bytes = backtest::encode_bars(&bars);
+    assert!(bytes.starts_with(backtest::BARS_MAGIC));
+    assert_eq!(backtest::decode_bars(&bytes[8..]).unwrap(), bars);
+    let path = std::env::temp_dir().join(format!("mini-bars-{}.bin", std::process::id()));
+    std::fs::write(&path, &bytes).unwrap();
+    assert_eq!(backtest::load_bars(&path).unwrap(), bars);
+    std::fs::remove_file(&path).unwrap();
+    let mut bad = bytes[8..].to_vec();
+    bad[24] = 2; // taker byte
+    assert!(backtest::decode_bars(&bad).is_err());
+    let mut bad = bytes[8..].to_vec();
+    bad[31] = 1; // padding
+    assert!(backtest::decode_bars(&bad).is_err());
+    let mut bad = bytes[8..].to_vec();
+    bad[32..40].copy_from_slice(&0u64.to_le_bytes()); // time not increasing
+    assert!(backtest::decode_bars(&bad).is_err());
+    assert!(backtest::decode_bars(&bytes[8..50]).is_err()); // partial record
+}

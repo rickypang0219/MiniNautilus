@@ -1,11 +1,11 @@
 # 驗收條件（exit conditions）
 
-2026-10-09（第二輪更新同日）。這份文件回答一個問題：**要看到甚麼證據，某一部分才算「夠了」，可以轉去做下一部分？**
+2026-10-09（第二、三輪更新同日）。這份文件回答一個問題：**要看到甚麼證據，某一部分才算「夠了」，可以轉去做下一部分？**
 每一條都寫明條件、量度方法、現狀和證據。未有證據的條目標為「未量度」，不當作通過。
 
 ## 原則
 
-- **數字只在指定機器上有效。** 下面的「現狀」是在雲端 Linux container（4 vCPU Intel Xeon 2.8GHz、共用硬件、沒有 CPU 隔離）量到的。正式判斷要在部署機器上重跑；Mac 和 Linux 的 fsync 成本可以相差幾十倍，不能互相代用。
+- **部署目標是 AWS 上的 Linux。** 下面的「現狀」是在雲端 Linux container（4 vCPU Intel Xeon 2.8GHz、共用硬件、沒有 CPU 隔離）量到的；macOS 的數字（例如舊文件裏每個 event 9.7 ms）不作為驗收依據。正式判斷要在選定的 EC2 instance type 和 EBS volume 上重跑〈重跑〉的命令：fsync 成本取決於 volume 類型（gp3、io2、instance store）。
 - **CI 不放絕對時間門檻。** CI 只跑正確性；時間條件用〈重跑〉列出的工具手動重跑，結果寫回本文件。比值（例如歷史 10 萬對 0）比絕對值更能跨機器比較，但仍然不是 CI 斷言。
 - **Backtest 和 live 分開驗收。** Backtest 的真相是輸入資料，engine 本身就是權威；live 的真相在交易所，engine 只是一個需要對帳的副本。兩邊共用的是 Core 的決策和風控邏輯，不是同一套延遲或 durability 要求。
 - **正確性先於速度，但驗證要有終點。** 一個條目通過之後就凍結成 regression test，不再擴大，除非改動了它所覆蓋的語義。
@@ -19,16 +19,16 @@
 | H2 | 風控、timer、撮合不掃描完整歷史 | ✅ |
 | H3 | `serve` 的每個 response 不隨歷史增長 | ✅ protocol 2（compact delta） |
 | H4 | 長時間運行的記憶體有上限 | ✅ journal 輪換；⚠️ 何時輪換是運維決定 |
-| B1 | 5 年 1min 單次 backtest ≤ 1 秒 | ✅ engine 0.53–0.73 s；⚠️ 正式入口端到端 2.4–3.5 s（MISS，< 10 s） |
-| B2 | 20×20 參數 heatmap ≤ 10 分鐘 | ✅ 228 秒（4 核） |
+| B1 | 5 年 1min 單次 backtest ≤ 1 秒 | ✅ 正式入口端到端（Python target + Rust 讀檔 + 模擬）0.65–0.72 s；engine 0.33–0.41 s |
+| B2 | 20×20 參數 heatmap ≤ 10 分鐘 | ✅ 51.8 秒（4 核） |
 | B3 | 正式的 non-durable backtest 入口（Python strategy） | ✅ `sim` + `backtest`，三條路徑逐筆一致 |
 | B4 | Backtest 成交模型的時序假設明確寫出 | ✅ 寫明並用 fixture 固定 |
-| L1 | Live 進程內 tick-to-trade p99 ≤ 500µs（30 日歷史量之後） | ⚠️ Linux + outbox 達成（durable 部分 p99 328 µs）；Mac 未量度 |
-| L2 | Durable 路徑分段 profiling（Mac 和 Linux） | ⚠️ Linux 已量；工具已備，Mac 要在你的機器上跑 |
+| L1 | Live 進程內 tick-to-trade p99 ≤ 500µs（30 日歷史量之後） | ✅ Linux + `outbox`（durable 部分 p99 328 µs）；⚠️ 要在目標 EC2/EBS 上重量 |
+| L2 | Durable 路徑分段 profiling（Linux） | ✅ fsync 佔 97%；⚠️ 要在目標 EC2/EBS 上重量 |
 | L3 | Journal fsync 政策及 crash 語義 | ✅ `--sync outbox` 實作並以故障注入證明；⚠️ 預設仍是 `every`，切換要你拍板 |
 | L4 | 「已落盤但不確定是否已送出」窗口 | ✅ Core + Binance adapter 的「證明不存在」；⚠️ testnet kill -9 未實測 |
 
-剩下的都不是寫 code 可以單方面完成的：Mac 量度（L1、L2）、預設 sync 政策（L3）、testnet 實測（L4），以及輪換時機（H4）。
+剩下的都不是寫 code 可以單方面完成的：在目標 EC2 instance 上重量（L1、L2）、預設 sync 政策（L3）、testnet 實測（L4），以及輪換時機（H4）。
 
 ---
 
@@ -116,30 +116,37 @@
 
 ## B. Backtest
 
-### B1：5 年 1min 單次 backtest ≤ 1 秒
+### B1：5 年 1min 單次 backtest ≤ 1 秒 ✅
 
 **條件：** 2,629,440 根 1min bar，固定參數，使用真實 Core 語義（`SetTarget`／`SubmitTargeted`、風控、venue 撮合、cancel、Tick timer）。目標 ≤ 1 秒；超過 10 秒要寫 report。
 
-**Engine 路徑 ✅：** `examples/acceptance.rs` 的 `sma_backtest`（strategy 寫在 Rust、同一進程），3 次：0.534–0.731 秒，62–84 ns/event。改動前同一量度需要 1,934.7 秒（約 32 分鐘），見〈改動前後〉。
+**正式入口端到端 ✅：** `python3 examples/heatmap.py --single 20 60`：Python（numpy）計 SMA target → 寫 target 檔 → `mininautilus backtest` 讀 binary bar 檔並模擬 → 回傳 summary。計時由計 target 開始到收到 summary 為止（包括開 process）；不計一次性產生合成資料和寫 bar 檔。
 
-**正式入口端到端 ⚠️ MISS（< 10 秒，不用寫 report）：** `python3 examples/heatmap.py --single 20 60`：Python 計 SMA target、寫 target 檔、Rust 讀 bar CSV 並模擬。
+| 部分 | 第二輪 | 第三輪（5 次運行） |
+|---|---:|---:|
+| Python 計 SMA target | 0.88–1.05 s（純 Python） | 0.09–0.15 s（numpy，int64 精確運算） |
+| Rust 讀 2.63M 根 bar | 0.64–0.94 s（CSV） | 0.06–0.09 s（binary） |
+| Rust 模擬（11,309,286 events、197,185 orders、50,097 fills） | 0.93–1.49 s | 0.45–0.48 s |
+| **合計** | 2.41–3.51 s | **0.65–0.72 s** |
 
-| 部分 | 秒 |
-|---|---:|
-| Python 計 SMA target（純 Python，prefix sum） | 0.88–1.05 |
-| Rust 讀 2.63M 行 bar CSV | 0.64–0.94 |
-| Rust 模擬（11,309,286 events、197,185 orders、50,097 fills） | 0.93–1.49 |
-| 合計（不計產生合成資料） | 2.41–3.51 |
+所有運行的 events、fills 和最終 equity（16,248 tick-lots）與優化前完全相同。
 
-（3 次運行的範圍；共用機器，波動明顯。三次的 events、fills 和 equity 完全相同。）
+**Engine 路徑：** `examples/acceptance.rs` 的 `sma_backtest`（strategy 寫在 Rust、同一進程），3 次：0.33–0.41 秒（第一輪 0.53–0.73 秒；改動前 1,934.7 秒）。
 
-模擬比 engine 路徑多：每根 bar 多了 Heartbeat、Tick，以及「每根 bar 取消未成交單再重發」的執行規則（148k 次取消）。要壓到 1 秒以內，下一步是 binary bar 格式（省 CSV 解析）和把 SMA 計算移到 numpy；兩者都不改語義。
+第三輪做了甚麼（語義不變）：
+
+1. **Header-only 快速路徑**（`Core::apply_header_only`）：有效的 Quote、Trade、Heartbeat，以及沒有到期 deadline、heartbeat 未過期的 Tick，只改 header 欄位、不產生 effect、驗證後不會失敗，所以直接原地提交，不建立 `Transition`。其他情況（無效值、到期 timer、stale private stream、壞 envelope）照舊走 prepare/commit。Journal 一律走 prepare/commit。`header_only_fast_path_equals_prepare_commit` 對兩條路徑逐事件比較，`transition_equivalence` 也繼續對凍結的舊版比較。
+2. **`put_order` 只在 membership 改變時更新 index**，並原地覆寫既有訂單。
+3. **Backtest driver** 的市場事件直接呼叫 Core；paper venue 的回報寫入呼叫者的 buffer（`PaperExchange::execute_into`）。
+4. **Binary bar 格式**（`backtest::BARS_MAGIC`，32 bytes／根，與 CSV 同樣驗證），`mininautilus convert-bars` 由 CSV 轉換；`backtest` 自動識別兩種格式。
+5. **numpy 計 target**：與純 Python 版本逐筆相同（測試覆蓋長時間相等的平均值）；沒有 numpy 時自動退回純 Python。numpy 是可選依賴。
+6. **Release profile 開 `lto = "fat"`、`codegen-units = 1`**：release build 由約 10 秒增至約 1.5 分鐘。
 
 ### B2：20×20 參數 heatmap ≤ 10 分鐘 ✅
 
 **條件：** 400 組 (fast, slow) 參數，同一份 5 年資料，多核，總 wall time ≤ 10 分鐘，每組結果可重現。
 
-**量度：** `python3 examples/heatmap.py`（fast 5–50、slow 60–250，各 20 格，4 個 worker process）：**228.3 秒**（另加 8.8 秒產生合成資料）。每組 Python 計 target 後呼叫 `mininautilus backtest`，完全確定性（同參數同輸入同輸出；`tests/test_backtest.py` 驗證兩條路徑逐筆相同）。
+**量度：** `python3 examples/heatmap.py`（fast 5–50、slow 60–250，各 20 格，4 個 worker process）：**51.8 秒**（第二輪 228.3 秒；另加約 9 秒產生合成資料）。每組 Python 計 target 後呼叫 `mininautilus backtest`，完全確定性（同參數同輸入同輸出；`tests/test_backtest.py` 驗證兩條路徑逐筆相同）。
 
 注意：在 random walk 上「最好」的參數沒有意義，這只是速度量度。
 
@@ -179,9 +186,9 @@ Fixture：下一根 bar 成交而不被取消；同一根 bar 不會成交自己
 
 - **Core：** H1 顯示 100,000 張歷史下完整交易週期 p99 約 2.5–3.5 µs，不隨運行時間變慢。
 - **Durable 路徑（Linux container）：** L2 量到每個 input p99：`every` 569 µs（超出），`outbox` 328 µs（通過）。Journal 編碼、compact response 都與歷史無關（H1、H3）。
-- **未量度：** Mac 上的數字；包括 Python strategy 的完整 tick-to-trade（quote 到 SendOrder）。`ipc_probe.py --durable-dir` 量到 `paper` 一次 Quote round trip：`every` p50 321 µs／p99 550 µs，`outbox` p50 73 µs／p99 145 µs（沒有下單）。
+- **未量度：** Python strategy 的完整 tick-to-trade（quote 到 SendOrder）；目標 EC2/EBS 上的數字。`ipc_probe.py --durable-dir` 量到 `paper` 一次 Quote round trip：`every` p50 321 µs／p99 550 µs，`outbox` p50 73 µs／p99 145 µs（沒有下單）。
 
-### L2：Durable 路徑分段 profiling ⚠️（Linux 已量，Mac 待量）
+### L2：Durable 路徑分段 profiling ✅（Linux）
 
 **工具：** `cargo run --release --example durable_profile -- --dir DIR`（Rust 各階段：prepare、journal encode、write、sync、commit、compact／full response encode），`python3 examples/ipc_probe.py --durable-dir DIR`（加上 pipe 和 Python）。`DIR` 要放在部署用的磁碟上。
 
@@ -198,7 +205,7 @@ Fixture：下一根 bar 成交而不被取消；同一根 bar 不會成交自己
 | Compact response encode（每 request） | 2.4／7.5 µs，565 B | 0.7／4.4 µs |
 | 舊 full response encode（約 200 張歷史單） | 68／137 µs，47.6 KB | 36／61 µs |
 
-**結論（Linux）：** fsync 佔 durable 路徑 97%；其餘 Rust 部分合共約 5 µs。上一輪的假設「Mac 的成本主要是 `F_FULLFSYNC`」仍未在 Mac 驗證：請在 Mac 跑上面兩個命令，把結果貼回本節。
+**結論（Linux）：** fsync 佔 durable 路徑 97%；其餘 Rust 部分合共約 5 µs。所以在 AWS 上選 EBS volume（及是否用 `outbox`）比任何 Rust 優化重要；部署前在目標 instance 上跑上面兩個命令並把結果補入本節。
 
 ### L3：Journal fsync 政策 ✅（實作及證明）／⚠️（預設值）
 
@@ -263,6 +270,15 @@ Fixture：下一根 bar 成交而不被取消；同一根 bar 不會成交自己
 - `python/mininautilus/{strategy,sma,targets}.py`：改用 `open_orders`／`next_order_id`，不再每個 event 掃描歷史。
 - 測試：`tests/protocol.rs`、`tests/backtest.rs`、`tests/uncertain_send.rs`、`tests/rotation.rs`、`tests/test_protocol.py`、`tests/test_backtest.py`，以及 `tests/test_python.py` 新增 2 個 adapter 案例。
 
+## 第三輪改動（B1 sub-second）
+
+- `src/core.rs`：`apply_header_only` 快速路徑；`put_order` 只更新改變了的 index。
+- `src/backtest.rs`：binary bar 格式（`load_bars`、`encode_bars`、`decode_bars`），市場事件直接呼叫 Core。`src/sim.rs`：`execute_into`。
+- `src/main.rs`：`convert-bars`；`backtest` 接受 CSV 或 binary。
+- `python/mininautilus/backtest.py`：`write_bars_binary`、`read_prices`、`cumulative`、numpy 版 `sma_targets`；`examples/heatmap.py` 改用 binary bar 和共用 prefix sum。
+- `Cargo.toml`：release 開 LTO。
+- 測試：`header_only_fast_path_equals_prepare_commit`、`binary_bars_round_trip_and_reject_bad_records`、`test_vectorized_and_python_targets_agree`、`test_binary_and_csv_bars_give_identical_runs`。
+
 ## 重跑
 
 ```sh
@@ -271,7 +287,7 @@ cargo build --release
 cargo run --release --example acceptance                  # H1 + B1（engine）
 cargo run --release --example history_paths               # H2
 python3 examples/ipc_probe.py --durable-dir runs          # H3 + L1/L2（IPC 部分）
-python3 examples/heatmap.py --single 20 60                # B1（正式入口）
+python3 examples/heatmap.py --single 20 60                # B1（正式入口；需要 numpy 才達標）
 python3 examples/heatmap.py                               # B2
 cargo run --release --example durable_profile -- --dir runs   # L2（Rust 各階段）
 ```

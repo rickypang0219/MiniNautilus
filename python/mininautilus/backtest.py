@@ -18,14 +18,52 @@ from collections import namedtuple
 import json
 from pathlib import Path
 import random
+import struct
 import subprocess
 import tempfile
+
+try:  # Optional: vectorized indicators and fast binary bar I/O. Same results.
+    import numpy as np
+except ImportError:  # pragma: no cover - exercised when numpy is absent
+    np = None
 
 from .bridge import ROOT, next_order_id, open_orders
 
 Bar = namedtuple("Bar", "at price volume taker")
 U64_MAX = 2**64 - 1
 HEADER = "at,price,volume,taker"
+# Mirrors backtest::BARS_MAGIC: 8-byte magic, then 32-byte little-endian records.
+MAGIC = b"MNBARS1\0"
+RECORD = struct.Struct("<qqqB7x")
+NP_RECORD = None if np is None else np.dtype(
+    [("at", "<i8"), ("price", "<i8"), ("volume", "<i8"), ("taker", "u1"), ("pad", "V7")])
+
+
+def write_bars_binary(path, bars):
+    """Binary bar file for `mininautilus backtest` (loads in milliseconds)."""
+    with open(path, "wb") as f:
+        f.write(MAGIC)
+        if np is not None:
+            records = np.zeros(len(bars), NP_RECORD)
+            records["at"] = [b.at for b in bars]
+            records["price"] = [b.price for b in bars]
+            records["volume"] = [b.volume for b in bars]
+            records["taker"] = [b.taker == "Sell" for b in bars]
+            records.tofile(f)
+        else:
+            f.writelines(RECORD.pack(b.at, b.price, b.volume, b.taker == "Sell") for b in bars)
+
+
+def read_prices(path):
+    """Prices of a CSV or binary bar file (a numpy array when numpy is present)."""
+    with open(path, "rb") as f:
+        binary = f.read(len(MAGIC)) == MAGIC
+    if not binary:
+        return [b.price for b in read_bars(path)]
+    if np is not None:
+        return np.fromfile(path, NP_RECORD, offset=len(MAGIC))["price"].copy()
+    data = Path(path).read_bytes()[len(MAGIC):]
+    return [RECORD.unpack_from(data, i)[1] for i in range(0, len(data), RECORD.size)]
 
 
 def read_bars(path):
@@ -121,10 +159,15 @@ class SmaTarget:
         return self.target
 
 
-def sma_targets(prices, fast, slow, lots=1, long_only=False, prefix=None):
+def sma_targets(prices, fast, slow, lots=1, long_only=False, prefix=None, vectorized=None):
     """Sparse `(bar, position)` changes of `SmaTarget` without per-bar objects.
 
-    `prefix` (cumulative sums with a leading 0) can be shared across a sweep."""
+    `prefix` (cumulative sums with a leading 0) can be shared across a sweep.
+    Uses exact int64 numpy arithmetic when available, else a Python loop."""
+    if vectorized is None:
+        vectorized = np is not None
+    if vectorized and len(prices) >= slow:
+        return _sma_targets_numpy(prices, fast, slow, lots, long_only, prefix)
     if prefix is None:
         prefix = [0]
         for p in prices:
@@ -139,6 +182,45 @@ def sma_targets(prices, fast, slow, lots=1, long_only=False, prefix=None):
             changes.append((i, target))
             last = target
     return changes
+
+
+def cumulative(prices):
+    """Shared prefix sums for a sweep: numpy int64 array, or a Python list."""
+    if np is not None:
+        return np.concatenate(([0], np.cumsum(np.asarray(prices, dtype=np.int64))))
+    prefix = [0]
+    for p in prices:
+        prefix.append(prefix[-1] + p)
+    return prefix
+
+
+def _sma_targets_numpy(prices, fast, slow, lots, long_only, prefix):
+    prefix = np.asarray(cumulative(prices) if prefix is None else prefix, dtype=np.int64)
+    n = len(prefix) - 1
+    # Exactness guard: prices are positive, so every window sum <= prefix[-1].
+    if int(prefix[-1]) * slow >= 2**62:
+        return sma_targets(prices, fast, slow, lots, long_only, vectorized=False)
+    # Views, not gathers: window sums for ready bars slow-1 .. n-1.
+    top = prefix[slow:]
+    difference = top - prefix[slow - fast:n + 1 - fast]
+    difference *= slow
+    slow_sum = top - prefix[: n + 1 - slow]
+    slow_sum *= fast
+    difference -= slow_sum
+    del slow_sum
+    low = 0 if long_only else -lots
+    # Equal averages hold the previous target (initially flat), so the target
+    # only changes at non-zero differences whose mapped target differs from the
+    # previously held one. No per-bar forward fill is materialized.
+    decided = np.flatnonzero(difference)
+    held = np.where(difference[decided] > 0, lots, low)
+    first = int(held[0]) if len(decided) and decided[0] == 0 else 0
+    previous = np.concatenate(([first], held[:-1]))
+    moved = held != previous
+    bars = (decided[moved] + slow - 1).tolist()
+    targets = held[moved].tolist()
+    # held[0] == first when decided[0] == 0, so bar slow-1 is never repeated.
+    return [(slow - 1, first)] + list(zip(bars, targets))
 
 
 def write_targets(path, changes):

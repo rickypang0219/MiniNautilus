@@ -20,3 +20,9 @@ harness = false
 [lints.rust]
 unsafe_op_in_unsafe_fn = "deny"
 
+
+[profile.release]
+# Whole-program inlining across the library/binary boundary (Core::apply's
+# header-only path runs ~10M times per 5-year backtest).
+lto = "fat"
+codegen-units = 1

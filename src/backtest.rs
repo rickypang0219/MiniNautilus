@@ -154,7 +154,7 @@ impl Backtest {
         })
     }
 
-    fn apply(&mut self, at: Time, event: Event, bar: usize) -> Result<(), String> {
+    fn apply(&mut self, at: Time, event: Event, index: usize) -> Result<(), String> {
         let seq = self.core.seq + 1;
         // Ledger rows only for fills this event newly records (not duplicates).
         let fill = match &event {
@@ -173,7 +173,7 @@ impl Backtest {
             && self.core.fills.contains_key(&fill.execution_id)
         {
             ledger.push(LedgerFill {
-                bar,
+                bar: index,
                 at,
                 order_id: fill.order_id,
                 side: self.core.orders[&fill.order_id].intent.side,
@@ -181,6 +181,17 @@ impl Backtest {
                 price: fill.price,
             });
         }
+        self.route(at, effects, index)?;
+        if let Some((taker, price, qty)) = trade {
+            for report in self.venue.trade(self.core.epoch, taker, price, qty)? {
+                self.apply(at, report, index)?;
+            }
+        }
+        Ok(())
+    }
+
+    /// Count effects, send them to the paper venue, and apply its reports.
+    fn route(&mut self, at: Time, effects: Vec<Effect>, index: usize) -> Result<(), String> {
         let mut reports = Vec::new();
         for effect in &effects {
             match effect {
@@ -189,13 +200,11 @@ impl Backtest {
                 Effect::SendCancel { .. } => self.summary.cancels += 1,
                 _ => {}
             }
-            reports.extend(self.venue.execute(self.core.epoch, effect)?);
-        }
-        if let Some((taker, price, qty)) = trade {
-            reports.extend(self.venue.trade(self.core.epoch, taker, price, qty)?);
+            self.venue
+                .execute_into(self.core.epoch, effect, &mut reports)?;
         }
         for report in reports {
-            self.apply(at, report, bar)?;
+            self.apply(at, report, index)?;
         }
         Ok(())
     }
@@ -203,7 +212,27 @@ impl Backtest {
     /// Market step for bar `index`, then the plan for `target` at that bar.
     pub fn step(&mut self, index: usize, bar: &Bar, target: Option<i64>) -> Result<(), String> {
         for event in market_events(bar, self.core.epoch) {
-            self.apply(bar.at, event, index)?;
+            // Market events never produce effects; only the trade can generate
+            // venue reports. Skip the general effect/report routing for them.
+            let trade = match event {
+                Event::Trade { taker, price, qty } => Some((taker, price, qty)),
+                _ => None,
+            };
+            let seq = self.core.seq + 1;
+            let effects = self.core.apply(&Envelope {
+                seq,
+                at: bar.at,
+                event,
+            })?;
+            if !effects.is_empty() {
+                // An invalid value gates; count and route like any other event.
+                self.route(bar.at, effects, index)?;
+            }
+            if let Some((taker, price, qty)) = trade {
+                for report in self.venue.trade(self.core.epoch, taker, price, qty)? {
+                    self.apply(bar.at, report, index)?;
+                }
+            }
         }
         let equity = self.core.cash + self.core.position as i128 * bar.price as i128;
         self.peak = self.peak.max(equity);
@@ -234,6 +263,95 @@ impl Backtest {
 
 fn invalid(line: usize, reason: &str) -> io::Error {
     io::Error::new(io::ErrorKind::InvalidData, format!("line {line}: {reason}"))
+}
+
+/// Binary bar file: this 8-byte magic, then 32-byte little-endian records
+/// `at: u64, price: i64, volume: i64, taker: u8 (0 Buy, 1 Sell), 7 zero bytes`.
+/// Same validation as the CSV; loading 2.6M bars takes milliseconds, not a second.
+pub const BARS_MAGIC: &[u8; 8] = b"MNBARS1\0";
+const RECORD: usize = 32;
+
+/// Read either format: binary when the file starts with `BARS_MAGIC`, else CSV.
+pub fn load_bars(path: &std::path::Path) -> io::Result<Vec<Bar>> {
+    let mut file = std::fs::File::open(path)?;
+    let mut magic = [0; 8];
+    let binary = io::Read::read_exact(&mut file, &mut magic).is_ok() && &magic == BARS_MAGIC;
+    if !binary {
+        return read_bars(io::BufReader::new(std::fs::File::open(path)?));
+    }
+    // Decode in chunks: no second whole-file buffer beside the bars.
+    let length = file.metadata()?.len() as usize - BARS_MAGIC.len();
+    if !length.is_multiple_of(RECORD) {
+        return Err(invalid(
+            0,
+            "binary bar file length is not a whole record count",
+        ));
+    }
+    let mut bars = Vec::with_capacity(length / RECORD);
+    let mut chunk = vec![0; RECORD * 8192];
+    let mut remaining = length;
+    while remaining > 0 {
+        let take = remaining.min(chunk.len());
+        io::Read::read_exact(&mut file, &mut chunk[..take])?;
+        decode_into(&chunk[..take], &mut bars)?;
+        remaining -= take;
+    }
+    Ok(bars)
+}
+
+pub fn decode_bars(body: &[u8]) -> io::Result<Vec<Bar>> {
+    if !body.len().is_multiple_of(RECORD) {
+        return Err(invalid(
+            0,
+            "binary bar file length is not a whole record count",
+        ));
+    }
+    let mut bars = Vec::with_capacity(body.len() / RECORD);
+    decode_into(body, &mut bars)?;
+    Ok(bars)
+}
+
+fn decode_into(body: &[u8], bars: &mut Vec<Bar>) -> io::Result<()> {
+    let offset = bars.len();
+    for (index, record) in body.chunks_exact(RECORD).enumerate() {
+        let line = offset + index + 1;
+        let field = |i: usize| i64::from_le_bytes(record[i * 8..i * 8 + 8].try_into().unwrap());
+        let (at, price, volume) = (field(0), field(1), field(2));
+        let taker = match record[24] {
+            0 => Side::Buy,
+            1 => Side::Sell,
+            _ => return Err(invalid(line, "taker byte must be 0 or 1")),
+        };
+        if at < 0 || price <= 0 || volume <= 0 || record[25..].iter().any(|b| *b != 0) {
+            return Err(invalid(
+                line,
+                "require at >= 0, price > 0, volume > 0, zero padding",
+            ));
+        }
+        if bars.last().is_some_and(|b| b.at >= at as u64) {
+            return Err(invalid(line, "bar times must strictly increase"));
+        }
+        bars.push(Bar {
+            at: at as u64,
+            price,
+            volume,
+            taker,
+        });
+    }
+    Ok(())
+}
+
+pub fn encode_bars(bars: &[Bar]) -> Vec<u8> {
+    let mut out = Vec::with_capacity(BARS_MAGIC.len() + bars.len() * RECORD);
+    out.extend_from_slice(BARS_MAGIC);
+    for bar in bars {
+        out.extend_from_slice(&bar.at.to_le_bytes());
+        out.extend_from_slice(&bar.price.to_le_bytes());
+        out.extend_from_slice(&bar.volume.to_le_bytes());
+        out.push(u8::from(bar.taker == Side::Sell));
+        out.extend_from_slice(&[0; 7]);
+    }
+    out
 }
 
 /// CSV `at,price,volume,taker` with a header row; `at` strictly increasing.

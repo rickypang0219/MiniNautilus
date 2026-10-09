@@ -44,6 +44,18 @@ impl PaperExchange {
     }
 
     pub fn execute(&mut self, epoch: u64, effect: &Effect) -> Result<Vec<Event>, String> {
+        let mut out = Vec::new();
+        self.execute_into(epoch, effect, &mut out)?;
+        Ok(out)
+    }
+
+    /// `execute` that appends to the caller's buffer (no per-effect Vec).
+    pub fn execute_into(
+        &mut self,
+        epoch: u64,
+        effect: &Effect,
+        out: &mut Vec<Event>,
+    ) -> Result<(), String> {
         let report = match effect {
             Effect::SendOrder(intent) => {
                 if let Some(existing) = self.orders.get(&intent.id) {
@@ -85,11 +97,13 @@ impl PaperExchange {
                 }
             }
             Effect::QueryState { epoch } if self.connected => {
-                return Ok(vec![Event::Reconcile(self.snapshot(*epoch))]);
+                out.push(Event::Reconcile(self.snapshot(*epoch)));
+                return Ok(());
             }
-            _ => return Ok(Vec::new()),
+            _ => return Ok(()),
         };
-        Ok(self.deliver(epoch, report).into_iter().collect())
+        out.extend(self.deliver(epoch, report));
+        Ok(())
     }
 
     /// A taker sell hits resting buys; taker buy lifts resting sells. No impact model.

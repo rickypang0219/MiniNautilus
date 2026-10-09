@@ -9,8 +9,9 @@ import unittest
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "python"))
 from mininautilus import Engine
-from mininautilus.backtest import (SmaTarget, read_bars, run_interactive, run_targets,
-                                   sma_targets, synthetic_bars, write_bars)
+from mininautilus import backtest
+from mininautilus.backtest import (SmaTarget, read_bars, read_prices, run_interactive, run_targets,
+                                   sma_targets, synthetic_bars, write_bars, write_bars_binary)
 
 BINARY = ROOT / "target/debug/mininautilus"
 
@@ -39,6 +40,30 @@ class BacktestTests(unittest.TestCase):
                     dense.append((i, target))
                     last = target
             self.assertEqual(dense, sma_targets([b.price for b in bars], fast, slow, long_only=long_only))
+
+    def test_vectorized_and_python_targets_agree(self):
+        prices = [b.price for b in synthetic_bars(20000, seed=11)]
+        prices += [prices[-1]] * 300  # long ties: averages converge and hold
+        for fast, slow, long_only in ((1, 2, False), (5, 20, True), (20, 60, False)):
+            expected = sma_targets(prices, fast, slow, long_only=long_only, vectorized=False)
+            if backtest.np is not None:
+                self.assertEqual(sma_targets(prices, fast, slow, long_only=long_only, vectorized=True), expected)
+
+    def test_binary_and_csv_bars_give_identical_runs(self):
+        bars = synthetic_bars(800, seed=13)
+        with tempfile.TemporaryDirectory() as d:
+            d = Path(d)
+            write_bars(d / "bars.csv", bars)
+            write_bars_binary(d / "bars.bin", bars)
+            self.assertEqual(list(read_prices(d / "bars.bin")), [b.price for b in bars])
+            changes = sma_targets([b.price for b in bars], 5, 20)
+            runs = [run_targets(d / name, changes, binary=BINARY) for name in ("bars.csv", "bars.bin")]
+            for run in runs:
+                run.pop("load_seconds"), run.pop("simulate_seconds")
+            self.assertEqual(runs[0], runs[1])
+            subprocess.check_call([str(BINARY), "convert-bars", str(d / "bars.csv"), str(d / "conv.bin")],
+                                  stdout=subprocess.DEVNULL)
+            self.assertEqual((d / "conv.bin").read_bytes(), (d / "bars.bin").read_bytes())
 
     def test_interactive_targets_and_paper_paths_agree(self):
         bars = synthetic_bars(1500, seed=5)

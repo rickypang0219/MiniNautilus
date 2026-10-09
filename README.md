@@ -128,6 +128,8 @@ python3 examples/heatmap.py --single 20 60     # 5 年 1min 合成資料，單�
 python3 examples/heatmap.py                    # 20×20 參數，多核
 ```
 
+5 年 1min 單次 run 端到端約 0.7 秒、20×20 參數約 52 秒（4 核），需要可選嘅 numpy（冇 numpy 時自動用純 Python，結果一樣但較慢）。Bar 檔可以係 CSV `at,price,volume,taker`，或者用 `mininautilus convert-bars BARS.csv BARS.bin` 轉成 binary（讀取快十倍）。
+
 Strategy 嘅 target 只依賴市場資料時，用 `run_targets`（Rust 進程內跑，`mininautilus backtest BARS.csv TARGETS.csv`）；要睇成交／倉位先決策時，用 `run_interactive(Engine(sim=True), bars, strategy)`，每根 bar 一次 IPC。兩條路徑逐筆一致，見 [`python/mininautilus/backtest.py`](python/mininautilus/backtest.py) 同 [驗收條件 B1–B4](docs/acceptance.md)。
 
 ## Code map
