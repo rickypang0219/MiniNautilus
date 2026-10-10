@@ -108,6 +108,17 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
         sync = args.get(i + 1).ok_or("--sync every|outbox")?.parse()?;
         args.drain(i..i + 2);
     }
+    let mut flush_ms = 0u64;
+    let mut flush_bytes = 32768u64;
+    for (flag, value) in [
+        ("--flush-ms", &mut flush_ms),
+        ("--flush-bytes", &mut flush_bytes),
+    ] {
+        if let Some(i) = args.iter().position(|a| a == flag) {
+            *value = args.get(i + 1).ok_or("missing flush value")?.parse()?;
+            args.drain(i..i + 2);
+        }
+    }
     match args.get(1).map(String::as_str) {
         Some("demo") => demo(),
         Some("dashboard") => {
@@ -159,6 +170,12 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
             };
             if let Backend::Durable(engine) = &mut backend {
                 engine.set_sync_policy(sync);
+                if flush_ms > 0 {
+                    engine.enable_background_flush(
+                        std::time::Duration::from_millis(flush_ms),
+                        flush_bytes,
+                    )?;
+                }
             }
             serve(backend, mode != "serve")
         }

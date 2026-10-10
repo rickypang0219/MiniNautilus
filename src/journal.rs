@@ -10,6 +10,8 @@ use std::{
     path::{Path, PathBuf},
 };
 
+mod flusher;
+
 fn invalid(reason: impl ToString) -> io::Error {
     io::Error::new(io::ErrorKind::InvalidData, reason.to_string())
 }
@@ -147,6 +149,8 @@ pub struct DurableEngine {
     sync: SyncPolicy,
     unsynced: bool,
     pending_bytes: u64,
+    written_bytes: u64,
+    flusher: Option<flusher::Flusher>,
 }
 
 impl DurableEngine {
@@ -167,6 +171,8 @@ impl DurableEngine {
             sync: SyncPolicy::EveryInput,
             unsynced: false,
             pending_bytes: 0,
+            written_bytes: 0,
+            flusher: None,
         };
         engine.append(&Payload::Genesis {
             schema: 1,
@@ -207,6 +213,8 @@ impl DurableEngine {
             sync: SyncPolicy::EveryInput,
             unsynced: false,
             pending_bytes: 0,
+            written_bytes: 0,
+            flusher: None,
         };
         // A recovered local state is not proof of current venue state.
         engine.process(engine.core.now, Event::Disconnect)?;
@@ -234,9 +242,42 @@ impl DurableEngine {
         self.sync = policy;
     }
 
+    /// Opportunistically sync accumulated market inputs; never bypass the outbox barrier.
+    pub fn enable_background_flush(
+        &mut self,
+        interval: std::time::Duration,
+        threshold: u64,
+    ) -> io::Result<()> {
+        if interval.is_zero() || threshold == 0 || self.flusher.is_some() {
+            return Err(invalid(
+                "positive flush interval/threshold required; already enabled is invalid",
+            ));
+        }
+        self.sync()?;
+        self.written_bytes = 0;
+        self.flusher = Some(flusher::Flusher::start(
+            self.file.try_clone()?,
+            interval,
+            threshold,
+        )?);
+        Ok(())
+    }
+
     /// Force every written input to stable storage (for example at shutdown).
     pub fn sync(&mut self) -> io::Result<()> {
-        sync_file(&self.file, &mut self.unsynced, &mut self.poisoned)
+        if self.poisoned {
+            return Err(io::Error::other("journal failed; restart and reconcile"));
+        }
+        if let Some(f) = &self.flusher {
+            f.check()?;
+        }
+        sync_file(&self.file, &mut self.unsynced, &mut self.poisoned)?;
+        self.pending_bytes = 0;
+        if let Some(f) = &self.flusher {
+            f.acknowledge(self.written_bytes);
+            f.check()?;
+        }
+        Ok(())
     }
 
     pub fn process_timed(
@@ -285,6 +326,9 @@ impl DurableEngine {
         if self.poisoned {
             return Err(io::Error::other("journal failed; restart and reconcile"));
         }
+        if let Some(f) = &self.flusher {
+            f.check()?;
+        }
         let input = Envelope {
             seq: self
                 .core
@@ -314,7 +358,11 @@ impl DurableEngine {
         }
         self.checksum = hash;
         self.unsynced = true;
-        self.pending_bytes += bytes.len() as u64;
+        self.written_bytes += bytes.len() as u64;
+        self.pending_bytes = match &self.flusher {
+            Some(f) => f.written(self.written_bytes),
+            None => self.pending_bytes + bytes.len() as u64,
+        };
         if let Some(stages) = stages.as_deref_mut() {
             stages.written_bytes = bytes.len() as u64;
             stages.sync_pending_bytes = if sync { self.pending_bytes } else { 0 };
@@ -323,6 +371,10 @@ impl DurableEngine {
         if sync {
             sync_file(&self.file, &mut self.unsynced, &mut self.poisoned)?;
             self.pending_bytes = 0;
+            if let Some(f) = &self.flusher {
+                f.acknowledge(self.written_bytes);
+                f.check()?;
+            }
         }
         lap(|s| &mut s.sync_ns, &mut stages);
         // No published state or effect precedes the durable write acknowledgment
