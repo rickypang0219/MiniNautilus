@@ -1,0 +1,18 @@
+{
+  "commit": "34dde68a6917c64c6fadeb005a46e7253de0229a",
+  "branch": "codex/cross-platform-backtest-audit",
+  "os": "Linux-6.18.44-x86_64-with-glibc2.41",
+  "python": "3.12.14",
+  "cpu_count": 5,
+  "packages": {
+    "websockets": "17.1",
+    "numpy": "2.5.3",
+    "py-spy": "0.4.2",
+    "prometheus_client": "0.26.0"
+  },
+  "prometheus": "3.5.0 (official release SHA256 verified)",
+  "perf": "Debian linux-perf 6.12.107-1 (signed apt index verified)",
+  "rust": "1.96.0",
+  "execution_scope": "public WebSocket reads, offline simulation, no exchange mutations",
+  "source_files_modified": false
+}

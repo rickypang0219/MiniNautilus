@@ -1,0 +1,131 @@
+{
+  "slices": [
+    {
+      "slice": 1,
+      "start": 1791621850.0745378,
+      "end": 1791622749.0745378,
+      "rust_p99_ms": 0.1840268046085117,
+      "ipc_p99_ms": 0.5502631578947319,
+      "strategy_p99_ms": 0.05261904761904628,
+      "tick_to_trade_p99_ms": 15.950000000000022,
+      "loop_p99_ms": 4.438247422680409,
+      "stages_p99_ms": {
+        "prepare": 0.001997923739549024,
+        "journal_encode": 0.009448103154305169,
+        "journal_write": 0.04208805470276293,
+        "journal_sync": 15.574999999999974,
+        "commit": 0.0009954664014348012
+      },
+      "orders": 263.0,
+      "overruns": 258.28730512249444,
+      "syncs": 277.3084632516704
+    },
+    {
+      "slice": 2,
+      "start": 1791622749.0745378,
+      "end": 1791623648.0745378,
+      "rust_p99_ms": 0.19020741039065625,
+      "ipc_p99_ms": 0.4930164765525984,
+      "strategy_p99_ms": 0.08594444444444475,
+      "tick_to_trade_p99_ms": 17.63333333333333,
+      "loop_p99_ms": 3.7537195121951172,
+      "stages_p99_ms": {
+        "prepare": 0.004204822834645672,
+        "journal_encode": 0.009808120842572064,
+        "journal_write": 0.047591256919570106,
+        "journal_sync": 13.700000000000156,
+        "commit": 0.0009936169309995222
+      },
+      "orders": 534.0,
+      "overruns": 125.1391982182628,
+      "syncs": 289.3218262806236
+    },
+    {
+      "slice": 3,
+      "start": 1791623648.0745378,
+      "end": 1791624547.0745378,
+      "rust_p99_ms": 0.49267395683453175,
+      "ipc_p99_ms": 3.1961046511627913,
+      "strategy_p99_ms": 0.46954999999999686,
+      "tick_to_trade_p99_ms": 34.20000000000016,
+      "loop_p99_ms": 35.17763157894728,
+      "stages_p99_ms": {
+        "prepare": 0.014079661733615226,
+        "journal_encode": 0.043299054054054056,
+        "journal_write": 0.14800374356574628,
+        "journal_sync": 31.9000000000001,
+        "commit": 0.00346454093470334
+      },
+      "orders": 792.0,
+      "overruns": 899.0,
+      "syncs": 281.3129175946548
+    },
+    {
+      "slice": 4,
+      "start": 1791624547.0745378,
+      "end": 1791625446.0745378,
+      "rust_p99_ms": 0.20553402061855278,
+      "ipc_p99_ms": 0.7524545454545432,
+      "strategy_p99_ms": 0.16652542372881363,
+      "tick_to_trade_p99_ms": 7.190000000000012,
+      "loop_p99_ms": 4.335618305744886,
+      "stages_p99_ms": {
+        "prepare": 0.004800563321607107,
+        "journal_encode": 0.009911334061955667,
+        "journal_write": 0.07274999999999966,
+        "journal_sync": 4.971592920353983,
+        "commit": 0.0009943798081425684
+      },
+      "orders": 1073.0,
+      "overruns": 120.13363028953229,
+      "syncs": 307.34187082405344
+    },
+    {
+      "slice": 5,
+      "start": 1791625446.0745378,
+      "end": 1791626345.0745378,
+      "rust_p99_ms": 0.3156724795640284,
+      "ipc_p99_ms": 0.9220862177470102,
+      "strategy_p99_ms": 0.18492647058823447,
+      "tick_to_trade_p99_ms": 24.649999999999835,
+      "loop_p99_ms": 4.872786885245894,
+      "stages_p99_ms": {
+        "prepare": 0.0048729094807051,
+        "journal_encode": 0.016669920844327207,
+        "journal_write": 0.07843152524167597,
+        "journal_sync": 10.299999999999653,
+        "commit": 0.0009970642977620817
+      },
+      "orders": 1342.0,
+      "overruns": 219.24241040705743,
+      "syncs": 297.3168292796996
+    },
+    {
+      "slice": 6,
+      "start": 1791626345.0745378,
+      "end": 1791627244.0745378,
+      "rust_p99_ms": 0.3865471923536448,
+      "ipc_p99_ms": 1.2607452966714883,
+      "strategy_p99_ms": 0.2850000000000043,
+      "tick_to_trade_p99_ms": 11.89999999999993,
+      "loop_p99_ms": 6.776953124999982,
+      "stages_p99_ms": {
+        "prepare": 0.004946973812210589,
+        "journal_encode": 0.02603512544802809,
+        "journal_write": 0.08766287262872537,
+        "journal_sync": 9.575000000000014,
+        "commit": 0.0009984855343167995
+      },
+      "orders": 1604.0,
+      "overruns": 286.3184855233853,
+      "syncs": 285.32881050910726
+    }
+  ],
+  "query_errors": [],
+  "interpretation": [
+    "Drift check remains FAIL: final/initial Rust request histogram p99 = 2.1005.",
+    "Time slices fluctuate rather than monotonically increasing; the highest request and IPC p99 occur in slice 3.",
+    "This observational run cannot isolate host scheduling, storage behavior and retained-history effects.",
+    "Sync latency and tick-to-trade tail are both elevated; distinct aggregate histograms do not prove per-order causality."
+  ]
+}

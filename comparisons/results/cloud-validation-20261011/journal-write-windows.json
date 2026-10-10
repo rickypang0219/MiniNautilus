@@ -1,0 +1,26 @@
+{
+  "controlled-every-5m": {
+    "journal_bytes": 12926267,
+    "inputs": 74034,
+    "submit_or_cancel_inputs": 89,
+    "mean_bytes_between_action_inputs": 144495.20224719102,
+    "max_bytes_between_action_inputs": 612710,
+    "note": "Bytes between SubmitTargeted/Cancel inputs; derived proxy for accumulated write volume, not a measured fsync latency or proof of causality."
+  },
+  "controlled-outbox-5m": {
+    "journal_bytes": 12275710,
+    "inputs": 70298,
+    "submit_or_cancel_inputs": 85,
+    "mean_bytes_between_action_inputs": 143466.4705882353,
+    "max_bytes_between_action_inputs": 612592,
+    "note": "Bytes between SubmitTargeted/Cancel inputs; derived proxy for accumulated write volume, not a measured fsync latency or proof of causality."
+  },
+  "soak-outbox-90m": {
+    "journal_bytes": 236493105,
+    "inputs": 1330144,
+    "submit_or_cancel_inputs": 1738,
+    "mean_bytes_between_action_inputs": 136004.6012658228,
+    "max_bytes_between_action_inputs": 1200170,
+    "note": "Bytes between SubmitTargeted/Cancel inputs; derived proxy for accumulated write volume, not a measured fsync latency or proof of causality."
+  }
+}

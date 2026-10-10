@@ -1,0 +1,126 @@
+{
+  "commit": "34dde68a6917c64c6fadeb005a46e7253de0229a",
+  "rust_tests_passed": 64,
+  "python_tests_passed": 54,
+  "node_tests_passed": 4,
+  "native_adapter_tests_passed": 2,
+  "soak": {
+    "run": "soak-outbox-90m",
+    "checks": [
+      {
+        "check": "L1-rust",
+        "description": "Rust per-request p99 <= 0.5 ms",
+        "value": 0.3209067653088502,
+        "status": "PASS"
+      },
+      {
+        "check": "ipc",
+        "description": "Python-observed IPC p99 <= 2 ms",
+        "value": 1.039158538360766,
+        "status": "PASS"
+      },
+      {
+        "check": "tick-to-trade",
+        "description": "Candle receipt -> order p99 <= 5 ms",
+        "value": 14.97999999999999,
+        "status": "FAIL"
+      },
+      {
+        "check": "drift",
+        "description": "Rust request p99 last/first slice < 2",
+        "value": 2.100493964322011,
+        "status": "FAIL"
+      },
+      {
+        "check": "errors",
+        "description": "No REST errors",
+        "value": 0,
+        "status": "PASS"
+      },
+      {
+        "check": "gate",
+        "description": "Engine healthy >= 99% of the run",
+        "value": 1.0,
+        "status": "PASS"
+      }
+    ],
+    "journal": {
+      "replayed": true,
+      "seq": 1330144,
+      "agrees_with_runtime_summary": true,
+      "runtime_summary": {
+        "updates": 264300,
+        "orders": 1604,
+        "fills": 3490,
+        "position": 2,
+        "health": "Healthy"
+      }
+    },
+    "resources": {
+      "rust": {
+        "first_rss_kib": 2244,
+        "last_rss_kib": 3216,
+        "max_rss_kib": 3216,
+        "samples": 180
+      },
+      "python": {
+        "first_rss_kib": 33908,
+        "last_rss_kib": 40016,
+        "max_rss_kib": 40016,
+        "samples": 180
+      }
+    }
+  },
+  "websocket_replay": {
+    "source_sha256": "b712f05d7236d308b5fd7f95eea207ce6cb4711c9e0962a75790522eb71d09b2",
+    "closed_candles": 599,
+    "duplicates": 0,
+    "conflicts": 0,
+    "out_of_order": 0,
+    "gaps": [],
+    "zero_volume_candles": 351,
+    "full_stream": {
+      "bars": 599,
+      "repeat_state_equal": true,
+      "durable_state_equal": true,
+      "journal_replay_equal": true,
+      "orders": 238,
+      "fills": 22,
+      "position": 0,
+      "cash_tick_lots": 1843679,
+      "health": "Healthy"
+    },
+    "positive_volume_subset": {
+      "bars": 248,
+      "repeated_batch_equal": true,
+      "batch_interactive_fills_equal": true,
+      "result": {
+        "alerts": 0,
+        "bars": 248,
+        "cancels": 67,
+        "cash_tick_lots": "1843678",
+        "events": 1389,
+        "fills": 26,
+        "gross_equity_tick_lots": "1843678",
+        "health": "Healthy",
+        "max_drawdown_tick_lots": "1361696",
+        "orders": 93,
+        "position": 0,
+        "refusals": 0
+      }
+    },
+    "limitations": [
+      "Real Testnet candles with simulated execution only; no exchange orders.",
+      "Full stream preserves zero-volume candles for strategy and quotes but emits no Trade for them.",
+      "Batch path accepts positive-volume bars only: filtered subset changes the strategy observation sequence and is compared only with the same subset.",
+      "Price unit 0.01 USDT and volume unit 0.00000001 BTC are normalization, not REST-verified filters.",
+      "Aggressor side inferred from close >= open; not a trade-tape fact.",
+      "No fees, slippage, queue position or exchange execution validation.",
+      "Clock unsynchronized: no claim of network latency.",
+      "Collector TimeoutError at 603 seconds happened at requested recording deadline, after 599 consecutive candles; not a midstream outage."
+    ]
+  },
+  "exchange_orders_sent": false,
+  "performance_acceptance_complete": false,
+  "source_modified": false
+}

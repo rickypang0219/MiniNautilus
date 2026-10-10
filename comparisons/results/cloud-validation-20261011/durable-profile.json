@@ -1,0 +1,132 @@
+{
+  "dir": "runs/validation-20261010/followup",
+  "platform": "linux x86_64",
+  "runs": [
+    {
+      "bars": 2000,
+      "elapsed_seconds": 2.9888354379999997,
+      "inputs": 6599,
+      "journal_bytes": 1154556,
+      "orders": 200,
+      "per_input": {
+        "commit": {
+          "max_us": 48.188,
+          "mean_us": 0.2064068798302773,
+          "p50_us": 0.071,
+          "p99_us": 1.733
+        },
+        "encode": {
+          "max_us": 208.209,
+          "mean_us": 1.3878872556447948,
+          "p50_us": 1.176,
+          "p99_us": 2.834
+        },
+        "prepare": {
+          "max_us": 459.489,
+          "mean_us": 0.4179189271101682,
+          "p50_us": 0.181,
+          "p99_us": 1.296
+        },
+        "sync": {
+          "max_us": 14694.147,
+          "mean_us": 442.67104182451885,
+          "p50_us": 392.535,
+          "p99_us": 1355.796
+        },
+        "total": {
+          "max_us": 14700.162,
+          "mean_us": 450.265464767389,
+          "p50_us": 398.224,
+          "p99_us": 1383.739
+        },
+        "write": {
+          "max_us": 877.549,
+          "mean_us": 5.582209880284891,
+          "p50_us": 4.078,
+          "p99_us": 30.205
+        }
+      },
+      "per_request": {
+        "compact_bytes_last": 565,
+        "compact_response_encode": {
+          "max_us": 144.185,
+          "mean_us": 2.993147,
+          "p50_us": 2.535,
+          "p99_us": 6.219
+        },
+        "full_bytes_last": 47573,
+        "full_response_encode": {
+          "max_us": 286.824,
+          "mean_us": 55.427099999999996,
+          "p50_us": 49.194,
+          "p99_us": 286.824
+        }
+      },
+      "policy": "EveryInput",
+      "synced_inputs": 6599
+    },
+    {
+      "bars": 2000,
+      "elapsed_seconds": 0.10285163,
+      "inputs": 6599,
+      "journal_bytes": 1154556,
+      "orders": 200,
+      "per_input": {
+        "commit": {
+          "max_us": 13.011,
+          "mean_us": 0.056254432489771175,
+          "p50_us": 0.025,
+          "p99_us": 0.717
+        },
+        "encode": {
+          "max_us": 100.136,
+          "mean_us": 0.5943001969995454,
+          "p50_us": 0.494,
+          "p99_us": 1.41
+        },
+        "prepare": {
+          "max_us": 9.969,
+          "mean_us": 0.07034399151386574,
+          "p50_us": 0.043,
+          "p99_us": 0.338
+        },
+        "sync": {
+          "max_us": 1318.22,
+          "mean_us": 13.325682679193816,
+          "p50_us": 0.023,
+          "p99_us": 468.141
+        },
+        "total": {
+          "max_us": 1321.017,
+          "mean_us": 14.881522200333384,
+          "p50_us": 1.099,
+          "p99_us": 471.074
+        },
+        "write": {
+          "max_us": 84.403,
+          "mean_us": 0.8349409001363843,
+          "p50_us": 0.48,
+          "p99_us": 4.853
+        }
+      },
+      "per_request": {
+        "compact_bytes_last": 565,
+        "compact_response_encode": {
+          "max_us": 91.722,
+          "mean_us": 0.8677655,
+          "p50_us": 0.555,
+          "p99_us": 2.86
+        },
+        "full_bytes_last": 47573,
+        "full_response_encode": {
+          "max_us": 98.303,
+          "mean_us": 33.860425000000006,
+          "p50_us": 33.701,
+          "p99_us": 98.303
+        }
+      },
+      "policy": "Outbox",
+      "synced_inputs": 200
+    }
+  ]
+}
