@@ -313,7 +313,7 @@ pub fn decode_bars(body: &[u8]) -> io::Result<Vec<Bar>> {
 
 fn decode_into(body: &[u8], bars: &mut Vec<Bar>) -> io::Result<()> {
     let offset = bars.len();
-    for (index, record) in body.chunks_exact(RECORD).enumerate() {
+    for (index, record) in body.as_chunks::<RECORD>().0.iter().enumerate() {
         let line = offset + index + 1;
         let field = |i: usize| i64::from_le_bytes(record[i * 8..i * 8 + 8].try_into().unwrap());
         let (at, price, volume) = (field(0), field(1), field(2));
