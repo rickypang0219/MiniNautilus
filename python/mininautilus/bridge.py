@@ -77,6 +77,10 @@ class Engine:
         if time_mode not in ("live", "historical"):
             raise ValueError("time_mode must be live or historical")
         self.time_mode = time_mode
+        trace_path = (env or {}).get("MINI_ORDER_TRACE", os.environ.get("MINI_ORDER_TRACE"))
+        self.trace_log = open(trace_path, "x") if trace_path else None
+        self.request_id = 0
+        self.decision_started_ns = None
         binary = Path(binary) if binary else ROOT / "target/debug/mininautilus"
         if sim:
             if journal is not None or recover:
@@ -111,10 +115,36 @@ class Engine:
         return json.loads(line)
 
     def _roundtrip(self, line):
+        self.request_id += 1
+        if self.trace_log:
+            request = json.loads(line)
+            request["request_id"] = self.request_id
+            line = json.dumps(request, separators=(",", ":"))
+        started = time.perf_counter_ns()
         with metrics.timer("ipc"):
             self.process.stdin.write(line + "\n")
             self.process.stdin.flush()
-            return self._receive(self._read())
+            response = self._read()
+            effects = self._receive(response)
+        returned = time.perf_counter_ns()
+        self.last_returned_ns = returned
+        self.last_roundtrip_ns = returned-started
+        self.last_trace = response.get("trace")
+        if self.trace_log:
+            trace = response.get("trace", {})
+            if trace.get("request_id") != self.request_id:
+                raise RuntimeError("order trace request ID mismatch")
+            for action in trace.get("actions", []):
+                row = dict(action, request_id=self.request_id,
+                           python_started_ns=started, python_returned_ns=returned,
+                           python_roundtrip_ns=returned-started,
+                           decision_to_effect_ns=(returned-self.decision_started_ns
+                               if self.decision_started_ns is not None else None),
+                           rust_before_response_ns=trace["rust_before_response_ns"],
+                           venue_delivery_measured=False)
+                self.trace_log.write(json.dumps(row)+"\n")
+            self.trace_log.flush()
+        return effects
 
     def _receive(self, response):
         if "state" in response:
@@ -151,6 +181,8 @@ class Engine:
         return self._roundtrip(json.dumps(request, separators=(",", ":")))
 
     def close(self):
+        if self.trace_log:
+            self.trace_log.close()
         if self.process.stdin and not self.process.stdin.closed:
             self.process.stdin.close()
         try:

@@ -10,12 +10,14 @@ import argparse
 from collections import Counter
 import json
 import math
+import os
+import shutil
 from pathlib import Path
 import subprocess
 import urllib.parse
 import urllib.request
 
-PERF = "/usr/lib/linux-tools-6.8.0-146/perf"
+PERF = os.environ.get("PERF", shutil.which("perf") or "/usr/lib/linux-tools-6.8.0-146/perf")
 
 
 class Prometheus:

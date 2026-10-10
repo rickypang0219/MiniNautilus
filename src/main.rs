@@ -7,7 +7,7 @@ use mininautilus::{
     protocol::Response,
     sim::PaperExchange,
 };
-use serde::Deserialize;
+use serde::{Deserialize, Serialize};
 use std::{
     io::{self, BufRead, Write},
     path::Path,
@@ -18,6 +18,8 @@ use std::{
 /// bar's Quote, Trade and Tick) so a backtest needs one round trip per bar.
 #[derive(Deserialize)]
 struct Request {
+    #[serde(default)]
+    request_id: Option<u64>,
     at: Time,
     #[serde(default)]
     event: Option<Event>,
@@ -256,9 +258,30 @@ fn backtest(
     Ok(())
 }
 
+#[derive(Serialize)]
+struct ActionTrace {
+    seq: u64,
+    order_id: u64,
+    effect: &'static str,
+    stages: Stages,
+}
+#[derive(Serialize)]
+struct RequestTrace {
+    request_id: Option<u64>,
+    rust_before_response_ns: u64,
+    actions: Vec<ActionTrace>,
+}
+#[derive(Serialize)]
+struct TracedResponse<'a> {
+    #[serde(flatten)]
+    response: Response<'a>,
+    trace: RequestTrace,
+}
+
 /// JSON-lines loop shared by serve/paper/sim. `MINI_RESPONSE=full` restores the
 /// protocol-1 behavior of returning the complete state after every request.
 fn serve(mut engine: Backend, simulate: bool) -> Result<(), Box<dyn std::error::Error>> {
+    let tracing = std::env::var_os("MINI_ORDER_TRACE").is_some();
     let full = std::env::var("MINI_RESPONSE").is_ok_and(|v| v == "full");
     engine.track_changes();
     let mut venue = PaperExchange::new();
@@ -285,6 +308,7 @@ fn serve(mut engine: Backend, simulate: bool) -> Result<(), Box<dyn std::error::
         let started = std::time::Instant::now();
         let request: Request = serde_json::from_str(&line)?;
         let mut effects = Vec::new();
+        let mut actions = tracing.then(Vec::new);
         let at = request.at;
         let inputs = request
             .event
@@ -298,6 +322,7 @@ fn serve(mut engine: Backend, simulate: bool) -> Result<(), Box<dyn std::error::
                 at,
                 event.clone(),
                 request.time.clone(),
+                &mut actions,
             )?;
             if simulate {
                 let mut reports = Vec::new();
@@ -313,7 +338,7 @@ fn serve(mut engine: Backend, simulate: bool) -> Result<(), Box<dyn std::error::
                         t.source = Some("simulation".into());
                         t.fill_event_times.clear();
                     }
-                    process(&mut engine, &metrics, at, report, time)?;
+                    process(&mut engine, &metrics, at, report, time, &mut actions)?;
                 }
             }
             effects.extend(produced);
@@ -331,18 +356,40 @@ fn serve(mut engine: Backend, simulate: bool) -> Result<(), Box<dyn std::error::
         } else {
             Response::compact(engine.core(), effects, changes)
         };
-        match &metrics {
-            None => serde_json::to_writer(&mut stdout, &response)?,
-            Some(metrics) => {
-                let encode = std::time::Instant::now();
-                let bytes = serde_json::to_vec(&response)?;
+        if let Some(actions) = actions {
+            let response = TracedResponse {
+                response,
+                trace: RequestTrace {
+                    request_id: request.request_id,
+                    rust_before_response_ns: started.elapsed().as_nanos() as u64,
+                    actions,
+                },
+            };
+            let encode = std::time::Instant::now();
+            let bytes = serde_json::to_vec(&response)?;
+            if let Some(metrics) = &metrics {
                 metrics
                     .response_encode
                     .observe_ns(encode.elapsed().as_nanos() as u64);
                 metrics
                     .response_bytes
                     .fetch_add(bytes.len() as u64 + 1, Relaxed);
-                stdout.write_all(&bytes)?;
+            }
+            stdout.write_all(&bytes)?;
+        } else {
+            match &metrics {
+                None => serde_json::to_writer(&mut stdout, &response)?,
+                Some(metrics) => {
+                    let encode = std::time::Instant::now();
+                    let bytes = serde_json::to_vec(&response)?;
+                    metrics
+                        .response_encode
+                        .observe_ns(encode.elapsed().as_nanos() as u64);
+                    metrics
+                        .response_bytes
+                        .fetch_add(bytes.len() as u64 + 1, Relaxed);
+                    stdout.write_all(&bytes)?;
+                }
             }
         }
         writeln!(stdout)?;
@@ -371,13 +418,31 @@ fn process(
     at: Time,
     event: Event,
     time: Option<EventTime>,
+    actions: &mut Option<Vec<ActionTrace>>,
 ) -> Result<Vec<Effect>, Box<dyn std::error::Error>> {
-    let Some(metrics) = metrics else {
+    if metrics.is_none() && actions.is_none() {
         return engine.process(at, event, time);
-    };
+    }
     let kind = mininautilus::metrics::event_kind(&event);
     let (effects, stages) = engine.process_observed(at, event, time)?;
-    metrics.input(kind, &effects, &stages);
+    if let Some(metrics) = metrics {
+        metrics.input(kind, &effects, &stages);
+    }
+    if let Some(actions) = actions {
+        for effect in &effects {
+            let (order_id, effect) = match effect {
+                Effect::SendOrder(intent) => (intent.id, "SendOrder"),
+                Effect::SendCancel { id } => (*id, "SendCancel"),
+                _ => continue,
+            };
+            actions.push(ActionTrace {
+                seq: engine.core().seq,
+                order_id,
+                effect,
+                stages,
+            });
+        }
+    }
     Ok(effects)
 }
 

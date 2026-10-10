@@ -14,6 +14,8 @@ RUN_DIR/prometheus for follow-up queries (see docs/observability.md).
 """
 import argparse
 import json
+import platform
+import hashlib
 import os
 from pathlib import Path
 import shutil
@@ -24,7 +26,7 @@ import time
 import urllib.request
 
 ROOT = Path(__file__).resolve().parents[1]
-PERF = "/usr/lib/linux-tools-6.8.0-146/perf"
+PERF = os.environ.get("PERF", shutil.which("perf") or "/usr/lib/linux-tools-6.8.0-146/perf")
 
 
 def wait_ready(url, seconds=30):
@@ -136,6 +138,19 @@ def main():
                     "--perf", *map(str, perf_files), "--pyspy", *map(str, pyspy_files),
                     "--output", str(run), "--title", f"Soak report: {' '.join(session)}"],
                    cwd=ROOT, stdout=subprocess.DEVNULL, check=False)
+    report_path = run / "report.json"
+    if report_path.exists():
+        report = json.loads(report_path.read_text())
+        # Remove only the candidate sync policy from the workload fingerprint.
+        workload = list(session)
+        if "--sync" in workload:
+            i = workload.index("--sync"); del workload[i:i+2]
+        report["experiment"] = {"machine": hashlib.sha256(platform.node().encode()).hexdigest(),
+                                "platform": platform.platform(), "minutes": args.minutes,
+                                "session": workload, "metrics_port": args.metrics_port,
+                                "profile_every": args.profile_every, "profile_seconds": args.profile_seconds}
+        report["session_exit"] = proc.returncode
+        report_path.write_text(json.dumps(report, indent=2))
     if os.environ.get("SOAK_KEEP_PROMETHEUS") != "1":
         prometheus.terminate()
         prometheus.wait()

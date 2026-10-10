@@ -133,6 +133,9 @@ pub struct Stages {
     pub sync_ns: u64,
     pub commit_ns: u64,
     pub synced: bool,
+    pub written_bytes: u64,
+    /// Upper bound on bytes not yet acknowledged by a sync before this input.
+    pub sync_pending_bytes: u64,
 }
 
 pub struct DurableEngine {
@@ -143,6 +146,7 @@ pub struct DurableEngine {
     journal_path: PathBuf,
     sync: SyncPolicy,
     unsynced: bool,
+    pending_bytes: u64,
 }
 
 impl DurableEngine {
@@ -162,6 +166,7 @@ impl DurableEngine {
             journal_path: fs::canonicalize(path)?,
             sync: SyncPolicy::EveryInput,
             unsynced: false,
+            pending_bytes: 0,
         };
         engine.append(&Payload::Genesis {
             schema: 1,
@@ -201,6 +206,7 @@ impl DurableEngine {
             journal_path: fs::canonicalize(path)?,
             sync: SyncPolicy::EveryInput,
             unsynced: false,
+            pending_bytes: 0,
         };
         // A recovered local state is not proof of current venue state.
         engine.process(engine.core.now, Event::Disconnect)?;
@@ -308,9 +314,15 @@ impl DurableEngine {
         }
         self.checksum = hash;
         self.unsynced = true;
+        self.pending_bytes += bytes.len() as u64;
+        if let Some(stages) = stages.as_deref_mut() {
+            stages.written_bytes = bytes.len() as u64;
+            stages.sync_pending_bytes = if sync { self.pending_bytes } else { 0 };
+        }
         lap(|s| &mut s.write_ns, &mut stages);
         if sync {
             sync_file(&self.file, &mut self.unsynced, &mut self.poisoned)?;
+            self.pending_bytes = 0;
         }
         lap(|s| &mut s.sync_ns, &mut stages);
         // No published state or effect precedes the durable write acknowledgment

@@ -14,6 +14,7 @@ must quote this verdict rather than a single run.
 
 import argparse
 import json
+import math
 import os
 import platform
 import statistics
@@ -27,6 +28,20 @@ METRICS = ("p50_ns", "p99_ns", "p999_ns", "messages_per_sec")
 HIGHER_IS_BETTER = {"messages_per_sec"}
 MIN_REPS = 5
 MIN_EFFECT_PCT = 10.0
+
+
+def verdict(before, after, higher_is_better=False):
+    """Ranges must not overlap; missing/nonfinite/short evidence has no verdict."""
+    if min(len(before), len(after)) < MIN_REPS or not all(math.isfinite(x) for x in before+after):
+        return "inconclusive"
+    x, y = statistics.median(before), statistics.median(after)
+    if x == 0 or abs((y-x)/x)*100 < MIN_EFFECT_PCT:
+        return "inconclusive"
+    if max(after) < min(before):
+        return "regressed" if higher_is_better else "improved"
+    if min(after) > max(before):
+        return "improved" if higher_is_better else "regressed"
+    return "inconclusive"
 
 
 def sh(*cmd):
