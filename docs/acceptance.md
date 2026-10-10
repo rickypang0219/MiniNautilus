@@ -216,6 +216,8 @@ Fixture：下一根 bar 成交而不被取消；同一根 bar 不會成交自己
 - **Crash 保證：** process crash 不會遺失任何 input（已寫入 OS page cache）。OS 或斷電可能遺失最後一段未 sync 的 input；這段之中沒有任何對外動作，遺失的成交回報由 recovery 的強制 Disconnect 和 venue reconciliation 補回；遺失的行情本來就會過期。如果斷電令中段 frame 損壞，checksum chain 照舊 fail closed，要人手處理。
 - **證據：** `tests/uncertain_send.rs::outbox_policy_keeps_every_external_action_durable`：每個 `SendOrder` 都在 sync 之後；模擬 process crash（不 sync 就 drop）後完整 replay；模擬 OS crash（把檔案截到最後一次 sync 的長度）後，所有送出過的訂單都還在，對帳後倉位和 fills 與 crash 前相同。
 
+**Soak 證據（合成行情，5 分鐘各一次，見 [observability.md](observability.md)）：** Rust request p99 3.75 ms → 0.19 ms，fsync 70,173 → 88 次，engine 全程 Healthy。
+
 **建議：** live 用 `outbox`（Linux 上 durable 路徑 p99 由 569 µs 降至 328 µs，fsync 次數少 33 倍）。預設暫時保留 `every`，因為改預設會放寬現有腳本的保證，要你決定。
 
 ### L4：「已落盤但不確定是否已送出」窗口 ✅（Core + adapter）／⚠️（testnet 實測）

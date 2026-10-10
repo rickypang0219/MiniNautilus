@@ -1,7 +1,8 @@
 use mininautilus::telemetry::Telemetry;
 use mininautilus::{
     core::{Changes, Core},
-    journal::{DurableEngine, EventTime, SyncPolicy},
+    journal::{DurableEngine, EventTime, Stages, SyncPolicy},
+    metrics::Metrics,
     model::*,
     protocol::Response,
     sim::PaperExchange,
@@ -10,6 +11,7 @@ use serde::Deserialize;
 use std::{
     io::{self, BufRead, Write},
     path::Path,
+    sync::{Arc, atomic::Ordering::Relaxed},
 };
 
 /// One request may carry a batch of events processed in order (for example a
@@ -52,6 +54,27 @@ impl Backend {
             Self::Memory(core) => {
                 let seq = core.seq + 1;
                 core.apply(&Envelope { seq, at, event })?
+            }
+        })
+    }
+    /// `process` plus per-stage timing for the metrics endpoint.
+    fn process_observed(
+        &mut self,
+        at: Time,
+        event: Event,
+        time: Option<EventTime>,
+    ) -> Result<(Vec<Effect>, Stages), Box<dyn std::error::Error>> {
+        Ok(match self {
+            Self::Durable(engine) => engine.process_profiled(at, event, time)?,
+            Self::Memory(core) => {
+                let seq = core.seq + 1;
+                let start = std::time::Instant::now();
+                let effects = core.apply(&Envelope { seq, at, event })?;
+                let stages = Stages {
+                    prepare_ns: start.elapsed().as_nanos() as u64,
+                    ..Stages::default()
+                };
+                (effects, stages)
             }
         })
     }
@@ -242,6 +265,15 @@ fn serve(mut engine: Backend, simulate: bool) -> Result<(), Box<dyn std::error::
     let mut telemetry = std::env::var_os("MINI_TELEMETRY")
         .map(|path| Telemetry::start(Path::new(&path), 256))
         .transpose()?;
+    // `MINI_METRICS_ADDR=127.0.0.1:9464` exposes Prometheus metrics (docs/observability.md).
+    let metrics = match std::env::var("MINI_METRICS_ADDR") {
+        Ok(address) => {
+            let (metrics, bound) = mininautilus::metrics::serve(&address)?;
+            eprintln!("metrics listening on http://{bound}/metrics");
+            Some(metrics)
+        }
+        Err(_) => None,
+    };
     let mut stdout = io::BufWriter::new(io::stdout().lock());
     // A startup response lets the Python bridge resume monotonic time and IDs.
     engine.take_changes();
@@ -249,7 +281,9 @@ fn serve(mut engine: Backend, simulate: bool) -> Result<(), Box<dyn std::error::
     writeln!(stdout)?;
     stdout.flush()?;
     for line in io::stdin().lock().lines() {
-        let request: Request = serde_json::from_str(&line?)?;
+        let line = line?;
+        let started = std::time::Instant::now();
+        let request: Request = serde_json::from_str(&line)?;
         let mut effects = Vec::new();
         let at = request.at;
         let inputs = request
@@ -258,7 +292,13 @@ fn serve(mut engine: Backend, simulate: bool) -> Result<(), Box<dyn std::error::
             .chain(request.events)
             .map(|e| (at, e));
         for (at, event) in inputs.chain(request.batch) {
-            let produced = engine.process(at, event.clone(), request.time.clone())?;
+            let produced = process(
+                &mut engine,
+                &metrics,
+                at,
+                event.clone(),
+                request.time.clone(),
+            )?;
             if simulate {
                 let mut reports = Vec::new();
                 for effect in &produced {
@@ -273,7 +313,7 @@ fn serve(mut engine: Backend, simulate: bool) -> Result<(), Box<dyn std::error::
                         t.source = Some("simulation".into());
                         t.fill_event_times.clear();
                     }
-                    engine.process(at, report, time)?;
+                    process(&mut engine, &metrics, at, report, time)?;
                 }
             }
             effects.extend(produced);
@@ -291,9 +331,29 @@ fn serve(mut engine: Backend, simulate: bool) -> Result<(), Box<dyn std::error::
         } else {
             Response::compact(engine.core(), effects, changes)
         };
-        serde_json::to_writer(&mut stdout, &response)?;
+        match &metrics {
+            None => serde_json::to_writer(&mut stdout, &response)?,
+            Some(metrics) => {
+                let encode = std::time::Instant::now();
+                let bytes = serde_json::to_vec(&response)?;
+                metrics
+                    .response_encode
+                    .observe_ns(encode.elapsed().as_nanos() as u64);
+                metrics
+                    .response_bytes
+                    .fetch_add(bytes.len() as u64 + 1, Relaxed);
+                stdout.write_all(&bytes)?;
+            }
+        }
         writeln!(stdout)?;
         stdout.flush()?;
+        if let Some(metrics) = &metrics {
+            metrics.state(engine.core());
+            metrics.requests.fetch_add(1, Relaxed);
+            metrics
+                .request
+                .observe_ns(started.elapsed().as_nanos() as u64);
+        }
     }
     if let Backend::Durable(engine) = &mut engine {
         engine.sync()?;
@@ -302,6 +362,23 @@ fn serve(mut engine: Backend, simulate: bool) -> Result<(), Box<dyn std::error::
         eprintln!("telemetry_dropped={}", logger.finish()?);
     }
     Ok(())
+}
+
+/// Apply one input, recording its stages and effects when metrics are enabled.
+fn process(
+    engine: &mut Backend,
+    metrics: &Option<Arc<Metrics>>,
+    at: Time,
+    event: Event,
+    time: Option<EventTime>,
+) -> Result<Vec<Effect>, Box<dyn std::error::Error>> {
+    let Some(metrics) = metrics else {
+        return engine.process(at, event, time);
+    };
+    let kind = mininautilus::metrics::event_kind(&event);
+    let (effects, stages) = engine.process_observed(at, event, time)?;
+    metrics.input(kind, &effects, &stages);
+    Ok(effects)
 }
 
 fn step(core: &mut Core, at: Time, event: Event) -> Result<Vec<Effect>, String> {

@@ -132,6 +132,10 @@ python3 examples/heatmap.py                    # 20×20 參數，多核
 
 Strategy 嘅 target 只依賴市場資料時，用 `run_targets`（Rust 進程內跑，`mininautilus backtest BARS.csv TARGETS.csv`）；要睇成交／倉位先決策時，用 `run_interactive(Engine(sim=True), bars, strategy)`，每根 bar 一次 IPC。兩條路徑逐筆一致，見 [`python/mininautilus/backtest.py`](python/mininautilus/backtest.py) 同 [驗收條件 B1–B4](docs/acceptance.md)。
 
+## 觀測與 soak
+
+`python3 ops/soak.py --minutes 90 --run-dir runs/soak-live -- examples/sma_spot.py --mode paper --interval 1s --fast 3 --slow 8 --sync outbox` 會開 Prometheus、定時用 perf／py-spy profiling，最後寫 `report.md`（自動檢查 latency、drift、錯誤和 gate）。Metrics 清單同 agent loop 步驟見 [docs/observability.md](docs/observability.md)；Grafana dashboard 喺 `ops/grafana/mininautilus.json`。
+
 ## Code map
 
 | File | 責任 |
@@ -145,6 +149,8 @@ Strategy 嘅 target 只依賴市場資料時，用 `run_targets`（Rust 進程�
 | `src/main.rs` | CLI / JSON-lines runtime（serve、paper、sim、backtest、rotate） |
 | `src/protocol.rs` | Protocol 2：完整 state 一次，之後 compact delta |
 | `src/backtest.rs` | Non-durable backtest runner 同執行規則 |
+| `src/metrics.rs` | Prometheus `/metrics`（`MINI_METRICS_ADDR`） |
+| `ops/` | Soak runner、報告、比較、合成 session、Grafana dashboard |
 | `python/mininautilus/` | Python bridge、strategy、Binance Testnet gateway |
 | `examples/` | Offline replay、live/paper runtime、SQLite PnL analysis |
 | `tests/` | Failure scenarios 同跨語言測試 |

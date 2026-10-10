@@ -16,6 +16,8 @@ import urllib.parse
 import urllib.request
 from decimal import Decimal
 
+from . import metrics
+
 BASE = "https://testnet.binance.vision"
 TERMINAL = {"FILLED", "CANCELED", "REJECTED", "EXPIRED", "EXPIRED_IN_MATCH"}
 
@@ -71,6 +73,7 @@ class BinanceSpot:
             raise ValueError("unsupported endpoint")
         # Conservative fixed pacing. HTTP 429/418 adds server-directed backoff.
         delay = self.next_request - time.monotonic()
+        metrics.observe("rest_pacing", max(delay, 0.0))
         if delay > 0:
             time.sleep(delay)
         self.next_request = time.monotonic() + 0.25
@@ -89,9 +92,13 @@ class BinanceSpot:
             class NoRedirect(urllib.request.HTTPRedirectHandler):
                 def redirect_request(self, *_args, **_kwargs):
                     return None
+            started = time.perf_counter()
             with urllib.request.build_opener(NoRedirect).open(request, timeout=10) as response:
-                return json.load(response)
+                body = json.load(response)
+            metrics.observe("rest", time.perf_counter() - started, method, path)
+            return body
         except urllib.error.HTTPError as error:
+            metrics.count("rest_errors", path, str(error.code))
             if error.code in (418, 429):
                 try:
                     retry = max(1, float(error.headers.get("Retry-After", "60")))
@@ -104,7 +111,8 @@ class BinanceSpot:
                 code = None
             # Never stringify HTTPError: its URL contains the signed query.
             raise VenueError(f"Binance HTTP {error.code}, code {code}; do not retry mutations", code=code) from None
-        except (OSError, TimeoutError, ValueError):
+        except (OSError, TimeoutError, ValueError) as error:
+            metrics.count("rest_errors", path, type(error).__name__)
             raise VenueError("transport/response failure; mutation outcome may be unknown") from None
 
     def initialize(self):

@@ -18,6 +18,7 @@ from collections import deque
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / 'python'))
 from websockets.sync.client import connect
 from websockets.exceptions import ConnectionClosed
+from mininautilus import metrics
 from mininautilus.bridge import Engine
 from mininautilus.binance import BinanceSpot, VenueError, units
 from mininautilus.market import missing_candles
@@ -99,6 +100,13 @@ def write_summary(path, invocation, summary):
 
 def run(args):
     load_env(args.env_file)
+    engine_env = {}
+    if args.metrics_port:
+        # Python metrics on PORT, the Rust engine's on PORT-1 (docs/observability.md).
+        if not metrics.start(args.metrics_port):
+            raise RuntimeError('--metrics-port needs prometheus_client (pip install prometheus_client)')
+        engine_env['MINI_METRICS_ADDR'] = f'127.0.0.1:{args.metrics_port - 1}'
+
     venue = BinanceSpot(args.symbol, execute=args.mode == 'testnet')
     venue.initialize()
     lots = units(str(args.quantity), venue.lot)
@@ -135,11 +143,13 @@ def run(args):
     retry_budget = ReconnectBudget()
     started = time.monotonic()
     with (path / 'observations.jsonl').open('a') as log, Engine(path / 'events.jsonl', paper=args.mode == 'paper',
-            recover=args.resume, config=path / 'config.json') as engine:
+            recover=args.resume, config=path / 'config.json', env=engine_env,
+            extra_args=['--sync', args.sync]) as engine:
         origin, initial = time.monotonic(), engine.state['now']
         sent_at = {}
         def now(): return initial + int((time.monotonic() - origin) * 1000)
         def note(kind, **data):
+            metrics.count('events', kind)
             record = dict(kind=kind, elapsed_ms=now(), **data)
             log.write(json.dumps(record) + '\n'); log.flush()
             print(json.dumps(record), flush=True)
@@ -177,6 +187,9 @@ def run(args):
                     note('order', intent=intent)
                     if args.mode == 'testnet':
                         venue.submit(intent)  # Never retry an ambiguous mutation.
+                    if candle_received[0] is not None:
+                        metrics.observe('tick_to_trade', time.perf_counter() - candle_received[0])
+                    if args.mode == 'testnet':
                         deliver({'Accepted': {'id': intent['id']}})
                 elif 'SendCancel' in e and args.mode == 'testnet':
                     venue.cancel(engine.state['orders'][str(e['SendCancel']['id'])]['intent'])
@@ -184,8 +197,10 @@ def run(args):
                     raise VenueError('engine requested recovery')
                 elif 'Refused' in e or 'Alert' in e:
                     note('engine_effect', effect=e)
+        candle_received = [None]
         def add_bar(candle):
-            changed = strategy.add(candle)
+            with metrics.timer('strategy'):
+                changed = strategy.add(candle)
             if changed:
                 note('candle', **asdict(candle), signal=strategy.signal())
             return changed
@@ -227,6 +242,7 @@ def run(args):
                                 for oid, order in list(engine.state['orders'].items()):
                                     if order['lifecycle'] not in TERMINAL and order['pending'] is None and now() - sent_at.get(int(oid), 0) >= args.order_ttl * 1000:
                                         dispatch(send({'Cancel': {'id': int(oid)}}))
+                            loop_started = time.perf_counter()
                             try: message = json.loads(ws.recv(timeout=1))
                             except TimeoutError:
                                 if time.monotonic() - last_message > 15:
@@ -237,11 +253,16 @@ def run(args):
                                 fired_faults.add('stale'); note('injected_fault', fault='stale')
                                 message['E'] -= 60000
                             exchange_now = int(time.time()*1000) + venue.offset_ms
+                            metrics.observe('ws_lag', max(exchange_now - int(message['E']), 0) / 1000)
                             if not 0 <= exchange_now - int(message['E']) <= 5000:
                                 raise VenueError('stale market stream; reconnect and backfill')
                             retry_budget.progress(time.monotonic())
                             candle = closed_candle(message, venue.tick, args.symbol, args.interval)
-                            if candle is None: continue
+                            if candle is None:
+                                metrics.observe('loop', time.perf_counter() - loop_started)
+                                continue
+                            candle_received[0] = time.perf_counter()
+                            metrics.observe('candle_lag', max(exchange_now - candle.close_ms, 0) / 1000)
                             if args.faults and time.monotonic() - started >= 15 and 'drop' not in fired_faults:
                                 fired_faults.add('drop'); note('injected_fault', fault='drop')
                                 continue
@@ -281,6 +302,7 @@ def run(args):
                                     continue
                                 command = target_order(engine.state, price=intent['limit'])
                                 if command: dispatch(send(command))
+                            metrics.observe('loop', time.perf_counter() - loop_started)
                 except (OSError, TimeoutError, VenueError, ConnectionClosed, CandleGap) as error:
                     send('MarketUnavailable')
                     note('connection_failure', error_type=type(error).__name__, reason=str(error) if isinstance(error, VenueError) else None, venue_code=getattr(error, 'code', None))
@@ -322,6 +344,8 @@ if __name__ == '__main__':
     p.add_argument('--resume', action='store_true')
     p.add_argument('--faults', action='store_true', help='paper only: inject drop, duplicate, stale data and disconnect')
     p.add_argument('--reconcile-only', action='store_true', help='resume, reconcile, then exit without new signals')
+    p.add_argument('--metrics-port', type=int, help='expose Python metrics here and Rust metrics on PORT-1')
+    p.add_argument('--sync', choices=['every', 'outbox'], default='every', help='journal sync policy (acceptance L3)')
     a = p.parse_args()
     if a.faults and a.mode != 'paper':
         p.error('--faults is restricted to paper mode')

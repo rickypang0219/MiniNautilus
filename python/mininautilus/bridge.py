@@ -15,6 +15,8 @@ import subprocess
 import time
 from pathlib import Path
 
+from . import metrics
+
 ROOT = Path(__file__).resolve().parents[2]
 TERMINAL = ("Filled", "Canceled", "Rejected")
 
@@ -67,7 +69,7 @@ def next_order_id(state):
 
 class Engine:
     def __init__(self, journal=None, *, paper=False, sim=False, recover=False, config=None,
-                 binary=None, time_mode="live", full_state=False, extra_args=()):
+                 binary=None, time_mode="live", full_state=False, extra_args=(), env=None):
         """`sim=True` runs an in-memory paper venue without a journal (backtests).
 
         `full_state=True` asks Rust for the complete state after every request
@@ -87,7 +89,8 @@ class Engine:
         elif config:
             command.append(str(config))
         command += list(extra_args)
-        env = dict(os.environ, MINI_RESPONSE="full") if full_state else None
+        overrides = dict(env or {}, **({"MINI_RESPONSE": "full"} if full_state else {}))
+        env = dict(os.environ, **overrides) if overrides else None
         self.process = subprocess.Popen(command, stdin=subprocess.PIPE, stdout=subprocess.PIPE,
                                         text=True, bufsize=1, env=env)
         self.selector = selectors.DefaultSelector()
@@ -107,6 +110,12 @@ class Engine:
         self.last_response_bytes = len(line)
         return json.loads(line)
 
+    def _roundtrip(self, line):
+        with metrics.timer("ipc"):
+            self.process.stdin.write(line + "\n")
+            self.process.stdin.flush()
+            return self._receive(self._read())
+
     def _receive(self, response):
         if "state" in response:
             self.state = State(response["state"])
@@ -118,19 +127,13 @@ class Engine:
         """Process events in order in one round trip; returns all their effects.
 
         For historical/backtest input only: no live receive-time metadata."""
-        request = json.dumps({"at": at, "events": events}, separators=(",", ":"))
-        self.process.stdin.write(request + "\n")
-        self.process.stdin.flush()
-        return self._receive(self._read())
+        return self._roundtrip(json.dumps({"at": at, "events": events}, separators=(",", ":")))
 
     def send_pairs(self, pairs):
         """Process `(at, event)` pairs in order, each at its own engine time."""
         if not pairs:
             raise ValueError("empty batch")
-        request = json.dumps({"at": pairs[0][0], "batch": pairs}, separators=(",", ":"))
-        self.process.stdin.write(request + "\n")
-        self.process.stdin.flush()
-        return self._receive(self._read())
+        return self._roundtrip(json.dumps({"at": pairs[0][0], "batch": pairs}, separators=(",", ":")))
 
     def send(self, at, event, *, event_time_ms=None, received_time_ms=None,
              time_source=None, fill_event_times=None):
@@ -145,10 +148,7 @@ class Engine:
         request = {"at": at, "event": event}
         if metadata:
             request["time"] = metadata
-        request = json.dumps(request, separators=(",", ":"))
-        self.process.stdin.write(request + "\n")
-        self.process.stdin.flush()
-        return self._receive(self._read())
+        return self._roundtrip(json.dumps(request, separators=(",", ":")))
 
     def close(self):
         if self.process.stdin and not self.process.stdin.closed:
