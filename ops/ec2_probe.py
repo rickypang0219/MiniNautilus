@@ -59,8 +59,18 @@ printf '%s' '{probe}' | base64 -d > /opt/mini-probe/probe.py
 cat > /opt/mini-probe/run.sh <<'RUN'
 #!/bin/bash
 set -eu
-dnf -q -y install python3-pip
-python3 -m pip -q install --target /opt/mini-probe/deps 'websockets==12.0'
+echo MINI_PROBE_BOOTSTRAP
+python3 - <<'DEPS'
+import hashlib, io, urllib.request, zipfile
+url = 'https://files.pythonhosted.org/packages/fa/a8/5b41e0da817d64113292ab1f8247140aac61cbf6cfd085d6a0fa77f4984f/websockets-15.0.1-py3-none-any.whl'
+with urllib.request.urlopen(url, timeout=20) as response:
+    wheel = response.read()
+if hashlib.sha256(wheel).hexdigest() != 'f7a866fbc1e97b5c617ee4116daaa09b722101d4a3c170c787450ba409f9736f':
+    raise RuntimeError('websockets wheel checksum mismatch')
+with zipfile.ZipFile(io.BytesIO(wheel)) as archive:
+    archive.extractall('/opt/mini-probe/deps')
+DEPS
+echo MINI_PROBE_SAMPLING
 PYTHONPATH=/opt/mini-probe/deps python3 /opt/mini-probe/probe.py --location '{a.region}' --samples 5 --output /opt/mini-probe/result.json || true
 python3 -c "import base64; print('MINI_PROBE_JSON=' + base64.b64encode(open('/opt/mini-probe/result.json','rb').read()).decode(), flush=True)"
 RUN
@@ -76,8 +86,11 @@ timeout 360 bash /opt/mini-probe/run.sh
         # OS package repository plus the public Binance test hosts.
         instance = ec2.run_instances(ImageId=ami, InstanceType='t3.micro', MinCount=1, MaxCount=1,
             ClientToken=token, CreditSpecification={'CpuCredits':'standard'},
-            InstanceInitiatedShutdownBehavior='terminate',
-            MetadataOptions={'HttpEndpoint':'disabled'},
+            # Stop preserves console output for collection; controller always terminates.
+            InstanceInitiatedShutdownBehavior='stop',
+            # cloud-init needs IMDS to retrieve user data. No IAM role is attached.
+            MetadataOptions={'HttpEndpoint':'enabled', 'HttpTokens':'required',
+                             'HttpPutResponseHopLimit':1},
             NetworkInterfaces=[{'DeviceIndex':0,'SubnetId':subnet['SubnetId'],
                 'Groups':[metadata['security_group']], 'AssociatePublicIpAddress':True}],
             BlockDeviceMappings=[{'DeviceName':'/dev/xvda','Ebs':{'VolumeSize':8,'VolumeType':'gp3',
@@ -92,6 +105,8 @@ timeout 360 bash /opt/mini-probe/run.sh
             time.sleep(10)
             try:
                 result = ec2.get_console_output(InstanceId=metadata['instance'], Latest=True)
+                if not result.get('Output'):
+                    result = ec2.get_console_output(InstanceId=metadata['instance'], Latest=False)
             except ec2.exceptions.ClientError as exc:
                 if exc.response['Error']['Code'] in ('InvalidInstanceID.NotFound', 'IncorrectInstanceState'):
                     continue
@@ -103,7 +118,10 @@ timeout 360 bash /opt/mini-probe/run.sh
                     output = base64.b64decode(output, validate=True).decode(errors='replace')
                 except (ValueError, UnicodeError):
                     pass
-            (a.run_dir/'console.txt').write_text(output)
+            if output:
+                (a.run_dir/'console.txt').write_text(output)
+            if 'Datasource DataSourceNone' in output:
+                raise RuntimeError('cloud-init could not retrieve user data; inspect console.txt')
             match = re.search(r'MINI_PROBE_JSON=([A-Za-z0-9+/=]+)', output)
             if match:
                 report = json.loads(base64.b64decode(match[1]))
@@ -149,6 +167,9 @@ timeout 360 bash /opt/mini-probe/run.sh
                         raise
                     time.sleep(5)
         print(json.dumps({'cleanup':metadata}), flush=True)
+
+    if not report['public_gate_pass']:
+        raise SystemExit(1)
 
 
 if __name__ == '__main__':

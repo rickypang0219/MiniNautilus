@@ -22,3 +22,11 @@ Report the command and its last lines. Never say "should work" without that evid
 
 When an agent makes a mistake a human had to catch, add a rule here or to the skill
 so the next session does not repeat it.
+
+## Strategy data and AWS costs
+
+- Streaming strategies must cache only their required observation window. Fetch a bounded warm-up window and incremental updates; never fetch full historical datasets into a strategy merely to generate a signal. Offline historical readers may stream the full dataset, keeping strategy state bounded.
+- Use a fixed-size ring or bounded deque with O(1) append/eviction and rolling aggregates. Do not rebuild/slice the full window on every tick. Specify warm-up, duplicate/out-of-order and missing-bar behavior; preserve signal parity. A Python list ring stores references, not contiguous numeric values: do not claim CPU cache or latency gains without measurement.
+- AWS default region is ap-northeast-1. Target under USD 20/month including compute, EBS and public IPv4; verify current prices before creating persistent resources. Prefer small EC2 with standard CPU credits, no NAT Gateway/ALB/paid interface endpoints. A public subnet plus Elastic IP supports Binance whitelisting; no inbound ports are required. Same-region S3 traffic should use a gateway endpoint. ECS, if needed, should stay around 1–2 vCPU and 2–4 GiB; do not assume that fits the monthly budget.
+
+- EC2 cloud-init needs IMDS to retrieve user data. Require IMDSv2 instead of disabling metadata when using bootstrap scripts; confirm the script actually ran and verify cleanup after failed launches.

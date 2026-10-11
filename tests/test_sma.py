@@ -26,12 +26,26 @@ class SmaTests(unittest.TestCase):
         self.assertEqual(closed_candle(m,Decimal('0.01'),'BTCUSDT','1s').price,100)
 
     def test_rolling_sums_match_naive(self):
-        s=SmaStrategy(3,7,2,'1s',long_only=True)
-        values=[]
-        for i in range(100):
-            price=(i*17)%31+1;values.append(price);s.add(Candle(i*1000,i*1000+999,price))
-            self.assertEqual(s.fast_sum,sum(values[-3:]))
-            self.assertEqual(s.slow_sum,sum(values[-7:]))
+        for fast, slow in ((1, 2), (3, 7), (249, 500), (499, 500)):
+            s = SmaStrategy(fast, slow, 2, '1s', long_only=True)
+            values = []
+            target = 0
+            for i in range(2000):
+                price = (i * 17) % 31 + 1
+                values.append(price)
+                s.add(Candle(i * 1000, i * 1000 + 999, price))
+                self.assertEqual(s.fast_sum, sum(values[-fast:]))
+                self.assertEqual(s.slow_sum, sum(values[-slow:]))
+                self.assertEqual(s.ready, len(values) >= slow)
+                self.assertLessEqual(len(s.values), slow)
+                if s.ready:
+                    difference = sum(values[-fast:]) * slow - sum(values[-slow:]) * fast
+                    if difference:
+                        target = 2 if difference > 0 else 0
+                    self.assertEqual(s.target, target)
+            s.reset()
+            self.assertFalse(s.ready)
+            self.assertEqual((s.fast_sum, s.slow_sum, s.target), (0, 0, 0))
 
     def test_python_signal_rust_buy_then_flat_and_stale_quote(self):
         with tempfile.TemporaryDirectory() as d, Engine(Path(d)/'events',paper=True) as e:

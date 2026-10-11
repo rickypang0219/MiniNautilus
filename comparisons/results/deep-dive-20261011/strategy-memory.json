@@ -1,0 +1,84 @@
+{
+  "before": {
+    "commit": "4c477b190475ca1fa1fdec493b7356649b9bdada",
+    "source_kind": "immutable Git object",
+    "dirty": false,
+    "class_sha256": "6b411a450a95138dd99eca96d0c4f2c0b991c845e6f98cc774581e9a2a483689",
+    "observations": 100000,
+    "fast": 3,
+    "slow": 8,
+    "runs": [
+      {
+        "retained_bytes": 4001824,
+        "peak_bytes": 4002068,
+        "retained_prices": 100000,
+        "signal_sha256": "08678514a9ffdab9dcade13db125e3bfb0f6a090ecf007bc4fec229c59b4484c"
+      },
+      {
+        "retained_bytes": 4001816,
+        "peak_bytes": 4002060,
+        "retained_prices": 100000,
+        "signal_sha256": "08678514a9ffdab9dcade13db125e3bfb0f6a090ecf007bc4fec229c59b4484c"
+      },
+      {
+        "retained_bytes": 4001808,
+        "peak_bytes": 4002052,
+        "retained_prices": 100000,
+        "signal_sha256": "08678514a9ffdab9dcade13db125e3bfb0f6a090ecf007bc4fec229c59b4484c"
+      },
+      {
+        "retained_bytes": 4001800,
+        "peak_bytes": 4002044,
+        "retained_prices": 100000,
+        "signal_sha256": "08678514a9ffdab9dcade13db125e3bfb0f6a090ecf007bc4fec229c59b4484c"
+      },
+      {
+        "retained_bytes": 4001792,
+        "peak_bytes": 4002036,
+        "retained_prices": 100000,
+        "signal_sha256": "08678514a9ffdab9dcade13db125e3bfb0f6a090ecf007bc4fec229c59b4484c"
+      }
+    ]
+  },
+  "after": {
+    "commit": "4c477b190475ca1fa1fdec493b7356649b9bdada",
+    "source_kind": "working tree",
+    "dirty": true,
+    "class_sha256": "034d1a20cc858c6c0196fbc5a2fbb6d47c5955e240b211de313af854f19810d8",
+    "observations": 100000,
+    "fast": 3,
+    "slow": 8,
+    "runs": [
+      {
+        "retained_bytes": 1248,
+        "peak_bytes": 1528,
+        "retained_prices": 8,
+        "signal_sha256": "08678514a9ffdab9dcade13db125e3bfb0f6a090ecf007bc4fec229c59b4484c"
+      },
+      {
+        "retained_bytes": 1240,
+        "peak_bytes": 1520,
+        "retained_prices": 8,
+        "signal_sha256": "08678514a9ffdab9dcade13db125e3bfb0f6a090ecf007bc4fec229c59b4484c"
+      },
+      {
+        "retained_bytes": 1232,
+        "peak_bytes": 1512,
+        "retained_prices": 8,
+        "signal_sha256": "08678514a9ffdab9dcade13db125e3bfb0f6a090ecf007bc4fec229c59b4484c"
+      },
+      {
+        "retained_bytes": 1224,
+        "peak_bytes": 1504,
+        "retained_prices": 8,
+        "signal_sha256": "08678514a9ffdab9dcade13db125e3bfb0f6a090ecf007bc4fec229c59b4484c"
+      },
+      {
+        "retained_bytes": 1216,
+        "peak_bytes": 1496,
+        "retained_prices": 8,
+        "signal_sha256": "08678514a9ffdab9dcade13db125e3bfb0f6a090ecf007bc4fec229c59b4484c"
+      }
+    ]
+  }
+}
