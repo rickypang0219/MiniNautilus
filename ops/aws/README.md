@@ -1,5 +1,7 @@
 # Tokyo Testnet host
 
+> Superseded by the CDK app in [`infra/`](../../infra/README.md) (Graviton t4g.micro, deployed 2026-10-11).
+
 `testnet-host.json` is a CloudFormation **infrastructure** template, not an automatic trading deployment. It creates one AL2023 x86_64 t3.micro (2 burstable vCPU, 1 GiB RAM), encrypted 8 GiB gp3, a dedicated public subnet/VPC, Elastic IP, no inbound security-group rules, HTTPS-only outbound, an SSM instance role, and an S3 gateway endpoint. No exchange credentials, SSH keys, containers, NAT Gateway, ALB or paid interface endpoints are installed. Standard CPU credits avoid surplus-credit bills but sustained CPU can be throttled. This small host is intended for one runtime, not concurrent compilation, ETL and monitoring servers.
 
 A Binance API IP whitelist needs a stable **outbound public IP**, not a private subnet. Whitelist the `WhitelistIPv4` output. Keep the same stack/EIP when updating application code. Replacement/deletion can change that address. SSM uses outbound TLS; public IP does not require inbound SSH. SSM access still requires appropriate permissions on the operator identity.
