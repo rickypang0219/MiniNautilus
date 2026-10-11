@@ -1,0 +1,6 @@
+{
+  "probe_instances": 5,
+  "all_terminated": true,
+  "remaining_probe_security_groups": 0,
+  "persistent_stack_created": false
+}

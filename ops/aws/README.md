@@ -44,7 +44,7 @@ env -u AWS_PROFILE -u AWS_DEFAULT_PROFILE .venv/bin/python ops/ec2_probe.py \
   --region ap-northeast-1 --run-dir runs/tokyo-probe-new
 ```
 
-That helper uses a default public subnet, creates a temporary instance/SG, collects public-only results and terminates/deletes them. It does not need an Elastic IP, IAM role or exchange keys. The guest stops after at most eight minutes; the controller terminates it and deletes its security group. If the controller is killed or loses AWS access, a stopped root EBS volume can remain billable: inspect the run’s resources.json and finish cleanup. IMDSv2 stays enabled so cloud-init can retrieve user data.
+That helper uses a default public subnet, creates a temporary instance/SG, collects public-only results and terminates/deletes them. It does not need an Elastic IP, IAM role or exchange keys. It downloads the pinned websockets 15.0.1 pure-Python wheel over verified TLS and checks its recorded PyPI SHA-256; no package-manager installation is needed. The guest stops after at most eight minutes; the controller terminates it and deletes its security group. If the controller is killed or loses AWS access, a stopped root EBS volume can remain billable: inspect the run’s resources.json and finish cleanup. IMDSv2 stays enabled so cloud-init can retrieve user data.
 
 Delete the disposable persistent stack after exporting required data:
 

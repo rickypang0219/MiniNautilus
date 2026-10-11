@@ -1,0 +1,85 @@
+{
+  "location_label": "ap-northeast-1",
+  "egress_location_verified": true,
+  "utc_epoch": 1791696822.9280736,
+  "platform": "Linux-6.18.51-120.163.amzn2023.x86_64-x86_64-with-glibc2.34",
+  "authenticated": false,
+  "rest": [
+    {
+      "path": "/api/v3/ping",
+      "status": 200,
+      "error": null,
+      "roundtrip_ms": 28.576644
+    },
+    {
+      "path": "/api/v3/ping",
+      "status": 200,
+      "error": null,
+      "roundtrip_ms": 40.661436
+    },
+    {
+      "path": "/api/v3/ping",
+      "status": 200,
+      "error": null,
+      "roundtrip_ms": 47.718699
+    },
+    {
+      "path": "/api/v3/ping",
+      "status": 200,
+      "error": null,
+      "roundtrip_ms": 22.726377
+    },
+    {
+      "path": "/api/v3/ping",
+      "status": 200,
+      "error": null,
+      "roundtrip_ms": 20.590699
+    },
+    {
+      "path": "/api/v3/time",
+      "status": 200,
+      "error": null,
+      "roundtrip_ms": 29.666517
+    },
+    {
+      "path": "/api/v3/ticker/bookTicker?symbol=BTCUSDT",
+      "status": 200,
+      "error": null,
+      "roundtrip_ms": 23.274909
+    }
+  ],
+  "websocket": {
+    "handshake_ms": 21.158608,
+    "connected": true,
+    "messages": [
+      {
+        "event": "kline",
+        "event_ms": 1791696825012,
+        "received_wall_ms": 1791696824149
+      },
+      {
+        "event": "kline",
+        "event_ms": 1791696825135,
+        "received_wall_ms": 1791696824272
+      },
+      {
+        "event": "kline",
+        "event_ms": 1791696827021,
+        "received_wall_ms": 1791696826157
+      },
+      {
+        "event": "kline",
+        "event_ms": 1791696827337,
+        "received_wall_ms": 1791696826474
+      },
+      {
+        "event": "kline",
+        "event_ms": 1791696829018,
+        "received_wall_ms": 1791696828247
+      }
+    ]
+  },
+  "public_gate_pass": true,
+  "aws_region": "ap-northeast-1",
+  "collection_note": "Recovered from persisted EC2 console after removing injected ISO timestamps. No authenticated execution."
+}

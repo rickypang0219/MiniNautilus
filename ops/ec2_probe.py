@@ -13,6 +13,19 @@ import time
 import uuid
 
 
+def extract_report(output):
+    """EC2 can inject ISO timestamps inside a base64 line or return a partial line."""
+    output = re.sub(r'\[\d{4}-\d\d-\d\dT\d\d:\d\d:\d\d(?:\.\d+)?Z?\]', '', output)
+    for match in re.finditer(r'MINI_PROBE_JSON=([A-Za-z0-9+/=]+)', output):
+        try:
+            report = json.loads(base64.b64decode(match[1], validate=True))
+        except (ValueError, UnicodeError):
+            continue
+        if isinstance(report, dict) and isinstance(report.get('public_gate_pass'), bool):
+            return report
+    return None
+
+
 def main():
     import boto3
     from botocore.config import Config
@@ -50,10 +63,11 @@ def main():
     def save():
         (a.run_dir/'resources.json').write_text(json.dumps(metadata,indent=2))
     user_data = f'''#!/bin/bash
-exec > >(tee /dev/console) 2>&1
+exec > /dev/ttyS0 2>&1
 # Independent cleanup even if the controller loses access.
 shutdown -h +8
-trap 'shutdown -h now' EXIT
+# Leave the guest running for console collection; the controller terminates it.
+# The scheduled stop bounds compute if collection/controller fails.
 mkdir -p /opt/mini-probe
 printf '%s' '{probe}' | base64 -d > /opt/mini-probe/probe.py
 cat > /opt/mini-probe/run.sh <<'RUN'
@@ -75,6 +89,7 @@ PYTHONPATH=/opt/mini-probe/deps python3 /opt/mini-probe/probe.py --location '{a.
 python3 -c "import base64; print('MINI_PROBE_JSON=' + base64.b64encode(open('/opt/mini-probe/result.json','rb').read()).decode(), flush=True)"
 RUN
 timeout 360 bash /opt/mini-probe/run.sh
+echo MINI_PROBE_EXIT=$?
 '''
     found = False
     try:
@@ -122,9 +137,8 @@ timeout 360 bash /opt/mini-probe/run.sh
                 (a.run_dir/'console.txt').write_text(output)
             if 'Datasource DataSourceNone' in output:
                 raise RuntimeError('cloud-init could not retrieve user data; inspect console.txt')
-            match = re.search(r'MINI_PROBE_JSON=([A-Za-z0-9+/=]+)', output)
-            if match:
-                report = json.loads(base64.b64decode(match[1]))
+            report = extract_report(output)
+            if report is not None:
                 report['aws_instance'] = metadata['instance']
                 report['aws_region'] = a.region
                 report['egress_location_verified'] = True
