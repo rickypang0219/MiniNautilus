@@ -110,6 +110,16 @@ export class MiniNautilusHostStack extends cdk.Stack {
       ],
     });
     bucket.grantReadWrite(role);
+    // Exchange keys live in SSM Parameter Store (SecureString, standard tier is
+    // free); the host may read only this prefix. Keys never enter user data or Git.
+    role.addToPolicy(
+      new iam.PolicyStatement({
+        actions: ["ssm:GetParameter", "ssm:GetParameters"],
+        resources: [
+          `arn:aws:ssm:${this.region}:${this.account}:parameter/mininautilus/testnet/*`,
+        ],
+      }),
+    );
 
     const userData = ec2.UserData.forLinux();
     userData.addCommands(

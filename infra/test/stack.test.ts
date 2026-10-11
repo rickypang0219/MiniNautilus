@@ -71,6 +71,21 @@ describe("cost guards", () => {
   });
 });
 
+test("host reads only the Testnet key prefix", () => {
+  synth().hasResourceProperties("AWS::IAM::Policy", {
+    PolicyDocument: Match.objectLike({
+      Statement: Match.arrayWith([
+        Match.objectLike({
+          Action: ["ssm:GetParameter", "ssm:GetParameters"],
+          Resource: Match.stringLikeRegexp(
+            "parameter/mininautilus/testnet/\\*$",
+          ),
+        }),
+      ]),
+    }),
+  });
+});
+
 test("budget alert subscribers only when an email is given", () => {
   synth("micro", "ops@example.com").hasResourceProperties(
     "AWS::Budgets::Budget",
