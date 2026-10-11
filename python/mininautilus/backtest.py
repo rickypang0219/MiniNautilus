@@ -91,10 +91,12 @@ def synthetic_bars(count, seed=1, start_price=100_000, interval_ms=60_000):
 
 
 def market_events(bar, epoch):
-    return [{"Quote": {"bid": bar.price, "ask": bar.price}},
-            {"Trade": {"taker": bar.taker, "price": bar.price, "qty": bar.volume}},
-            {"Heartbeat": {"epoch": epoch}},
-            "Tick"]
+    if bar.volume < 0:
+        raise ValueError("bar volume must be >= 0")
+    events = [{"Quote": {"bid": bar.price, "ask": bar.price}}]
+    if bar.volume:
+        events.append({"Trade": {"taker": bar.taker, "price": bar.price, "qty": bar.volume}})
+    return events + [{"Heartbeat": {"epoch": epoch}}, "Tick"]
 
 
 def plan(state, bar, target, *, limit_offset=0, order_ttl_ms=60_000):

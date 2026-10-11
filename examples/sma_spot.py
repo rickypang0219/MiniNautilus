@@ -186,7 +186,17 @@ def run(args):
                     intent = e['SendOrder']; sent_at[intent['id']] = now()
                     note('order', intent=intent)
                     if args.mode == 'testnet':
-                        venue.submit(intent)  # Never retry an ambiguous mutation.
+                        delivery_started = time.perf_counter_ns()
+                        request_id = engine.request_id
+                        succeeded = False
+                        try:
+                            venue.submit(intent)  # Never retry an ambiguous mutation.
+                            succeeded = True
+                        finally:
+                            note('order_delivery', order_id=intent['id'], request_id=request_id,
+                                 python_started_ns=delivery_started,
+                                 python_returned_ns=time.perf_counter_ns(), acknowledged=succeeded)
+
                     if candle_received[0] is not None:
                         metrics.observe('tick_to_trade', time.perf_counter() - candle_received[0])
                     if args.mode == 'testnet':
@@ -231,6 +241,8 @@ def run(args):
                                 fired_faults.add('disconnect'); note('injected_fault', fault='disconnect')
                                 ws.close()
                                 raise OSError('injected paper disconnect')
+                            engine.decision_started_ns = None
+                            candle_received[0] = None
                             dispatch(send('Tick'))
                             if time.monotonic() - last_poll >= 1:
                                 if args.mode == 'testnet':
@@ -262,6 +274,7 @@ def run(args):
                                 metrics.observe('loop', time.perf_counter() - loop_started)
                                 continue
                             candle_received[0] = time.perf_counter()
+                            engine.decision_started_ns = time.perf_counter_ns()
                             metrics.observe('candle_lag', max(exchange_now - candle.close_ms, 0) / 1000)
                             if args.faults and time.monotonic() - started >= 15 and 'drop' not in fired_faults:
                                 fired_faults.add('drop'); note('injected_fault', fault='drop')

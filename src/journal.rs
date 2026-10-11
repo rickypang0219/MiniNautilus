@@ -134,7 +134,7 @@ pub struct Stages {
     pub commit_ns: u64,
     pub synced: bool,
     pub written_bytes: u64,
-    /// Upper bound on bytes not yet acknowledged by a sync before this input.
+    /// Bytes pending sync, including this input; zero when this input does not sync.
     pub sync_pending_bytes: u64,
 }
 
@@ -236,7 +236,12 @@ impl DurableEngine {
 
     /// Force every written input to stable storage (for example at shutdown).
     pub fn sync(&mut self) -> io::Result<()> {
-        sync_file(&self.file, &mut self.unsynced, &mut self.poisoned)
+        if self.poisoned {
+            return Err(io::Error::other("journal failed; restart and reconcile"));
+        }
+        sync_file(&self.file, &mut self.unsynced, &mut self.poisoned)?;
+        self.pending_bytes = 0;
+        Ok(())
     }
 
     pub fn process_timed(
@@ -342,6 +347,20 @@ impl DurableEngine {
             &mut self.poisoned,
             payload,
         )
+    }
+
+    /// Consumes this writer before the existing crash-safe offline rotation.
+    /// The successor remains gated until the caller reconciles its venue.
+    pub fn rotate_into(mut self, successor: &Path) -> io::Result<Self> {
+        self.core.rotation_ready().map_err(invalid)?;
+        self.sync()?;
+        let old = self.journal_path.clone();
+        let policy = self.sync;
+        drop(self);
+        rotate(&old, successor)?;
+        let mut next = Self::recover(successor, None)?;
+        next.set_sync_policy(policy);
+        Ok(next)
     }
 
     /// Syncs the journal first: a snapshot must never be ahead of durable input.

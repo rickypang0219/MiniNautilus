@@ -37,22 +37,23 @@ impl Default for Policy {
     }
 }
 
-pub fn market_events(bar: &Bar, epoch: u64) -> [Event; 4] {
+/// A zero-volume bar updates the quote and strategy clock, but supplies no trade.
+pub fn market_events(bar: &Bar, epoch: u64) -> impl Iterator<Item = Event> {
     [
-        Event::Quote {
+        Some(Event::Quote {
             bid: bar.price,
             ask: bar.price,
-        },
-        Event::Trade {
+        }),
+        (bar.volume != 0).then_some(Event::Trade {
             taker: bar.taker,
             price: bar.price,
             qty: bar.volume,
-        },
-        // The simulated venue is connected; without this the private-stream
-        // staleness gate would close on quiet bars.
-        Event::Heartbeat { epoch },
-        Event::Tick,
+        }),
+        Some(Event::Heartbeat { epoch }),
+        Some(Event::Tick),
     ]
+    .into_iter()
+    .flatten()
 }
 
 /// Decisions after a bar closes, computed only from the state before any of them
@@ -322,10 +323,10 @@ fn decode_into(body: &[u8], bars: &mut Vec<Bar>) -> io::Result<()> {
             1 => Side::Sell,
             _ => return Err(invalid(line, "taker byte must be 0 or 1")),
         };
-        if at < 0 || price <= 0 || volume <= 0 || record[25..].iter().any(|b| *b != 0) {
+        if at < 0 || price <= 0 || volume < 0 || record[25..].iter().any(|b| *b != 0) {
             return Err(invalid(
                 line,
-                "require at >= 0, price > 0, volume > 0, zero padding",
+                "require at >= 0, price > 0, volume >= 0, zero padding",
             ));
         }
         if bars.last().is_some_and(|b| b.at >= at as u64) {
@@ -392,8 +393,11 @@ pub fn read_bars(mut input: impl BufRead) -> io::Result<Vec<Bar>> {
             "Sell" => Side::Sell,
             _ => return Err(invalid(index + 1, "taker must be Buy or Sell")),
         };
-        if at < 0 || price <= 0 || volume <= 0 {
-            return Err(invalid(index + 1, "require at >= 0, price > 0, volume > 0"));
+        if at < 0 || price <= 0 || volume < 0 {
+            return Err(invalid(
+                index + 1,
+                "require at >= 0, price > 0, volume >= 0",
+            ));
         }
         if bars.last().is_some_and(|b| b.at >= at as u64) {
             return Err(invalid(index + 1, "bar times must strictly increase"));

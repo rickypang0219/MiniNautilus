@@ -22,6 +22,8 @@ struct Request {
     request_id: Option<u64>,
     at: Time,
     #[serde(default)]
+    rotate_to: Option<std::path::PathBuf>,
+    #[serde(default)]
     event: Option<Event>,
     #[serde(default)]
     events: Vec<Event>,
@@ -306,7 +308,35 @@ fn serve(mut engine: Backend, simulate: bool) -> Result<(), Box<dyn std::error::
     for line in io::stdin().lock().lines() {
         let line = line?;
         let started = std::time::Instant::now();
-        let request: Request = serde_json::from_str(&line)?;
+        let mut request: Request = serde_json::from_str(&line)?;
+        let rotated = request.rotate_to.is_some();
+        if let Some(successor) = request.rotate_to.take() {
+            if !simulate || !matches!(engine, Backend::Durable(_)) {
+                return Err(
+                    "automatic rotation is supported only for durable paper sessions".into(),
+                );
+            }
+            if engine.core().position != 0
+                || request.event.is_some()
+                || !request.events.is_empty()
+                || !request.batch.is_empty()
+                || request.time.is_some()
+            {
+                return Err(
+                    "paper rotation requires flat inventory and an isolated request".into(),
+                );
+            }
+            engine.core().rotation_ready()?;
+            let placeholder = Backend::Memory(Core::new(engine.core().config.clone())?);
+            let Backend::Durable(writer) = std::mem::replace(&mut engine, placeholder) else {
+                unreachable!()
+            };
+            engine = Backend::Durable(writer.rotate_into(&successor)?);
+            engine.track_changes();
+            venue = PaperExchange::new();
+            request.at = engine.core().now;
+            request.event = Some(Event::Reconnect);
+        }
         let mut effects = Vec::new();
         let mut actions = tracing.then(Vec::new);
         let at = request.at;
@@ -351,7 +381,7 @@ fn serve(mut engine: Backend, simulate: bool) -> Result<(), Box<dyn std::error::
             ));
         }
         let changes = engine.take_changes();
-        let response = if full {
+        let response = if full || rotated {
             Response::full(engine.core(), effects)
         } else {
             Response::compact(engine.core(), effects, changes)

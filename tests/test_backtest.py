@@ -93,6 +93,27 @@ class BacktestTests(unittest.TestCase):
             replayed = json.loads(subprocess.check_output([str(BINARY), "inspect", str(d / "paper.jsonl")]))
             self.assertEqual(replayed, paper)
 
+    def test_zero_volume_observations_preserve_python_rust_parity(self):
+        bars = [b._replace(volume=0 if i % 3 else b.volume)
+                for i, b in enumerate(synthetic_bars(400, seed=8))]
+        self.assertEqual(len(backtest.market_events(bars[1], 0)), 3)
+        with self.assertRaises(ValueError):
+            backtest.market_events(bars[1]._replace(volume=-1), 0)
+        with tempfile.TemporaryDirectory() as d:
+            d = Path(d)
+            write_bars(d / "bars.csv", bars)
+            write_bars_binary(d / "bars.bin", bars)
+            with Engine(sim=True, binary=BINARY, time_mode="historical") as engine:
+                interactive = run_interactive(engine, bars, SmaTarget(3, 8))
+            for name in ("bars.csv", "bars.bin"):
+                result = run_targets(d / name, sma_targets([b.price for b in bars], 3, 8),
+                                     binary=BINARY, ledger=d / "fills.csv")
+                self.assertEqual(result["events"], interactive["seq"])
+                self.assertEqual(result["health"], "Healthy")
+                self.assertEqual(result["position"], interactive["position"])
+                self.assertEqual(int(result["cash_tick_lots"]), interactive["cash"])
+                self.assertEqual(ledger_csv(d / "fills.csv"), ledger_of(interactive))
+
     def test_bad_inputs_are_rejected(self):
         with tempfile.TemporaryDirectory() as d:
             d = Path(d)

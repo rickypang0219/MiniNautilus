@@ -77,6 +77,7 @@ class Engine:
         if time_mode not in ("live", "historical"):
             raise ValueError("time_mode must be live or historical")
         self.time_mode = time_mode
+        self.journal = str(Path(journal).resolve()) if journal else None
         trace_path = (env or {}).get("MINI_ORDER_TRACE", os.environ.get("MINI_ORDER_TRACE"))
         self.trace_log = open(trace_path, "x") if trace_path else None
         self.request_id = 0
@@ -135,7 +136,7 @@ class Engine:
             if trace.get("request_id") != self.request_id:
                 raise RuntimeError("order trace request ID mismatch")
             for action in trace.get("actions", []):
-                row = dict(action, request_id=self.request_id,
+                row = dict(action, journal=self.journal, request_id=self.request_id,
                            python_started_ns=started, python_returned_ns=returned,
                            python_roundtrip_ns=returned-started,
                            decision_to_effect_ns=(returned-self.decision_started_ns
@@ -152,6 +153,17 @@ class Engine:
         else:
             self.state.apply(response["delta"])
         return response["effects"]
+
+    def rotate_paper(self, successor):
+        """Rotate a flat, fully resolved durable paper session; live use is refused.
+
+        Rust syncs/closes the predecessor, recovers/reconciles a fresh paper venue,
+        and returns a full mirror so both languages release retained history.
+        """
+        effects = self._roundtrip(json.dumps({"at": self.state["now"],
+                                             "rotate_to": str(Path(successor).resolve())}))
+        self.journal = str(Path(successor).resolve())
+        return effects
 
     def send_batch(self, at, events):
         """Process events in order in one round trip; returns all their effects.

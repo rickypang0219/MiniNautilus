@@ -94,6 +94,30 @@ fn bar_and_target_files_are_validated() {
 }
 
 #[test]
+fn zero_volume_is_an_observation_without_liquidity() {
+    let csv = "at,price,volume,taker\n0,100,1,Buy\n60000,100,0,Sell\n120000,100,2,Sell\n";
+    let bars = backtest::read_bars(csv.as_bytes()).unwrap();
+    let encoded = backtest::encode_bars(&bars);
+    assert_eq!(backtest::decode_bars(&encoded[8..]).unwrap(), bars);
+    assert!(backtest::read_bars("at,price,volume,taker\n0,100,-1,Buy\n".as_bytes()).is_err());
+    assert!(
+        backtest::run(
+            &[bar(0, 100, -1, Side::Buy)],
+            &[],
+            Config::default(),
+            Policy::default(),
+            false
+        )
+        .is_err()
+    );
+    let run = run(&bars, &[(0, 2)]);
+    let ledger = run.ledger.unwrap();
+    assert_eq!(ledger.len(), 1);
+    assert_eq!((ledger[0].bar, ledger[0].qty), (2, 2));
+    assert_eq!(run.core.orders[&1].lifecycle, Lifecycle::Canceled);
+}
+
+#[test]
 fn binary_bars_round_trip_and_reject_bad_records() {
     let bars = [bar(0, 100, 1, Side::Buy), bar(1, 101, 2, Side::Sell)];
     let bytes = backtest::encode_bars(&bars);

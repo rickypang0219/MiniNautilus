@@ -24,6 +24,7 @@ import subprocess
 import sys
 import time
 import urllib.request
+from system_sample import sample
 
 ROOT = Path(__file__).resolve().parents[1]
 PERF = os.environ.get("PERF", shutil.which("perf") or "/usr/lib/linux-tools-6.8.0-146/perf")
@@ -104,9 +105,12 @@ def main():
     proc = subprocess.Popen(command, cwd=ROOT, stdout=log, stderr=subprocess.STDOUT)
     perf_files, pyspy_files = [], []
     next_profile = time.time() + 60  # first profile after warm-up
+    system_log = open(run / "system.jsonl", "x")
     try:
         while proc.poll() is None:
             time.sleep(1)
+            system_log.write(json.dumps(sample(proc.pid, find_engine(proc.pid))) + "\n")
+            system_log.flush()
             if args.profile_every and time.time() >= next_profile and proc.poll() is None:
                 n = len(perf_files) + 1
                 engine = find_engine(proc.pid)
@@ -131,6 +135,8 @@ def main():
     except KeyboardInterrupt:
         proc.send_signal(signal.SIGINT)
         proc.wait()
+    finally:
+        system_log.close()
     ended = time.time()
     time.sleep(3)  # last scrape
     subprocess.run([sys.executable, str(ROOT / "ops/report.py"), "--prometheus", prom_url,
