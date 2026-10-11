@@ -16,6 +16,7 @@ from pathlib import Path
 import subprocess
 import urllib.parse
 import urllib.request
+from soak_evidence import enrich, system_summary
 
 PERF = os.environ.get("PERF", shutil.which("perf") or "/usr/lib/linux-tools-6.8.0-146/perf")
 
@@ -74,8 +75,11 @@ def quantiles(prom, name, window, at, by=""):
 
 
 def drift(prom, name, start, end, slices=6):
-    """p99 per equal time slice: growth over the run means history-dependent cost."""
+    """p99 per slice is a diagnostic signal, not proof of history-dependent cost."""
     step = max(60, int((end - start) / slices))
+    if end - start < 2 * step:
+        return {"p99_ms_per_slice": [], "slice_seconds": step, "last_over_first": None,
+                "reason": "need at least two complete slices"}
     expr = f"histogram_quantile(0.99, sum by (le) (increase({name}_bucket[{step}s])))"
     points = [v * 1e3 for _, v in prom.series(expr, start + step, end, step) if v is not None]
     ratio = points[-1] / points[0] if len(points) >= 2 and points[0] else None
@@ -242,6 +246,8 @@ def main():
     p.add_argument("--title", default="Soak report")
     args = p.parse_args()
     report = build(Prometheus(args.prometheus), args.start, args.end, args.perf, args.pyspy)
+    report = enrich(report, args.output)
+    report["system"] = system_summary(args.output)
     args.output.mkdir(parents=True, exist_ok=True)
     (args.output / "report.json").write_text(json.dumps(report, indent=1))
     (args.output / "report.md").write_text(markdown(report, args.title))

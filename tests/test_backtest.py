@@ -29,6 +29,21 @@ def ledger_csv(path):
 
 
 class BacktestTests(unittest.TestCase):
+    def test_incremental_sma_retains_only_its_window(self):
+        strategy = SmaTarget(3, 8, lots=2)
+        prices, expected = [], 0
+        for bar in synthetic_bars(10000, seed=17):
+            prices.append(bar.price)
+            actual = strategy.on_bar(bar)
+            if len(prices) >= 8:
+                difference = sum(prices[-3:])*8 - sum(prices[-8:])*3
+                if difference:
+                    expected = 2 if difference > 0 else -2
+                self.assertEqual(actual, expected)
+            else:
+                self.assertIsNone(actual)
+            self.assertLessEqual(len(strategy.prices), 8)
+
     def test_sparse_targets_equal_incremental_strategy(self):
         bars = synthetic_bars(2000, seed=3)
         for fast, slow, long_only in ((3, 10, False), (5, 20, True)):

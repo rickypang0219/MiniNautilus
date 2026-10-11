@@ -16,11 +16,24 @@ class EvidenceTests(unittest.TestCase):
         self.assertEqual(compare.verdict([10]*5, [float("nan")]*5), "inconclusive")
     def test_missing_or_mismatched_metadata_cannot_support_verdict(self):
         def row(value, machine="same"):
-            return {"experiment":{"machine":machine}, "session_exit":0,
+            return {"experiment":{"machine":machine}, "session_exit":0, "provenance":{"dirty":False},
                     "rust":{"request":{"":{"p99_ms":value}}}}
         before, after = [row(10)]*5, [row(1)]*5
         self.assertEqual(compare.compare_runs(before, after)["rows"][0]["verdict"], "improved")
         after[0] = row(1, "different")
         self.assertEqual(compare.compare_runs(before, after)["rows"][0]["verdict"], "inconclusive")
         after[0] = row(1); after[0]["session_exit"] = 1
+        self.assertFalse(compare.compare_runs(before, after)["compatible_experiments"])
+
+    def test_dirty_baseline_and_different_request_granularity(self):
+        def row(value, unbatched):
+            return {"experiment":{"machine":"same"}, "session_exit":0,
+                    "provenance":{"dirty":False}, "candidate":{"unbatched":unbatched},
+                    "rust":{"request":{"":{"p99_ms":value}}}}
+        before, after = [row(10, True) for _ in range(5)], [row(1, False) for _ in range(5)]
+        self.assertEqual(compare.compare_runs(before, after)["rows"][0]["verdict"], "inconclusive")
+        self.assertIn("not comparable", compare.compare_runs(before, after)["rows"][0]["note"])
+        for r in after:
+            r["candidate"]["unbatched"] = True
+        before[0]["provenance"]["dirty"] = True
         self.assertFalse(compare.compare_runs(before, after)["compatible_experiments"])

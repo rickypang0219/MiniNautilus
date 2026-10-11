@@ -146,14 +146,22 @@ class SmaTarget:
         self.fast, self.slow, self.lots, self.long_only = fast, slow, lots, long_only
         self.prices, self.target = [], 0
         self.fast_sum = self.slow_sum = 0
+        self.observations = 0
 
     def on_bar(self, bar, _state=None):
-        prices = self.prices
-        prices.append(bar.price)
-        n = len(prices)
-        self.fast_sum += bar.price - (prices[n - 1 - self.fast] if n > self.fast else 0)
-        self.slow_sum += bar.price - (prices[n - 1 - self.slow] if n > self.slow else 0)
+        # A fixed-size ring keeps O(1) arithmetic and O(slow) retained prices.
+        # Remove both outgoing values before overwriting the oldest slot.
+        prices, n = self.prices, self.observations
+        old_fast = prices[(n - self.fast) % self.slow] if n >= self.fast else 0
+        old_slow = prices[n % self.slow] if n >= self.slow else 0
+        self.fast_sum += bar.price - old_fast
+        self.slow_sum += bar.price - old_slow
         if n < self.slow:
+            prices.append(bar.price)
+        else:
+            prices[n % self.slow] = bar.price
+        self.observations += 1
+        if self.observations < self.slow:
             return None
         difference = self.fast_sum * self.slow - self.slow_sum * self.fast
         if difference:
