@@ -28,6 +28,13 @@ class RuntimeSoakTests(unittest.TestCase):
             self.assertTrue(report['final']['killed'])
             self.assertEqual(report['final']['fills'],report['fake_venue']['fills'])
             self.assertLessEqual(report['window_length'],8)
+            samples=[json.loads(line) for line in (run/'system.jsonl').read_text().splitlines()]
+            self.assertTrue({'bootstrap','recovery','shutdown'}<={row['phase'] for row in samples})
+            self.assertTrue(samples[-1]['view']['killed'])
+            for who in ('python','rust'):
+                observed=[int(row[who]['status']['VmRSS'].split()[0]) for row in samples
+                          if row.get(who) and row[who]['status'].get('VmRSS')]
+                self.assertEqual(report['peak_rss_kib'][who],max(observed))
             for session in report['sessions']:
                 counts=session['counts']
                 self.assertEqual(counts['offered'],counts['admitted']+counts['rejected'])

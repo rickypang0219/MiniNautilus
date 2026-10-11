@@ -106,6 +106,16 @@ async def run(args):
             queue_ages.append(record['started_ns']-record['admitted_ns'])
             queue_groups.record(record['item'],record['admitted_ns'],record['started_ns'])
         elif kind=='gate':note('gate',reason=record['reason'])
+    def capture_sample():
+        nonlocal peak_python,peak_rust,last_sample
+        row=sample(os.getpid(),engine.process.pid);row.update(phase=phase,generation=generation,view=dict(view),
+            input_depth=actor.queued,effect_depth=len(actor.effects),window_length=len(strategy.prices),audit_orders=len(audit.orders),audit_fills=len(audit.fills))
+        for who in ('python','rust'):
+            rss=row[who]['status'].get('VmRSS') if row[who] else None
+            if rss:
+                if who=='python':peak_python=max(peak_python,int(rss.split()[0]))
+                else:peak_rust=max(peak_rust,int(rss.split()[0]))
+        system.write(json.dumps(row)+'\n');system.flush();last_sample=elapsed()
     def open_engine(recover):
         nonlocal engine,audit,view
         engine=Engine(journal,binary=args.binary,config=config if not recover else None,recover=recover,
@@ -152,6 +162,7 @@ async def run(args):
         engine.close();generation+=1
         open_engine(True)
         await loop.run_in_executor(pool,reconcile_sync)
+        capture_sample()
         venue.mode='immediate';venue.barrier=None
         faults.append(dict(fault=current_expected,gate_reason=sessions[-1]['gate_reason'],recovered=True,
                            recovery_seconds=elapsed()-began,position=venue.position))
@@ -159,6 +170,7 @@ async def run(args):
         phase_times['recovery']+=elapsed()-began;phase=old
         current_expected=None;fault_armed_ns=None;start_actor()
     open_engine(False);start_actor();note('started',seed=args.seed,rate=args.rate,minutes=args.minutes)
+    phase='bootstrap';capture_sample();phase='active'
     n=0;exit_code=0
     try:
         while elapsed()<args.minutes*60:
@@ -199,14 +211,7 @@ async def run(args):
                 actor.offer(Input('clock','timer','Tick',at=now(),epoch=view['epoch'],received_ns=t,scheduled_ns=due))
                 actor.offer(Input('timer','timer','Heartbeat',at=now(),epoch=view['epoch'],received_ns=t,scheduled_ns=due))
             if elapsed()-last_sample>=5:
-                row=sample(os.getpid(),engine.process.pid);row.update(phase=phase,generation=generation,view=dict(view),
-                    input_depth=actor.queued,effect_depth=len(actor.effects),window_length=len(strategy.prices),audit_orders=len(audit.orders),audit_fills=len(audit.fills))
-                for who in ('python','rust'):
-                    rss=row[who]['status'].get('VmRSS') if row[who] else None
-                    if rss:
-                        if who=='python':peak_python=max(peak_python,int(rss.split()[0]))
-                        else:peak_rust=max(peak_rust,int(rss.split()[0]))
-                system.write(json.dumps(row)+'\n');system.flush();last_sample=elapsed()
+                capture_sample()
                 print(json.dumps(dict(elapsed=int(elapsed()),generation=generation,**view)),flush=True)
         phase='shutdown';began=elapsed();strategy_enabled=False;venue.mode='immediate';venue.barrier=None
         # Drain first: a killed writer / failed in-flight call may only publish
@@ -226,6 +231,7 @@ async def run(args):
         engine.close();generation+=1;open_engine(True)
         await loop.run_in_executor(pool,reconcile_sync)
         if not engine.state['killed']:raise RuntimeError('kill latch cleared on restart')
+        capture_sample()
         phase_times['shutdown']=elapsed()-began
         final=dict(engine.state)
     except Exception as error:

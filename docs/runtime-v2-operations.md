@@ -52,6 +52,21 @@ Shutdown explicitly flattens this offline fixture, persists Kill, restarts and r
 
 Only queues, tasks and the strategy window are bounded. Core/mirror terminal orders, audit dedup evidence and the fake venue's history are retained; report their growth and restart peaks. There is no automatic live compaction or checkpoint shortcut. A finite 90-minute run is not a proof of indefinitely bounded RSS.
 
+The active deadline is checked again after producer sleeps and after recovery;
+no new scripted fault or quote is admitted after that deadline. Shutdown drains
+the actor before inspecting its gate and writer process, so a failure discovered
+by `finish()` is recovered before further IPC. Scripted fault order has its own
+counter; unexpected recoveries never advance it and remain reported errors.
+Fixture-only flattening and Kill/restart checks follow reconciliation.
+
+System samples include bootstrap, each completed recovery, periodic active
+work, and the final shutdown restart. VmHWM is the process lifetime maximum;
+Rust starts a new lifetime at every restart. Recovery samples are taken after
+reconciliation with the previous actor quiescent, before opening new admission.
+They include retained indexes and the stopped actor's queue counts. Keep failed
+cohorts and retries in separate directories; completing 90 minutes alone is
+not a clean reliability pass.
+
 ## Recovery and history-cost investigation
 
 ```sh
