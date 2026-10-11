@@ -38,6 +38,7 @@ class FakeVenue:
         self.delay, self.mode, self.barrier = delay, mode, barrier
         self.started = asyncio.Event()
         self.orders, self.fills, self.position = {}, {}, 0
+        self.proven_absent = {}
         self.execution_id = 0
         self.calls = 0
 
@@ -53,7 +54,7 @@ class FakeVenue:
         if 'SendOrder' in effect:
             intent = effect['SendOrder']
             oid = intent['id']
-            if oid in self.orders:
+            if oid in self.orders or oid in self.proven_absent:
                 raise RuntimeError('fake venue detected a blind submission retry')
             if self.mode == 'reject':
                 self.orders[oid] = dict(intent=intent, filled=0, lifecycle='Rejected')
@@ -83,10 +84,19 @@ class FakeVenue:
         # This offline venue guarantees requests cannot arrive after cancellation
         # of execute(). It can therefore prove absence; real adapters must supply
         # their own expiry/watermark contract instead of reusing this rule.
-        return dict(epoch=epoch, watermark=watermark, position=self.position,
-                    orders=list(self.orders.values()), fills=list(self.fills.values()),
-                    absent=[o['intent']['id'] for o in local_orders.values()
-                            if o['intent']['id'] not in self.orders])
+        history=list(self.orders.values())
+        absent=[]
+        for order in local_orders.values():
+            oid=order['intent']['id']
+            if oid in self.orders: continue
+            if order['lifecycle']=='Pending' and not order['filled']:
+                absent.append(oid)
+                self.proven_absent[oid]=dict(order['intent'])
+            elif order['lifecycle']=='Rejected' and oid in self.proven_absent:
+                history.append(dict(intent=self.proven_absent[oid],filled=0,lifecycle='Rejected'))
+            # Missing acknowledged/filled history intentionally remains incomplete.
+        return dict(epoch=epoch,watermark=watermark,position=self.position,
+                    orders=history,fills=list(self.fills.values()),absent=absent)
 
 
 class SerialRuntime:

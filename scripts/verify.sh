@@ -8,6 +8,7 @@ step cargo fmt --check
 step cargo clippy --locked --all-targets -- -D warnings
 step cargo test --locked
 step cargo build --locked
+step python3 ops/runtime_bench.py --build
 step cargo build --locked --release --example compare_engine
 mkdir -p runs
 validation_dir=$(mktemp -d runs/verify.XXXXXX)
