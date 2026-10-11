@@ -59,7 +59,7 @@ def environment():
         cpu = platform.processor()
     return {
         "commit": sh("git", "rev-parse", "HEAD"),
-        "dirty": bool(sh("git", "status", "--porcelain", "--", "src", "benches")),
+        "dirty": bool(sh("git", "status", "--porcelain", "--untracked-files=all")),
         "os": platform.platform(),
         "cpu": cpu,
         "cpus": os.cpu_count(),

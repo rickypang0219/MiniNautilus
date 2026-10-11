@@ -263,6 +263,8 @@ fn backtest(
 #[derive(Serialize)]
 struct ActionTrace {
     seq: u64,
+    /// Successful sync covers this action and all earlier inputs. None for sim.
+    durable_seq: Option<u64>,
     order_id: u64,
     effect: &'static str,
     stages: Stages,
@@ -467,6 +469,7 @@ fn process(
             };
             actions.push(ActionTrace {
                 seq: engine.core().seq,
+                durable_seq: stages.synced.then_some(engine.core().seq),
                 order_id,
                 effect,
                 stages,

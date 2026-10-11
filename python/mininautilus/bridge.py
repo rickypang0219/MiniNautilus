@@ -148,6 +148,8 @@ class Engine:
         return effects
 
     def _receive(self, response):
+        # Consumers can audit only the changed entries; None denotes replacement.
+        self.last_change = response.get("delta")
         if "state" in response:
             self.state = State(response["state"])
         else:

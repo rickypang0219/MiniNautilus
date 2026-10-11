@@ -26,4 +26,5 @@ class OrderTraceTests(unittest.TestCase):
             self.assertGreater(row["stages"]["written_bytes"], 0)
             self.assertGreaterEqual(row["stages"]["sync_pending_bytes"], row["stages"]["written_bytes"])
             self.assertTrue(row["stages"]["synced"])
+            self.assertEqual(row["durable_seq"], row["seq"])
             self.assertFalse(row["venue_delivery_measured"])

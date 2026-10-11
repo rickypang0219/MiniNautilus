@@ -83,7 +83,7 @@ def main():
         'platform':platform.platform(),'workload':'fixed-order-bench-v1','updates':a.updates,'rate':a.rate,
         'seed':a.seed,'input_sha256':inputs.hexdigest(),'trace':True},
         'provenance':{'commit':subprocess.check_output(['git','rev-parse','HEAD'],cwd=ROOT,text=True).strip(),
-          'dirty':bool(subprocess.check_output(['git','status','--porcelain','--','src','python','ops'],cwd=ROOT,text=True).strip())},
+          'dirty':bool(subprocess.check_output(['git','status','--porcelain','--untracked-files=all'],cwd=ROOT,text=True).strip())},
         'candidate':{'sync':a.sync,'flush_ms':a.flush_ms,'flush_bytes':a.flush_bytes,
           'binary_sha256':hashlib.sha256(a.binary.read_bytes()).hexdigest()},
         'scope':'Rust timing stops before response encoding; no exchange or network latency.',

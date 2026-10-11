@@ -45,7 +45,7 @@ def compare_runs(before, after):
     valid = (all(f is not None for f in fingerprints)
              and all(f == fingerprints[0] for f in fingerprints)
              and all(r.get("session_exit") == 0 for r in all_runs)
-             and all(r.get("provenance", {}).get("dirty") is False for r in before))
+             and all(r.get("provenance", {}).get("dirty") is False for r in all_runs))
     same_granularity = len({r.get("candidate", {}).get("unbatched") for r in all_runs}) <= 1
     rows = []
     for name, path in KEYS:
