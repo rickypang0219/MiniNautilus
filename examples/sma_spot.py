@@ -20,6 +20,7 @@ from websockets.sync.client import connect
 from websockets.exceptions import ConnectionClosed
 from mininautilus import metrics
 from mininautilus.bridge import Engine
+from mininautilus.audit import IncrementalAudit, full_audit
 from mininautilus.binance import BinanceSpot, VenueError, units
 from mininautilus.market import missing_candles
 from mininautilus.retry import ReconnectBudget
@@ -56,14 +57,8 @@ def closed_candle(message, tick, symbol, interval):
 
 
 def audit(state, limit):
-    position = 0
-    for oid, order in state['orders'].items():
-        filled = sum(f['qty'] for f in state['fills'].values() if f['order_id'] == int(oid))
-        if filled != order['filled'] or not 0 <= filled <= order['intent']['qty']:
-            raise RuntimeError('fill accounting invariant failed')
-        position += filled * (1 if order['intent']['side'] == 'Buy' else -1)
-    if position != state['position'] or not 0 <= position <= limit:
-        raise RuntimeError('Spot position invariant failed')
+    """Independent full ledger oracle, retained for regression/diagnostic callers."""
+    return full_audit(state, limit, long_only=True, cash_required="cash" in state)
 
 
 def validate(venue, intent, cap):
@@ -147,6 +142,8 @@ def run(args):
             extra_args=['--sync', args.sync]) as engine:
         origin, initial = time.monotonic(), engine.state['now']
         sent_at = {}
+        ledger_audit = IncrementalAudit(lots, long_only=True)
+        ledger_audit.check(engine.state, None)
         def now(): return initial + int((time.monotonic() - origin) * 1000)
         def note(kind, **data):
             metrics.count('events', kind)
@@ -157,7 +154,7 @@ def run(args):
             before = time.monotonic()
             effects = engine.send(now(), event, **(venue.timing(event) | timing))
             latencies.append((time.monotonic() - before) * 1000)
-            audit(engine.state, lots); counters['invariant_checks'] += 1
+            ledger_audit.check(engine.state, engine.last_change); counters['invariant_checks'] += 1
             return effects
         def deliver(report):
             effects = send({'Execution': dict(epoch=engine.state['epoch'], venue_seq=engine.state['venue_seq'] + 1, report=report)})
