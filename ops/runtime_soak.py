@@ -50,7 +50,7 @@ async def run(args):
     events=args.run_dir/'events.log.jsonl';faults=[];sessions=[]
     unexpected=[];offered_market=0;missed=0;phase='active';strategy_enabled=True
     fault_types=['lost_ack','source_gap','input_overflow','writer_kill','executor_cancel','late_epoch']
-    current_expected=None;next_fault=args.fault_interval;fault_armed_ns=None
+    current_expected=None;next_fault=args.fault_interval;fault_armed_ns=None;fault_index=0
     last_sample=0;phase_times={'active':0.,'recovery':0.,'shutdown':0.}
     log=events.open('x');system=(args.run_dir/'system.jsonl').open('x');log_lock=threading.Lock()
     def elapsed(): return (time.perf_counter_ns()-origin)/1e9
@@ -143,10 +143,10 @@ async def run(args):
             effect_high_water=actor.effect_high_water,effects_started=actor.effects_started,
             effects_abandoned=actor.effects_abandoned,gate_reason=actor.gate_reason,
             effects_skipped_terminal=actor.effects_skipped_terminal,execution_failures=actor.execution_failures,pending_inputs_at_stop=actor.counts['pending']))
-    async def recover_session():
+    async def recover_session(*,actor_stopped=False):
         nonlocal generation,current_expected,phase,fault_armed_ns
         old=phase;phase='recovery';began=elapsed()
-        await stop_actor()
+        if not actor_stopped:await stop_actor()
         # The writer may complete a cancelled IPC in its worker. Quiesce before close.
         await loop.run_in_executor(pool,lambda:None)
         engine.close();generation+=1
@@ -165,11 +165,17 @@ async def run(args):
             due=origin+int(n/args.rate*1e9)
             delay=(due-time.perf_counter_ns())/1e9
             if delay>0:await asyncio.sleep(delay)
+            # Sleeping may cross the deadline. Never inject a new fault or
+            # market input after the active interval has ended.
+            if elapsed()>=args.minutes*60:break
             if actor.gated:
                 if current_expected is None:unexpected.append('unexpected_gate')
                 await recover_session()
+            if elapsed()>=args.minutes*60:break
             if elapsed()>=next_fault and current_expected is None:
-                current_expected=fault_types[len(faults)%len(fault_types)];fault_armed_ns=time.perf_counter_ns()
+                # Unscripted recoveries must not shift the scripted coverage.
+                current_expected=fault_types[fault_index%len(fault_types)];fault_index+=1
+                fault_armed_ns=time.perf_counter_ns()
                 next_fault+=args.fault_interval;note('fault_armed',fault=current_expected)
                 if current_expected=='lost_ack':venue.mode='lost_ack'
                 elif current_expected=='source_gap':
@@ -203,10 +209,15 @@ async def run(args):
                 system.write(json.dumps(row)+'\n');system.flush();last_sample=elapsed()
                 print(json.dumps(dict(elapsed=int(elapsed()),generation=generation,**view)),flush=True)
         phase='shutdown';began=elapsed();strategy_enabled=False;venue.mode='immediate';venue.barrier=None
-        if actor.gated:
-            if current_expected is None:current_expected='shutdown_recovery'
-            await recover_session()
-        await stop_actor();await loop.run_in_executor(pool,reconcile_sync)
+        # Drain first: a killed writer / failed in-flight call may only publish
+        # its gate during finish(). Inspect that outcome before further IPC.
+        await stop_actor()
+        if actor.gated or engine.process.poll() is not None:
+            if current_expected is None:
+                unexpected.append('unexpected_shutdown_gate');current_expected='shutdown_recovery'
+            await recover_session(actor_stopped=True)
+            await stop_actor()
+        else:await loop.run_in_executor(pool,reconcile_sync)
         # Explicit fixture-only flattening; never an automatic live liquidation policy.
         start_actor();t=time.perf_counter_ns();actor.offer(Input('shutdown','control','Flatten',at=now(),epoch=engine.state['epoch'],received_ns=t,scheduled_ns=t))
         await stop_actor()
