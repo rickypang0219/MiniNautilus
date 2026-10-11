@@ -42,6 +42,10 @@ class RuntimeEvidenceTests(unittest.TestCase):
         for rows in ([], [row, row], [dict(row, durable_seq=2)], [dict(row, request_id=1)]):
             with self.assertRaises(ValueError):
                 validate_actions([effect], rows, request_id=2)
+        for invalid in (dict(row,seq=None,durable_seq=None),dict(row,seq=True,durable_seq=True),
+                        dict(row,seq=0,durable_seq=0),dict(row,stages={'synced':1})):
+            with self.assertRaises(ValueError):
+                validate_actions([effect],[invalid],request_id=2)
 
 
 class BuildReceiptTests(unittest.TestCase):
@@ -79,3 +83,17 @@ class HistogramTests(unittest.TestCase):
         text='mini_request_seconds_bucket{le="0.001"} 90\nmini_request_seconds_bucket{le="0.002"} 100\nmini_request_seconds_bucket{le="+Inf"} 100\n'
         self.assertAlmostEqual(histogram_estimate(text,'mini_request_seconds'),.0019)
         self.assertIsNone(histogram_estimate('', 'missing'))
+
+    def test_rss_guardrail_uses_raw_samples_and_missing_is_unknown(self):
+        sys.path.insert(0,str(ROOT/'ops'))
+        from runtime_compare import load
+        with tempfile.TemporaryDirectory() as directory:
+            path=Path(directory)
+            (path/'report.json').write_text(json.dumps({'metrics':{}}))
+            self.assertIsNone(load(path)[0]['metrics']['python_sampled_peak_rss_kib'])
+            samples=[{'python':{'status':{'VmRSS':'100 kB'}},'rust':None},
+                     {'python':{'status':{'VmRSS':'120 kB'}},'rust':{'status':{'VmRSS':'10 kB'}}}]
+            (path/'system.jsonl').write_text('\n'.join(map(json.dumps,samples)))
+            metrics=load(path)[0]['metrics']
+            self.assertEqual(metrics['python_sampled_peak_rss_kib'],120)
+            self.assertEqual(metrics['rust_sampled_peak_rss_kib'],10)

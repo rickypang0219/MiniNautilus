@@ -29,3 +29,14 @@ class VenueContractTests(unittest.TestCase):
         from dataclasses import replace
         with self.assertRaises(ValueError):
             Registry([first,replace(first,symbol='ETHUSDT',risk_domain='another-writer')])
+
+    def test_unit_alignment_does_not_depend_on_decimal_context_precision(self):
+        from dataclasses import replace
+        from decimal import localcontext
+        instrument=replace(self.instruments()[0],tick='0.0001')
+        with localcontext() as context:
+            context.prec=6
+            self.assertEqual(instrument.units('123456789012345678901234567890.0001','price'),
+                             1234567890123456789012345678900001)
+            with self.assertRaises(ValueError):
+                instrument.units('123456789012345678901234567890.00001','price')

@@ -92,8 +92,10 @@ def validate_actions(effects, rows, *, request_id):
     if expected != actual:
         raise ValueError('missing, duplicate or extra external action trace')
     for row in rows:
-        if (row.get('request_id') != request_id or not row.get('stages', {}).get('synced')
-                or row.get('durable_seq') != row.get('seq')):
+        seq=row.get('seq')
+        if (row.get('request_id') != request_id or row.get('stages', {}).get('synced') is not True
+                or type(seq) is not int or seq<1 or type(row.get('durable_seq')) is not int
+                or row.get('durable_seq') != seq):
             raise ValueError('external action lacks matching durable causal prefix')
 
 

@@ -79,3 +79,32 @@ class IncrementalAuditTests(unittest.TestCase):
             fill=dict(next(iter(engine.state['fills'].values())));fill['price']+=1
             with self.assertRaises(RuntimeError):
                 audit.check(engine.state,dict(header={},orders={},fills={str(fill['execution_id']):fill}))
+
+    def test_paper_rotation_and_recovery_rebuild_from_opening_balances(self):
+        from mininautilus.bridge import next_order_id
+        with tempfile.TemporaryDirectory() as directory:
+            old,new=Path(directory)/'old',Path(directory)/'new'
+            audit=IncrementalAudit(10)
+            with Engine(old,paper=True,time_mode='historical') as engine:
+                audit.check(engine.state,None)
+                for side,price,taker in (('Buy',100,'Sell'),('Sell',102,'Buy')):
+                    events=[{'Quote':dict(bid=price,ask=price)}]
+                    for event in events:
+                        engine.send(0,event);audit.check(engine.state,engine.last_change)
+                    engine.send(0,{'Submit':dict(id=next_order_id(engine.state),side=side,qty=1,
+                        limit=price,based_on_seq=engine.state['seq'],valid_until=1000)})
+                    audit.check(engine.state,engine.last_change)
+                    engine.send(0,{'Trade':dict(taker=taker,price=price,qty=1)})
+                    audit.check(engine.state,engine.last_change)
+                    full_audit(engine.state,10)
+                engine.rotate_paper(new)
+                audit.check(engine.state,engine.last_change)
+                self.assertEqual((audit.position,audit.cash),(0,2))
+                self.assertEqual((len(audit.orders),len(audit.fills)),(0,0))
+            # Core journal recovery is supported; resuming the paper venue's
+            # process-local matching state is deliberately unsupported.
+            with Engine(new,recover=True,time_mode='historical') as recovered:
+                audit.check(recovered.state,recovered.last_change)
+                full_audit(recovered.state,10)
+                self.assertEqual((audit.position,audit.cash),(0,2))
+                self.assertEqual(next_order_id(recovered.state),3)

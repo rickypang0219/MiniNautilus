@@ -54,10 +54,17 @@ class Instrument:
             raise ValueError('decimal strings and explicit unit kind required')
         value=Decimal(value)
         unit=Decimal(self.tick if kind=='price' else self.lot)
-        result=value/unit
-        if not result.is_finite() or result!=result.to_integral_value():
+        if not value.is_finite():
+            raise ValueError('finite instrument value required')
+        # Decimal division rounds to the caller's context; rounding can hide an
+        # off-grid value or change an integer beyond its precision. Ratios keep
+        # both alignment and conversion exact, independent of that context.
+        numerator,denominator=value.as_integer_ratio()
+        unit_numerator,unit_denominator=unit.as_integer_ratio()
+        result,remainder=divmod(numerator*unit_denominator,denominator*unit_numerator)
+        if remainder:
             raise ValueError('value is not aligned to instrument units')
-        return int(result)
+        return result
 
 
 class Registry:

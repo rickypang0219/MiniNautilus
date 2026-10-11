@@ -20,6 +20,8 @@ METRICS = {
     'executor_queue_age_p99_ms': ('executor_queue_age', 'p99_ms'),
     'completed_per_second': ('completed_per_second',),
     'python_cpu_ns_per_event': ('python_cpu_ns_per_event',),
+    'python_sampled_peak_rss_kib': ('python_sampled_peak_rss_kib',),
+    'rust_sampled_peak_rss_kib': ('rust_sampled_peak_rss_kib',),
 }
 
 
@@ -52,7 +54,13 @@ def compare(before, after, aa=False):
                     if aa:
                         row['aa_stability'] = 'PASS' if abs(change)<=10 and max(min(a),min(b))<=min(max(a),max(b)) else 'INCONCLUSIVE'
         rows.append(row)
-    return dict(compatible=compatible, before_reps=len(before), after_reps=len(after), aa=aa, rows=rows)
+    outcomes=[]
+    for group in (before,after):
+        outcomes.append([dict(session_exit=r.get('session_exit'),counts=r.get('counts'),
+            queue_high_water=r.get('queue_high_water'),missed_deadlines=r.get('missed_deadlines'),
+            gate_reason=r.get('gate_reason'),effects_abandoned=r.get('effects_abandoned')) for r in group])
+    return dict(compatible=compatible, before_reps=len(before), after_reps=len(after), aa=aa, rows=rows,
+                outcomes=outcomes,resource_scope='Sampled VmRSS peaks from system.jsonl; missing samples remain unknown, not zero. Correctness/session errors have zero tolerance.')
 
 
 def load(path):
@@ -60,7 +68,23 @@ def load(path):
     files=[path/'report.json'] if (path/'report.json').exists() else sorted(path.glob('*/report.json'))
     if not files:
         raise ValueError('no report.json found')
-    return [json.loads(file.read_text()) for file in files]
+    reports=[]
+    for file in files:
+        report=json.loads(file.read_text())
+        samples=file.parent/'system.jsonl'
+        peaks={'python':None,'rust':None}
+        if samples.exists():
+            for line in samples.read_text().splitlines():
+                sample=json.loads(line)
+                for who in peaks:
+                    status=(sample.get(who) or {}).get('status',{})
+                    value=status.get('VmRSS')
+                    if value:
+                        rss=int(value.split()[0]);peaks[who]=max(peaks[who] or 0,rss)
+        for who,value in peaks.items():
+            report.setdefault('metrics',{})[who+'_sampled_peak_rss_kib']=value
+        reports.append(report)
+    return reports
 
 
 def main():
