@@ -40,3 +40,18 @@ class VenueContractTests(unittest.TestCase):
                              1234567890123456789012345678900001)
             with self.assertRaises(ValueError):
                 instrument.units('123456789012345678901234567890.00001','price')
+
+    def test_idempotency_absence_watermark_and_accounting_are_explicit(self):
+        from dataclasses import replace
+        spot,native,weak=self.instruments()
+        self.assertEqual(spot.capabilities.submission_idempotency,'query-only')
+        self.assertEqual(native.capabilities.snapshot_watermark,'native-atomic')
+        self.assertEqual(weak.capabilities.absence_proof_contract,'unsupported')
+        for instrument in (spot,native,weak):
+            self.assertEqual(instrument.balance_authority,'venue-snapshot')
+            self.assertEqual(instrument.fee_authority,'venue-execution-reports')
+            self.assertEqual(instrument.core_accounting,'gross-strategy-inventory')
+            with self.assertRaises(ValueError):replace(instrument,core_accounting='account-margin')
+        with self.assertRaises(ValueError):replace(native.capabilities,history_retention_seconds=None)
+        with self.assertRaises(ValueError):replace(spot.capabilities,snapshot_watermark='native-atomic')
+        with self.assertRaises(ValueError):replace(weak.capabilities,absence_proof=True)

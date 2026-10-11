@@ -74,7 +74,8 @@ class Coordinator:
             # Reasons are fixed local labels, never transport exception strings.
             self.gate_reason=reason
             now=time.perf_counter_ns()
-            self.fault_pending=Input('runtime-fault','control','Disconnect',received_ns=now,scheduled_ns=now)
+            self.fault_pending=Input('runtime-fault','control','Disconnect',received_ns=now,scheduled_ns=now,
+                                     venue=self.identity[0],account=self.identity[1],instrument=self.identity[2])
             self.counts['offered']+=1;self.counts['admitted']+=1;self.counts['pending']+=1
             self.high_water=max(self.high_water,self.queued+1)
             self._observe('gate',reason=reason)

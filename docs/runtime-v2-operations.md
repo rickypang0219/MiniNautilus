@@ -48,9 +48,26 @@ Only queues, tasks and the strategy window are bounded. Core/mirror terminal ord
 ```sh
 python3 ops/recovery_probe.py --run-dir runs/rv4-recovery
 python3 ops/audit_bench.py --run-dir runs/rv3-audit
+python3 ops/history_runtime_probe.py --run-dir runs/rv7-history
 ```
 
-Recovery probe uses fixed active state and a fixed tail, quote-only history of 1,000 and 100,000, and fresh copies for recover. It records full bytes read, Python frame/checksum/payload attribution, authoritative Rust replay/startup and snapshot size/load. The Python inspection repeats work and is not an alternative recovery implementation; process-launch cost is included in Rust startup timings. Archive-independent startup cannot be claimed while full-prefix verification is required.
+Recovery probe varies quote-only archive 1,000/100,000 with fixed state/tail,
+then holds archive 1,000 while varying active orders 100/1,000 and tail
+20/2,000. It uses fresh copies for recover and records full bytes read,
+Python frame/checksum/payload attribution, authoritative Rust replay/startup,
+snapshot size/load, child VmHWM and Python lifetime peak RSS. The Python
+inspection repeats work and is not an alternative recovery implementation;
+process-launch cost is included in Rust startup timings. Archive-independent
+startup cannot be claimed while full-prefix verification is required.
+
+The history runtime probe builds real terminal order/fill journals at
+0/1,000/100,000 with the existing paper matcher, then connects a bounded actor
+and independent fake venue. It verifies late duplicate fills, successful new
+execution and accepted-but-ACK-lost reconciliation without resubmission.
+Its deliberately full-scan oracle makes it functional coverage, not a timing
+benchmark. The final fixture position is one confirmed fake fill; it is not
+a live trade or an unresolved order. Memory peaks include full state and
+reconciliation; no compaction is enabled.
 
 Audit benchmark separately tests terminal history 0/1,000/100,000 with zero delta work, and the frozen old quadratic audit at 1,000. Its p99 is the p99 of 1,000-call batch averages, not individual-event tail latency. Differential request fixtures and operation-count tests establish correctness and absence of hot-path scans.
 
@@ -63,3 +80,11 @@ A guard reads the mirror through the same writer worker, skips only confirmed te
 On `gated`, stop generating intents. The coordinator retains intent in the Rust journal and records unsent effects as abandoned; reservations stay. Resolve or cancel the single in-flight operation, stop the coordinator, reconcile through the sole Engine owner, and create a new coordinator. Do not reset a latch with a boolean or resubmit old IDs. A `BlockingExecutor` timeout leaves its worker busy; a replacement writer/executor cannot safely start while that worker could still send. Native async cancellation likewise requires a venue-specific outcome contract.
 
 If the writer fails, abort and recover the journal. `Engine.close()` reaps killed children even after a buffered BrokenPipe; cleanup never retries submission. Rollback stops writers/executors first and preserves journal schema 1 / protocol 2. The new optional trace fields do not alter persisted frames.
+
+Historical `send_batch` and `send_pairs` retain their existing protocol:
+inputs are parsed before processing, then committed in order. A processing or
+persistence failure can leave a committed prefix and terminate the response.
+Treat a failed batch as uncertain, recover/query its sequence, and never retry
+the whole batch blindly. The actor uses individual receive-time-aware calls;
+no new live batching codec or accumulation delay is introduced. A future batch
+runner must explicitly cap events/bytes/wait and carry each input's live time.

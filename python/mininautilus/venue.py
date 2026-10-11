@@ -13,6 +13,29 @@ class Capabilities:
     reduce_only: bool = False
     client_id_max_length: int = 32
     account_margin: bool = False
+    client_id_scope: str = 'open-orders'
+    submission_idempotency: str = 'query-only'
+    snapshot_watermark: str = 'quiescent-local-delivery'
+    absence_proof_contract: str = 'after-request-expiry-and-client-id-lookup'
+
+    def __post_init__(self):
+        if self.client_id_scope not in ('open-orders','retention-window','session'):
+            raise ValueError('unknown client ID uniqueness scope')
+        if self.submission_idempotency not in ('none','query-only','deduplicated-within-retention'):
+            raise ValueError('unknown submission idempotency contract')
+        if self.snapshot_watermark not in ('none','quiescent-local-delivery','native-atomic'):
+            raise ValueError('unknown snapshot watermark contract')
+        if self.snapshot_watermark=='native-atomic' and not (self.native_sequence and self.atomic_snapshot):
+            raise ValueError('native atomic watermark requires both capabilities')
+        if self.submission_idempotency=='deduplicated-within-retention' and self.history_retention_seconds is None:
+            raise ValueError('deduplication needs a declared retention horizon')
+        if self.absence_proof_contract not in ('unsupported','after-request-expiry-and-client-id-lookup','native-watermark-and-retention'):
+            raise ValueError('unknown absence proof contract')
+        if self.absence_proof != (self.absence_proof_contract!='unsupported'):
+            raise ValueError('absence capability and proof contract disagree')
+        if self.absence_proof_contract=='native-watermark-and-retention' and (
+                self.snapshot_watermark!='native-atomic' or self.history_retention_seconds is None):
+            raise ValueError('native absence proof requires watermark and history horizon')
 
     def require(self, operation, *, reduce_only=False):
         if operation not in ('limit','cancel','reconcile','amend'):
@@ -34,10 +57,16 @@ class Instrument:
     quote_asset: str
     base_asset: str
     capabilities: Capabilities
+    balance_authority: str = 'venue-snapshot'
+    fee_authority: str = 'venue-execution-reports'
+    core_accounting: str = 'gross-strategy-inventory'
 
     def __post_init__(self):
         if not all((self.venue,self.account,self.symbol,self.risk_domain,self.quote_asset,self.base_asset)):
             raise ValueError('explicit venue/account/instrument/risk identity required')
+        if (self.balance_authority!='venue-snapshot' or self.fee_authority!='venue-execution-reports'
+                or self.core_accounting!='gross-strategy-inventory'):
+            raise ValueError('v0 Core does not implement wallet fees or margin accounting')
         for unit in (self.tick,self.lot):
             if not isinstance(unit,str): raise ValueError('tick/lot must be decimal strings')
             value=Decimal(unit)

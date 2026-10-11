@@ -166,6 +166,18 @@ class CoordinatorTests(unittest.IsolatedAsyncioTestCase):
         actor.start();await actor.finish()
         self.assertEqual(called,[])
 
+    async def test_internal_fault_is_owned_by_the_configured_risk_domain(self):
+        seen=[]
+        async def apply(item):seen.append(item);return []
+        async def execute(effect):pass
+        identity=('fake_native','spot','BTCUSDT')
+        actor=Coordinator(apply,execute,identity=identity)
+        self.assertFalse(actor.offer(Input('private','private','Fill',venue=identity[0],
+                                          account='foreign',instrument=identity[2])))
+        actor.start();await actor.finish()
+        self.assertEqual([item.payload for item in seen],['Disconnect'])
+        self.assertEqual((seen[0].venue,seen[0].account,seen[0].instrument),identity)
+
     async def test_queued_order_expiry_keeps_intent_and_stops_dispatch(self):
         started,release,gated=asyncio.Event(),asyncio.Event(),asyncio.Event()
         logical=[0];calls=[]

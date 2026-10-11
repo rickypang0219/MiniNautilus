@@ -1,5 +1,75 @@
 [
-  {"venue":"binance_spot_testnet","account":"dedicated","symbol":"BTCUSDT","risk_domain":"testnet-account","tick":"0.01","lot":"0.00001","quote_asset":"USDT","base_asset":"BTC","capabilities":{"native_sequence":false,"atomic_snapshot":false,"history_retention_seconds":null,"absence_proof":true,"client_id_max_length":32}},
-  {"venue":"fake_native","account":"spot","symbol":"BTCUSDT","risk_domain":"fake-native-account","tick":"0.5","lot":"0.01","quote_asset":"USDT","base_asset":"BTC","capabilities":{"native_sequence":true,"atomic_snapshot":true,"history_retention_seconds":86400,"absence_proof":true,"amend":true,"client_id_max_length":36}},
-  {"venue":"fake_quiescent","account":"spot","symbol":"BTCUSDT","risk_domain":"fake-quiescent-account","tick":"0.1","lot":"0.001","quote_asset":"USDT","base_asset":"BTC","capabilities":{"native_sequence":false,"atomic_snapshot":false,"history_retention_seconds":null,"absence_proof":false,"client_id_max_length":24}}
+  {
+    "venue": "binance_spot_testnet",
+    "account": "dedicated",
+    "symbol": "BTCUSDT",
+    "risk_domain": "testnet-account",
+    "tick": "0.01",
+    "lot": "0.00001",
+    "quote_asset": "USDT",
+    "base_asset": "BTC",
+    "capabilities": {
+      "native_sequence": false,
+      "atomic_snapshot": false,
+      "history_retention_seconds": null,
+      "absence_proof": true,
+      "client_id_max_length": 32,
+      "client_id_scope": "open-orders",
+      "submission_idempotency": "query-only",
+      "snapshot_watermark": "quiescent-local-delivery",
+      "absence_proof_contract": "after-request-expiry-and-client-id-lookup"
+    },
+    "balance_authority": "venue-snapshot",
+    "fee_authority": "venue-execution-reports",
+    "core_accounting": "gross-strategy-inventory"
+  },
+  {
+    "venue": "fake_native",
+    "account": "spot",
+    "symbol": "BTCUSDT",
+    "risk_domain": "fake-native-account",
+    "tick": "0.5",
+    "lot": "0.01",
+    "quote_asset": "USDT",
+    "base_asset": "BTC",
+    "capabilities": {
+      "native_sequence": true,
+      "atomic_snapshot": true,
+      "history_retention_seconds": 86400,
+      "absence_proof": true,
+      "amend": true,
+      "client_id_max_length": 36,
+      "client_id_scope": "retention-window",
+      "submission_idempotency": "deduplicated-within-retention",
+      "snapshot_watermark": "native-atomic",
+      "absence_proof_contract": "native-watermark-and-retention"
+    },
+    "balance_authority": "venue-snapshot",
+    "fee_authority": "venue-execution-reports",
+    "core_accounting": "gross-strategy-inventory"
+  },
+  {
+    "venue": "fake_quiescent",
+    "account": "spot",
+    "symbol": "BTCUSDT",
+    "risk_domain": "fake-quiescent-account",
+    "tick": "0.1",
+    "lot": "0.001",
+    "quote_asset": "USDT",
+    "base_asset": "BTC",
+    "capabilities": {
+      "native_sequence": false,
+      "atomic_snapshot": false,
+      "history_retention_seconds": null,
+      "absence_proof": false,
+      "client_id_max_length": 24,
+      "client_id_scope": "session",
+      "submission_idempotency": "none",
+      "snapshot_watermark": "none",
+      "absence_proof_contract": "unsupported"
+    },
+    "balance_authority": "venue-snapshot",
+    "fee_authority": "venue-execution-reports",
+    "core_accounting": "gross-strategy-inventory"
+  }
 ]

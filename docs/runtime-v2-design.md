@@ -45,6 +45,16 @@ One writer owns each account risk domain; instruments sharing collateral stay to
 
 Capabilities include native sequence, atomic snapshot, bounded/unknown history retention, proof of absence, client-ID limits, amend, reduce-only and account margin. `None` retention means unknown, not infinite. Hyperliquid nonce rules, Kraken reporting order and correction semantics must be supplied by their adapters; none is assumed from the fake fixtures.
 
+Machine fixtures also declare client-ID uniqueness scope, submission idempotency,
+snapshot watermark semantics and the exact kind of absence proof. Query-by-ID is
+not permission to retry submission. A deduplication guarantee needs a declared
+retention horizon; a native atomic watermark needs both native sequence and an
+atomic snapshot. The existing adapter fixture requires request expiry plus
+client-ID lookup before absence. These declarations describe required adapter
+contracts, not certification of Binance's responses. Wallet balances belong to
+venue snapshots and fees to execution reports; fixtures explicitly reject
+silently treating gross strategy inventory as account-margin accounting.
+
 ## ADR 4: Journal, migration and recovery trust
 
 Keep journal schema 1 and protocol 2. Add only optional trace output (`durable_seq`) and a Python `last_change` view; old consumers can ignore the trace field. No data migration is required, and the old binary can still inspect the same journals. Rolling back coordinator code requires first stopping writers/executors and resolving uncertainty; no old effects are resent.
