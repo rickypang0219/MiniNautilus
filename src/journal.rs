@@ -871,4 +871,100 @@ mod tests {
         drop(engine);
         fs::remove_file(path).unwrap();
     }
+
+    #[cfg(target_os = "linux")]
+    #[test]
+    fn disk_full_sync_error_and_partial_write_never_commit_or_publish() {
+        use std::os::fd::FromRawFd;
+        for case in 0..3 {
+            let path = std::env::temp_dir().join(format!(
+                "mini-persistence-window-{}-{case}",
+                std::process::id()
+            ));
+            let mut engine = DurableEngine::create(&path, Config::default()).unwrap();
+            engine
+                .process(0, Event::Quote { bid: 99, ask: 101 })
+                .unwrap();
+            let original = engine.core.clone();
+            let original_bytes = fs::read(&path).unwrap();
+            let mut reader = None;
+            let event = if case < 2 {
+                // Real Linux descriptors: /dev/full returns ENOSPC. /dev/null
+                // accepts write_all but rejects fsync with EINVAL.
+                engine.file = OpenOptions::new()
+                    .write(true)
+                    .open(if case == 0 { "/dev/full" } else { "/dev/null" })
+                    .unwrap();
+                Event::Submit(Intent {
+                    id: 1,
+                    side: Side::Buy,
+                    qty: 1,
+                    limit: 100,
+                    based_on_seq: 1,
+                    valid_until: 100,
+                })
+            } else {
+                let mut fds = [-1; 2];
+                // SAFETY: pipe2 initializes two owned descriptors on success;
+                // each is transferred exactly once into a File.
+                assert_eq!(
+                    unsafe { libc::pipe2(fds.as_mut_ptr(), libc::O_NONBLOCK) },
+                    0
+                );
+                reader = Some(unsafe { File::from_raw_fd(fds[0]) });
+                engine.file = unsafe { File::from_raw_fd(fds[1]) };
+                // SAFETY: fds[1] is a live pipe descriptor. Linux supports a
+                // one-page pipe; a frame larger than it makes write_all write
+                // a prefix, then fail with EAGAIN rather than commit.
+                assert_eq!(
+                    unsafe { libc::fcntl(fds[1], libc::F_SETPIPE_SZ, 4096) },
+                    4096
+                );
+                Event::Reconcile(Reconciliation {
+                    epoch: 0,
+                    watermark: 0,
+                    position: 0,
+                    fills: vec![],
+                    absent: vec![],
+                    orders: (1..=200)
+                        .map(|id| VenueOrder {
+                            intent: Intent {
+                                id,
+                                side: Side::Buy,
+                                qty: 1,
+                                limit: 100,
+                                based_on_seq: 1,
+                                valid_until: 100,
+                            },
+                            filled: 0,
+                            lifecycle: Lifecycle::Accepted,
+                        })
+                        .collect(),
+                })
+            };
+            let error = engine.process(1, event).unwrap_err();
+            assert_eq!(
+                engine.core, original,
+                "failed persistence committed case {case}"
+            );
+            assert!(engine.poisoned);
+            assert!(engine.process(2, Event::Tick).is_err());
+            assert_eq!(fs::read(&path).unwrap(), original_bytes);
+            match case {
+                0 => assert_eq!(error.raw_os_error(), Some(libc::ENOSPC)),
+                1 => assert_eq!(error.raw_os_error(), Some(libc::EINVAL)),
+                _ => {
+                    assert_eq!(error.kind(), io::ErrorKind::WouldBlock);
+                    let mut prefix = vec![0; 4096];
+                    assert_eq!(reader.as_mut().unwrap().read(&mut prefix).unwrap(), 4096);
+                    assert!(
+                        !prefix.ends_with(b"\n"),
+                        "only an incomplete prefix was written"
+                    );
+                }
+            }
+            drop(engine);
+            fs::remove_file(path).unwrap();
+        }
+    }
 }
