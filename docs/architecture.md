@@ -112,6 +112,22 @@ Rotation (`mininautilus rotate OLD NEW`) closes a healthy, fully resolved journa
 and starts a successor whose genesis carries balances, kill latch, epoch and the
 highest used client order ID; this bounds retained history (acceptance H4). There
 is no binary schema migration beyond schema version 1.
+
+Durable paper sessions also accept an isolated `rotate_to` request. It requires
+flat inventory in addition to the resolved/Healthy boundary above. The writer
+syncs and closes before offline rotation, recovers the successor gated, then
+reconciles a fresh paper venue. The response is full state so Python releases its
+old order/fill mirrors and resumes from the carried ID floor. Automatic live
+rotation is refused: a live adapter must establish its own venue reconciliation.
+`ops/synthetic_session.py --rotate-orders N` waits for this boundary; N is a soft
+trigger and does not force liquidation. Rotation scans the predecessor journal,
+so transient RSS can exceed the retained-history size.
+
+Optional `MINI_ORDER_TRACE` instrumentation adds request IDs and per-action stage
+measurements, journal sequence, bytes written, and bytes pending the action's
+foreground sync. It does not change the input/effect persistence barrier.
+Background flushing and a new frame encoding were not adopted; see the measured
+outcome in `docs/deep-dive-20261011.md`.
 Durability depends on filesystem/device sync semantics; no power-loss hardware
 test has been performed. Filesystem calls have been exercised on macOS.
 

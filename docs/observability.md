@@ -112,3 +112,26 @@ Quantile 是 Prometheus 按 bucket 插值的估計，不是精確排序統計；
 - **時間：** 一個背景命令最多可跑 2 小時；90 分鐘 soak 可以在一個 session 內完成。容器是暫時的：要保留的結果（report.md／json）要 commit，`runs/` 不入 Git。
 - **CPU profiling：** `perf` 由 `linux-tools-generic` 提供（路徑 `/usr/lib/linux-tools-*/perf`），只抽樣 user space；`py-spy` 以 `--nonblocking` 執行，不暫停 Python。
 - **數字只代表量度的機器。** 部署目標是 AWS Linux：在選定的 EC2 instance 和 EBS volume 上重跑同一命令。
+
+
+## 2026-10-11：重複證據、逐筆關聯與輪換
+
+完整結果及尚未達標的項目見 [deep-dive 報告](deep-dive-20261011.md)。
+
+- `ops/compare.py BEFORE AFTER` 可接收各含 `1/report.json` … `5/report.json` 的目錄。至少五次、相同 workload／machine、成功 session、乾淨 baseline、範圍不重疊且 median 差 >=10% 才能下性能結論。缺資料維持 inconclusive。
+- 合成 batching 每次 request 的 event 數不同，Rust request／Python IPC quantile 不能直接判定 engine 變快／變慢；比較 loop 與每次行情的 IPC 數。原有報告中的絕對門檻 FAIL 仍保留。
+- Soak 自動寫 `orders.jsonl`：request ID、journal／sequence／order ID、Python 時間、Rust 各 stage、寫入及待 sync bytes。單独啟用可設 `MINI_ORDER_TRACE` 至不存在的輸出路徑。Python IPC 收到 effect 並不表示 venue 已收到訂單；Testnet runner 另寫相同 request ID 的 `order_delivery`。
+- `system.jsonl` 提供 RSS、scheduler、context switch、I/O、CPU／I/O pressure。累積 counters 要看差分；drift 的 FAIL 只是調查訊號，不直接證明 history 成本增長。少於兩個完整 slice 會是 NO DATA。
+- `--rotate-orders N --long-only` 可在 synthetic paper 的 flat／resolved 邊界輪換；`--unbatched` 保留五次 IPC 的參考 driver；`--seed` 固定行情亂數。
+- `examples/btc-backtest-config.json` 可配合價格為整數 ticks 的 BTC bar。零成交量仍有 Quote／strategy observation，沒有 Trade。Notional 單位是 tick-lots；不是 USDT。
+
+東京 public probe（需要已設定 AWS 認證；boto3 是此工具的額外依賴）：
+
+```sh
+python -m pip install boto3
+python ops/ec2_probe.py --region ap-northeast-1 --run-dir runs/tokyo-probe
+```
+
+這個命令會建立一部暫時的 t3.micro、8 GiB gp3 和沒有 ingress 的 security group，使用既有 default subnet；非 default subnet 用 `--subnet` 指定。Instance 自行關機終止，controller 也會清理 instance／security group，狀態記在 `resources.json`。不建立 IAM role／VPC，也不把任何交易所 key 複製到 EC2。需要 STS 身分查詢、SSM 讀取公開 AMI 參數，以及相應 EC2 describe／create／run／console／terminate／delete 權限。若沒有 cloud credential，不能以 local profile 的名字取代它。
+
+直接在既有候選 host 上也可跑 `ops/probe_testnet.py --location ap-northeast-1 --output probe.json`。`--location` 只是標籤，不會改變實際出口位置。Public probe 通過也不等於 signed Testnet 下單／對帳已驗收。

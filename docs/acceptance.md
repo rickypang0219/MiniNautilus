@@ -110,7 +110,7 @@
 
 **證據：** `tests/rotation.rs`：5 個 session、每個 120 張訂單（含部分成交和取消），每次輪換後記憶體中的訂單數不超過一個 session，倉位、現金延續，kill latch 和 ID 下限跨輪換保持；有 open order 時拒絕輪換且不改動 journal。
 
-**仍要決定：** 甚麼時候輪換（例如每日收市後、每 N 張訂單、或 flat 時）。輪換要求 book 完全 resolved，所以最自然的時機是 shutdown reconciliation 之後。
+**Paper 自動觸發已實作（2026-10-11）：** `ops/synthetic_session.py --rotate-orders N` 在保留訂單數達到 N 後，等待 Healthy、flat、沒有 open／uncertain 訂單才輪換；不強制平倉。Rust 和 Python 都釋放舊 history，cash／kill／ID floor 保留。Live 仍需 adapter 協調 shutdown reconciliation，不能直接重設 venue。驗證及限制見 [deep-dive 報告](deep-dive-20261011.md)。
 
 ---
 
