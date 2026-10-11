@@ -1,0 +1,5 @@
+[
+  {"venue":"binance_spot_testnet","account":"dedicated","symbol":"BTCUSDT","risk_domain":"testnet-account","tick":"0.01","lot":"0.00001","quote_asset":"USDT","base_asset":"BTC","capabilities":{"native_sequence":false,"atomic_snapshot":false,"history_retention_seconds":null,"absence_proof":true,"client_id_max_length":32}},
+  {"venue":"fake_native","account":"spot","symbol":"BTCUSDT","risk_domain":"fake-native-account","tick":"0.5","lot":"0.01","quote_asset":"USDT","base_asset":"BTC","capabilities":{"native_sequence":true,"atomic_snapshot":true,"history_retention_seconds":86400,"absence_proof":true,"amend":true,"client_id_max_length":36}},
+  {"venue":"fake_quiescent","account":"spot","symbol":"BTCUSDT","risk_domain":"fake-quiescent-account","tick":"0.1","lot":"0.001","quote_asset":"USDT","base_asset":"BTC","capabilities":{"native_sequence":false,"atomic_snapshot":false,"history_retention_seconds":null,"absence_proof":false,"client_id_max_length":24}}
+]
