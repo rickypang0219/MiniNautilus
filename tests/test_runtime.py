@@ -104,6 +104,31 @@ class CoordinatorTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(actor.execution_failures,1)
         self.assertEqual(actor.effects_started,1)
 
+    async def test_guard_timeout_never_starts_external_call(self):
+        calls=[]
+        async def apply(item):
+            return [] if item.payload=='Disconnect' else [{'SendOrder':{'id':1}}]
+        async def guard(effect):await asyncio.Future()
+        async def execute(effect):calls.append(effect)
+        actor=Coordinator(apply,execute,dispatch_guard=guard,execution_timeout=.01).start()
+        actor.offer(Input('market','market','Submit'))
+        await asyncio.wait_for(actor.finish(),1)
+        self.assertEqual(calls,[])
+        self.assertEqual(actor.effects_started,0)
+        self.assertEqual(actor.execution_failures,1)
+        self.assertEqual(actor.gate_reason,'delivery_uncertain')
+
+    async def test_guard_and_execution_have_separate_timeout_budgets(self):
+        calls=[]
+        async def apply(item):return [{'SendOrder':{'id':1}}]
+        async def guard(effect):await asyncio.sleep(.04);return 'send'
+        async def execute(effect):await asyncio.sleep(.04);calls.append(effect)
+        actor=Coordinator(apply,execute,dispatch_guard=guard,execution_timeout=.07).start()
+        actor.offer(Input('market','market','Submit'))
+        await asyncio.wait_for(actor.finish(),1)
+        self.assertEqual(len(calls),1)
+        self.assertFalse(actor.gated)
+
     async def test_blocking_executor_timeout_does_not_spawn_a_replacement(self):
         import threading
         from mininautilus.runtime import BlockingExecutor

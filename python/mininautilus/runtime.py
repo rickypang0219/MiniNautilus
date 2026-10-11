@@ -232,8 +232,10 @@ class Coordinator:
             try:
                 decision='send'
                 if self.dispatch_guard is not None:
-                    await asyncio.wait_for(self._private_barrier(),timeout=self.execution_timeout)
-                    decision=await asyncio.wait_for(self.dispatch_guard(effect),timeout=self.execution_timeout)
+                    async with asyncio.timeout(self.execution_timeout):
+                        await self._private_barrier()
+                    async with asyncio.timeout(self.execution_timeout):
+                        decision=await self.dispatch_guard(effect)
                 if decision=='terminal_cancel' and 'SendCancel' in effect:
                     self.effects_skipped_terminal+=1
                     continue
@@ -251,7 +253,8 @@ class Coordinator:
                 if self.gated:
                     self.effects_abandoned+=1;continue
                 self.effects_started+=1
-                await asyncio.wait_for(self.execute(effect),timeout=self.execution_timeout)
+                async with asyncio.timeout(self.execution_timeout):
+                    await self.execute(effect)
             except asyncio.CancelledError:
                 self.gate('executor_cancelled');raise
             except Exception:
