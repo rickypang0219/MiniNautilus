@@ -51,6 +51,8 @@ def write_receipt(root, binary, destination):
     identity = build_identity(root, binary)
     receipt = dict(profile='release', build_command=['cargo', 'build', '--locked', '--release', '--bin', 'mininautilus'],
                    features=[], rustc=command(root, 'rustc', '-Vv'),
+                   rustflags=os.environ.get('RUSTFLAGS',''), encoded_rustflags=os.environ.get('CARGO_ENCODED_RUSTFLAGS',''),
+                   profile_overrides={name:os.environ[name] for name in ('CARGO_PROFILE_RELEASE_OPT_LEVEL','CARGO_PROFILE_RELEASE_LTO','CARGO_PROFILE_RELEASE_CODEGEN_UNITS','CARGO_PROFILE_RELEASE_DEBUG_ASSERTIONS','CARGO_PROFILE_RELEASE_OVERFLOW_CHECKS','CARGO_PROFILE_RELEASE_PANIC') if name in os.environ},
                    rust_inputs=rust_inputs(identity['source_hashes']), binary_sha256=identity['binary_sha256'])
     Path(destination).write_text(json.dumps(receipt, indent=2) + '\n')
     return receipt
@@ -111,3 +113,18 @@ def compatible_reports(reports):
                 or provenance.get('source_hashes', {}).get('ops/runtime_bench.py') != reports[0].get('provenance', {}).get('source_hashes', {}).get('ops/runtime_bench.py')):
             return False
     return True
+
+
+def histogram_estimate(text,name,quantile=.99):
+    """Prometheus bucket interpolation, explicitly distinct from exact samples."""
+    import re
+    pattern=re.compile(re.escape(name)+r'_bucket\{le="([^"]+)"\}\s+(\d+)')
+    buckets=sorted((float(bound),int(count)) for bound,count in pattern.findall(text))
+    if not buckets or buckets[-1][1]==0: return None
+    rank=quantile*buckets[-1][1];low=0.;previous=0
+    for bound,count in buckets:
+        if count>=rank:
+            if not math.isfinite(bound): return low
+            return low+(bound-low)*(rank-previous)/(count-previous) if count>previous else bound
+        low,previous=bound,count
+    return None

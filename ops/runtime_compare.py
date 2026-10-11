@@ -14,6 +14,7 @@ from evidence import verdict
 METRICS = {
     'internal_tick_to_effect_p99_ms': ('internal_tick_to_effect', 'p99_ms'),
     'input_queue_age_p99_ms': ('input_queue_age', 'p99_ms'),
+    'rust_full_request_histogram_p99_ms': ('rust_full_request_histogram_p99_ms',),
     'rust_before_response_p99_ms': ('rust_before_response', 'p99_ms'),
     'ipc_roundtrip_p99_ms': ('ipc_roundtrip', 'p99_ms'),
     'executor_queue_age_p99_ms': ('executor_queue_age', 'p99_ms'),

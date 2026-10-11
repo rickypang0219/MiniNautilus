@@ -11,6 +11,8 @@ from pathlib import Path
 import platform
 import random
 import subprocess
+import socket
+import urllib.request
 import sys
 import time
 
@@ -18,7 +20,7 @@ ROOT = Path(__file__).resolve().parents[1]
 sys.path[:0] = [str(ROOT / 'python'), str(ROOT / 'ops')]
 from mininautilus.bridge import Engine
 from mininautilus.backtest import Bar, SmaTarget, plan
-from mininautilus.evidence import percentile, validate_actions, verified_identity, write_receipt
+from mininautilus.evidence import percentile, validate_actions, verified_identity, write_receipt, histogram_estimate
 from mininautilus.offline import FakeVenue, Input, SerialRuntime
 from system_sample import sample
 
@@ -61,9 +63,14 @@ async def run(args):
     last_at = 0
     warm_ns = int(config['warmup_seconds'] * 1e9)
     trace_path = args.run_dir / 'orders.jsonl'
+    encode,decode,mirror=(deque(maxlen=10000) for _ in range(3))
+    with socket.socket() as listener:
+        listener.bind(('127.0.0.1',0));metrics_port=listener.getsockname()[1]
+    rust_env={'MINI_METRICS_ADDR':f'127.0.0.1:{metrics_port}'}
+    if config['trace']:rust_env['MINI_ORDER_TRACE']=str(trace_path)
     with Engine(args.run_dir / 'events.jsonl', binary=args.binary, config=config_path,
                 time_mode='historical', extra_args=['--sync', config['sync']],
-                env={'MINI_ORDER_TRACE': str(trace_path)} if config['trace'] else {}) as engine, \
+                env=rust_env) as engine, \
             (args.run_dir / 'inputs.jsonl').open('x') as input_log, \
             (args.run_dir / 'system.jsonl').open('x') as system_log:
         from mininautilus.evidence import validate_actions
@@ -76,6 +83,7 @@ async def run(args):
                 validate_actions(effects, rows, request_id=engine.request_id)
                 rust.append(engine.last_trace['rust_before_response_ns'])
                 sync.extend(r['stages']['sync_ns'] for r in rows if r['stages']['synced'])
+                encode.append(engine.last_encode_ns);decode.append(engine.last_decode_ns);mirror.append(engine.last_mirror_apply_ns)
             ipc.append(engine.last_roundtrip_ns)
             return effects
 
@@ -170,9 +178,15 @@ async def run(args):
         else:
             failure = None
         cpu_ns = time.process_time_ns()-cpu_started
+        with urllib.request.urlopen(f'http://127.0.0.1:{metrics_port}/metrics',timeout=3) as response:
+            metrics_text=response.read().decode()
+        (args.run_dir/'rust.prom').write_text(metrics_text)
+        rust_full_p99=histogram_estimate(metrics_text,'mini_request_seconds')
         final = dict(position=engine.state['position'], cash=engine.state['cash'], seq=engine.state['seq'],
                      orders=len(engine.state['orders']), fills=len(engine.state['fills']), health=engine.state['health'])
     executor.shutdown(wait=True, cancel_futures=True)
+    if final['health']!='Healthy' or runtime.counts['rejected'] or runtime.counts['pending'] or getattr(runtime,'gated',False):
+        exit_code=1;failure=failure or 'unexpected_gate_or_incomplete_work'
     elapsed = (time.perf_counter_ns()-origin)/1e9
     report = dict(session_exit=exit_code, failure=failure, provenance=identity,
         experiment=dict(machine=hashlib.sha256(platform.node().encode()).hexdigest(),
@@ -180,9 +194,12 @@ async def run(args):
                         seed=args.seed, latency_retention='last 10000 observations per metric', input_sha256=input_hash.hexdigest()),
         candidate=dict(runtime=args.runtime, binary_sha256=identity['binary_sha256']),
         counts=runtime.counts, queue_high_water=runtime.high_water, missed_deadlines=missed,
+        gate_reason=getattr(runtime,'gate_reason',None),effects_abandoned=getattr(runtime,'effects_abandoned',0),
         elapsed_seconds=elapsed, final=final,
         metrics=dict(admission=summary(admission), input_queue_age=summary(ages),
                      internal_tick_to_effect=summary(internal), rust_before_response=summary(rust),
+                     rust_full_request_histogram_p99_ms=rust_full_p99*1000 if rust_full_p99 is not None else None,
+                     python_encode=summary(encode),python_decode=summary(decode),python_mirror_apply=summary(mirror),
                      ipc_roundtrip=summary(ipc), order_sync=summary(sync), executor_queue_age=summary(executor_ages),
                      completed_per_second=runtime.counts['completed']/elapsed,
                      python_cpu_ns_per_event=cpu_ns/max(1, runtime.counts['completed'])),
@@ -211,6 +228,8 @@ def main():
     p.add_argument('--allow-dirty', action='store_true', help='smoke tests only; never a clean baseline')
     args = p.parse_args()
     if args.build:
+        if args.binary.resolve()!=(ROOT/'target/release/mininautilus').resolve():
+            p.error('--build only issues a receipt for target/release/mininautilus')
         subprocess.run(['cargo', 'build', '--locked', '--release', '--bin', 'mininautilus'], cwd=ROOT, check=True)
         write_receipt(ROOT, args.binary, args.receipt)
         return 0

@@ -1,14 +1,22 @@
 {
   "schema": 1,
   "workload": "runtime-v2-offline-sma-v1",
-  "seeds": [7, 17, 29],
+  "seeds": [
+    7,
+    17,
+    29
+  ],
   "rate": 100,
   "seconds": 12,
   "warmup_seconds": 2,
   "fast": 3,
   "slow": 8,
   "lots": 2,
-  "history_sizes": [0, 1000, 100000],
+  "history_sizes": [
+    0,
+    1000,
+    100000
+  ],
   "input_capacity": 128,
   "input_bytes": 1048576,
   "message_bytes": 65536,
@@ -30,5 +38,6 @@
     "minimum_repetitions": 5
   },
   "clock": "perf_counter_ns durations; no cross-process timestamp subtraction",
-  "metric_scope": "Internal tick-to-effect ends before fake venue invocation; rust_before_response excludes response serialization; legacy L1 is a separate metric."
+  "metric_scope": "Internal tick-to-effect ends before fake venue invocation; rust_before_response excludes response serialization; legacy L1 is a separate metric.",
+  "rust_aggregate_metrics": true
 }

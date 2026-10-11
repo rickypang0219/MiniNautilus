@@ -113,20 +113,33 @@ class Engine:
         if not line:
             raise RuntimeError("Rust engine stopped; recover its journal before continuing")
         self.last_response_bytes = len(line)
-        return json.loads(line)
+        began = time.perf_counter_ns() if self.trace_log else None
+        response = json.loads(line)
+        self.last_decode_ns = time.perf_counter_ns() - began if began is not None else None
+        return response
+
+    def _encode(self, request):
+        began = time.perf_counter_ns() if self.trace_log else None
+        line = json.dumps(request, separators=(",", ":"))
+        self.last_encode_ns = time.perf_counter_ns() - began if began is not None else None
+        return line
 
     def _roundtrip(self, line):
         self.request_id += 1
         if self.trace_log:
+            encode_began = time.perf_counter_ns()
             request = json.loads(line)
             request["request_id"] = self.request_id
             line = json.dumps(request, separators=(",", ":"))
+            self.last_encode_ns = (self.last_encode_ns or 0) + time.perf_counter_ns() - encode_began
         started = time.perf_counter_ns()
         with metrics.timer("ipc"):
             self.process.stdin.write(line + "\n")
             self.process.stdin.flush()
             response = self._read()
+            mirror_began = time.perf_counter_ns() if self.trace_log else None
             effects = self._receive(response)
+            self.last_mirror_apply_ns = time.perf_counter_ns() - mirror_began if mirror_began is not None else None
         returned = time.perf_counter_ns()
         self.last_returned_ns = returned
         self.last_roundtrip_ns = returned-started
@@ -139,6 +152,8 @@ class Engine:
                 row = dict(action, journal=self.journal, request_id=self.request_id,
                            python_started_ns=started, python_returned_ns=returned,
                            python_roundtrip_ns=returned-started,
+                           python_encode_ns=self.last_encode_ns, python_decode_ns=self.last_decode_ns,
+                           python_mirror_apply_ns=self.last_mirror_apply_ns,
                            decision_to_effect_ns=(returned-self.decision_started_ns
                                if self.decision_started_ns is not None else None),
                            rust_before_response_ns=trace["rust_before_response_ns"],
@@ -162,7 +177,7 @@ class Engine:
         Rust syncs/closes the predecessor, recovers/reconciles a fresh paper venue,
         and returns a full mirror so both languages release retained history.
         """
-        effects = self._roundtrip(json.dumps({"at": self.state["now"],
+        effects = self._roundtrip(self._encode({"at": self.state["now"],
                                              "rotate_to": str(Path(successor).resolve())}))
         self.journal = str(Path(successor).resolve())
         return effects
@@ -171,13 +186,13 @@ class Engine:
         """Process events in order in one round trip; returns all their effects.
 
         For historical/backtest input only: no live receive-time metadata."""
-        return self._roundtrip(json.dumps({"at": at, "events": events}, separators=(",", ":")))
+        return self._roundtrip(self._encode({"at": at, "events": events}))
 
     def send_pairs(self, pairs):
         """Process `(at, event)` pairs in order, each at its own engine time."""
         if not pairs:
             raise ValueError("empty batch")
-        return self._roundtrip(json.dumps({"at": pairs[0][0], "batch": pairs}, separators=(",", ":")))
+        return self._roundtrip(self._encode({"at": pairs[0][0], "batch": pairs}))
 
     def send(self, at, event, *, event_time_ms=None, received_time_ms=None,
              time_source=None, fill_event_times=None):
@@ -192,13 +207,18 @@ class Engine:
         request = {"at": at, "event": event}
         if metadata:
             request["time"] = metadata
-        return self._roundtrip(json.dumps(request, separators=(",", ":")))
+        return self._roundtrip(self._encode(request))
 
     def close(self):
         if self.trace_log:
             self.trace_log.close()
         if self.process.stdin and not self.process.stdin.closed:
-            self.process.stdin.close()
+            try:
+                self.process.stdin.close()
+            except BrokenPipeError:
+                # A failed write may leave buffered bytes after the child died.
+                # Still reap the process and release stdout/selector; never retry.
+                pass
         try:
             self.process.wait(timeout=5)
         except subprocess.TimeoutExpired:

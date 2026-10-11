@@ -72,3 +72,10 @@ class BuildReceiptTests(unittest.TestCase):
         self.assertFalse(compatible_reports(rows))
         rows[-1]=report(); rows[-1]['provenance']['binary_sha256']='wrong'
         self.assertFalse(compatible_reports(rows))
+
+class HistogramTests(unittest.TestCase):
+    def test_histogram_is_labelled_estimate_not_exact_percentile(self):
+        from mininautilus.evidence import histogram_estimate
+        text='mini_request_seconds_bucket{le="0.001"} 90\nmini_request_seconds_bucket{le="0.002"} 100\nmini_request_seconds_bucket{le="+Inf"} 100\n'
+        self.assertAlmostEqual(histogram_estimate(text,'mini_request_seconds'),.0019)
+        self.assertIsNone(histogram_estimate('', 'missing'))
