@@ -127,7 +127,7 @@ class CoordinatorTests(unittest.IsolatedAsyncioTestCase):
                     # asyncio Events must be published on their owning loop.
                     if item.payload=='Disconnect': gated.set()
                     return effects
-                actor=Coordinator(apply,venue.execute).start()
+                actor=Coordinator(apply,venue.execute,clock_ms=lambda:1).start()
                 actor.offer(Input('strategy','market','Submit'))
                 await asyncio.wait_for(gated.wait(),2)
                 await actor.finish();pool.shutdown()
@@ -165,3 +165,74 @@ class CoordinatorTests(unittest.IsolatedAsyncioTestCase):
         self.assertFalse(actor.offer(Input('foreign','market','Submit',account='another-account')))
         actor.start();await actor.finish()
         self.assertEqual(called,[])
+
+    async def test_queued_order_expiry_keeps_intent_and_stops_dispatch(self):
+        started,release,gated=asyncio.Event(),asyncio.Event(),asyncio.Event()
+        logical=[0];calls=[]
+        async def apply(item):
+            if item.payload=='Disconnect': gated.set();return []
+            return [{'SendOrder':dict(id=item.payload,valid_until=10)}]
+        async def execute(effect):
+            calls.append(effect['SendOrder']['id']);started.set();await release.wait()
+        actor=Coordinator(apply,execute,clock_ms=lambda:logical[0]).start()
+        actor.offer(Input('market','market',1));await asyncio.wait_for(started.wait(),1)
+        actor.offer(Input('market','market',2))
+        # Synchronize on writer progress rather than assuming a scheduling delay.
+        while actor.counts['completed']<2:await asyncio.sleep(0)
+        logical[0]=20;release.set()
+        await asyncio.wait_for(gated.wait(),1);await actor.finish()
+        self.assertEqual(calls,[1])
+        self.assertEqual(actor.gate_reason,'queued_effect_expired')
+        self.assertEqual(actor.effects_abandoned,1)
+
+    async def test_confirmed_terminal_cancel_is_skipped_without_releasing_risk(self):
+        calls=[]
+        async def apply(item):return [{'SendCancel':{'id':1}}]
+        async def execute(effect):calls.append(effect)
+        async def guard(effect):return 'terminal_cancel'
+        actor=Coordinator(apply,execute,dispatch_guard=guard).start()
+        actor.offer(Input('control','control',{'Cancel':{'id':1}}))
+        await actor.finish()
+        self.assertEqual(calls,[])
+        self.assertEqual(actor.effects_skipped_terminal,1)
+        self.assertFalse(actor.gated)
+
+    async def test_actual_intent_without_dispatch_clock_fails_closed(self):
+        calls=[]
+        async def apply(item):
+            return [] if item.payload=='Disconnect' else [{'SendOrder':dict(id=1,valid_until=100)}]
+        async def execute(effect):calls.append(effect)
+        actor=Coordinator(apply,execute).start()
+        actor.offer(Input('market','market','Submit'))
+        await actor.finish()
+        self.assertEqual(calls,[])
+        self.assertEqual(actor.gate_reason,'dispatch_clock_missing')
+        self.assertEqual(actor.effects_started,0)
+
+    async def test_dispatch_guard_waits_for_already_admitted_private_reports(self):
+        started,release,fill_started,fill_commit=(asyncio.Event() for _ in range(4))
+        state=['Pending'];calls=[]
+        async def apply(item):
+            if item.payload=='Submit':return [{'SendOrder':{'id':1}}]
+            if item.payload=='Cancel':return [{'SendCancel':{'id':1}}]
+            if item.payload=='Accepted':state[0]='Accepted'
+            if item.payload=='Fill':
+                fill_started.set();await fill_commit.wait();state[0]='Filled'
+            return []
+        async def execute(effect):
+            calls.append(effect)
+            if 'SendOrder' in effect:
+                started.set();await release.wait()
+                actor.offer(Input('private','private','Accepted',source_seq=1))
+                actor.offer(Input('private','private','Fill',source_seq=2))
+        async def guard(effect):
+            return 'terminal_cancel' if 'SendCancel' in effect and state[0]=='Filled' else 'send'
+        actor=Coordinator(apply,execute,dispatch_guard=guard).start()
+        actor.offer(Input('strategy','market','Submit'));await asyncio.wait_for(started.wait(),1)
+        actor.offer(Input('strategy','market','Cancel'))
+        while actor.counts['completed']<2:await asyncio.sleep(0)
+        release.set();await asyncio.wait_for(fill_started.wait(),1)
+        self.assertEqual(len(calls),1)
+        fill_commit.set();await actor.finish()
+        self.assertEqual(actor.effects_skipped_terminal,1)
+        self.assertEqual(actor.pending_private,{})

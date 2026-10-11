@@ -118,10 +118,18 @@ async def run(args):
         if engine.state['health']!='Healthy' or engine.state['position']!=venue.position:raise RuntimeError('offline recovery mismatch')
         if len(engine.state['fills'])!=len(venue.fills):raise RuntimeError('recovery lost venue fills')
         view=dict(epoch=engine.state['epoch'],health=engine.state['health'],seq=engine.state['seq'],killed=engine.state['killed'],position=engine.state['position'],orders=len(engine.state['orders']),fills=len(engine.state['fills']))
+    async def dispatch_guard(effect):
+        def inspect():
+            if 'SendCancel' in effect:
+                order=engine.state['orders'][str(effect['SendCancel']['id'])]
+                if order['lifecycle'] in ('Filled','Canceled','Rejected') and not order['uncertain']:
+                    return 'terminal_cancel'
+            return 'send'
+        return await loop.run_in_executor(pool,inspect)
     def start_actor():
         nonlocal actor,private_seq
         private_seq=0
-        actor=Coordinator(apply,execute,observer=observe,execution_timeout=2).start()
+        actor=Coordinator(apply,execute,observer=observe,execution_timeout=2,clock_ms=now,dispatch_guard=dispatch_guard).start()
     async def stop_actor():
         try:await asyncio.wait_for(actor.finish(),10)
         except BaseException as error:
@@ -131,7 +139,7 @@ async def run(args):
         sessions.append(dict(generation=generation,counts=dict(actor.counts),input_high_water=actor.high_water,
             effect_high_water=actor.effect_high_water,effects_started=actor.effects_started,
             effects_abandoned=actor.effects_abandoned,gate_reason=actor.gate_reason,
-            execution_failures=actor.execution_failures,pending_inputs_at_stop=actor.counts['pending']))
+            effects_skipped_terminal=actor.effects_skipped_terminal,execution_failures=actor.execution_failures,pending_inputs_at_stop=actor.counts['pending']))
     async def recover_session():
         nonlocal generation,current_expected,phase,fault_armed_ns
         old=phase;phase='recovery';began=elapsed()

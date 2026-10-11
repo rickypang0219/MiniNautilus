@@ -33,6 +33,8 @@ No coalescing is enabled. A producer gets explicit admission refusal; a rejected
 
 Effect queue overflow is uncertainty, never rejection. Its durable intents remain in the journal and keep reservations. The current coordinator discards queued external effects, records their count, latches the gate, and reconciles before any replacement coordinator. It never resends those effects. This is conservative even for a queued cancel: risk remains reserved. Operator cancel/reconciliation can resume through a quiescent recovery path when connectivity permits. Timeout and executor cancellation do not claim absence.
 
+Before dispatch, a writer-owned read guard may skip a cancel only when the order is confirmed terminal and not uncertain; this releases no reservation and records `effects_skipped_terminal`. A SendOrder requires the account logical clock and is gated if its intent expired while queued. Recheck the host latch after the guard; a refusal leaves the durable intent unresolved.
+
 Shutdown stops new market/strategy admission, allows bounded critical reports while draining, and awaits the single executor with a finite deadline. Hard abort cancels tasks, preserves durable intents, and requires recovery. A coordinator latch is not automatically reset: stop it, resolve all old in-flight activity, reconcile with Core, then create a fresh coordinator. Core error stops both tasks. Disk sync can still block the writer; this is an intentional durability barrier, not adapter head-of-line blocking.
 
 ## ADR 3: Risk ownership and venue capabilities

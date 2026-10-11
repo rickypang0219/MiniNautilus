@@ -23,7 +23,8 @@ class Coordinator:
     def __init__(self, apply, execute, *, capacity=128, max_bytes=1<<20,
                  max_message=65536, reserve=32, effect_capacity=32,
                  effect_bytes=65536, source_limit=8, max_market_burst=8,
-                 execution_timeout=2, observer=None, identity=('offline','dedicated','TEST')):
+                 execution_timeout=2, observer=None, identity=('offline','dedicated','TEST'),
+                 clock_ms=None, dispatch_guard=None):
         if (capacity<3 or not 1<=reserve<capacity or max_message<=0
                 or max_bytes<max_message+1024 or effect_capacity<1 or effect_bytes<1
                 or source_limit<1 or max_market_burst<1
@@ -34,6 +35,8 @@ class Coordinator:
         self.reserve,self.effect_capacity,self.effect_bytes=reserve,effect_capacity,effect_bytes
         self.source_limit,self.max_market_burst=source_limit,max_market_burst
         self.execution_timeout=execution_timeout
+        self.clock_ms,self.dispatch_guard=clock_ms,dispatch_guard
+        self.effects_skipped_terminal=0
         self.identity=tuple(identity)
         if len(self.identity)!=3 or not all(self.identity): raise ValueError('explicit writer identity required')
         self.sources={}
@@ -42,6 +45,9 @@ class Coordinator:
         self.effects=deque()
         self.pending_effect_bytes=0
         self.wake,self.effect_wake=asyncio.Event(),asyncio.Event()
+        self.private_wake=asyncio.Event()
+        self.private_ticket=0
+        self.pending_private={}
         self.counts=dict(offered=0,admitted=0,completed=0,rejected=0,coalesced=0,pending=0)
         self.high_water,self.effect_high_water=0,0
         self.effects_started,self.effects_abandoned,self.execution_failures=0,0,0
@@ -74,7 +80,7 @@ class Coordinator:
             self._observe('gate',reason=reason)
         self.effects_abandoned+=len(self.effects)
         self.effects.clear();self.pending_effect_bytes=0
-        self.wake.set();self.effect_wake.set()
+        self.wake.set();self.effect_wake.set();self.private_wake.set()
 
     def offer(self,item):
         self.counts['offered']+=1
@@ -119,6 +125,9 @@ class Coordinator:
                     self.counts['rejected']+=1;self.gate('source_sequence_gap');return False
         # Snapshot mutable payloads at admission so producers cannot alter replay.
         item=Input(**json.loads(encoded))
+        if item.lane=='private':
+            self.private_ticket+=1
+            self.pending_private[id(item)]=self.private_ticket
         self.sources.setdefault(item.source,deque()).append((item,size))
         self.last_sequence[item.source]=(item.epoch,item.source_seq)
         self.queued+=1;self.bytes+=size
@@ -180,11 +189,20 @@ class Coordinator:
                     effects=await self.apply(item)
                 self._enqueue_effects(effects)
                 self.counts['pending']-=1;self.counts['completed']+=1
+                if self.pending_private.pop(id(item),None) is not None:
+                    self.private_wake.set()
                 self._observe('input',item=item,started_ns=began,finished_ns=time.perf_counter_ns())
         except BaseException as error:
             self.failure=type(error).__name__;self.gate('writer_failed');self.closed=True
             self.effect_wake.set()
             raise
+
+    async def _private_barrier(self):
+        # Capture a finite admission watermark; later reports cannot extend it.
+        watermark=self.private_ticket
+        while not self.gated and any(ticket<=watermark for ticket in self.pending_private.values()):
+            self.private_wake.clear()
+            await self.private_wake.wait()
 
     async def _executor(self):
         try:
@@ -202,8 +220,29 @@ class Coordinator:
             effect,size=self.effects.popleft();self.pending_effect_bytes-=size
             if self.gated:
                 self.effects_abandoned+=1;continue
-            self.inflight=True;self.effects_started+=1
+            self.inflight=True
             try:
+                decision='send'
+                if self.dispatch_guard is not None:
+                    await asyncio.wait_for(self._private_barrier(),timeout=self.execution_timeout)
+                    decision=await asyncio.wait_for(self.dispatch_guard(effect),timeout=self.execution_timeout)
+                if decision=='terminal_cancel' and 'SendCancel' in effect:
+                    self.effects_skipped_terminal+=1
+                    continue
+                if decision!='send':
+                    self.effects_abandoned+=1;self.gate('dispatch_guard_refused');continue
+                intent=effect.get('SendOrder',{})
+                if 'valid_until' in intent:
+                    if self.clock_ms is None:
+                        self.effects_abandoned+=1;self.gate('dispatch_clock_missing');continue
+                    clock=self.clock_ms()
+                    if type(clock) is not int or clock<0:
+                        self.effects_abandoned+=1;self.gate('invalid_dispatch_clock');continue
+                    if clock>intent['valid_until']:
+                        self.effects_abandoned+=1;self.gate('queued_effect_expired');continue
+                if self.gated:
+                    self.effects_abandoned+=1;continue
+                self.effects_started+=1
                 await asyncio.wait_for(self.execute(effect),timeout=self.execution_timeout)
             except asyncio.CancelledError:
                 self.gate('executor_cancelled');raise

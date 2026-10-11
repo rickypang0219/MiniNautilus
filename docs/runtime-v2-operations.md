@@ -56,7 +56,9 @@ Audit benchmark separately tests terminal history 0/1,000/100,000 with zero delt
 
 ## Using the coordinator
 
-`Coordinator(apply, execute)` expects an async `apply(Input)` callback returning effects only after Engine's durable response. One bounded worker owns all Engine calls; one executor serializes external account actions. `offer` is synchronous admission on the owning event loop; check its boolean result. Never create one task per incoming event, never ignore critical overflow, and never call Engine from an executor or producer. Source heads are FIFO; control/private/timer share fair service across sources ahead of market work.
+`Coordinator(apply, execute, clock_ms=logical_clock, dispatch_guard=guard)` expects an async `apply(Input)` callback returning effects only after Engine's durable response. One bounded worker owns all Engine calls; one executor serializes external account actions. `offer` is synchronous admission on the owning event loop; check its boolean result. Never create one task per incoming event, never ignore critical overflow, and never call Engine from an executor or producer. Source heads are FIFO; control/private/timer share fair service across sources ahead of market work.
+
+A guard reads the mirror through the same writer worker, skips only confirmed terminal/non-uncertain cancels, and never mutates risk. The account logical clock prevents queued orders dispatching after expiry; a missing clock fails closed for actual Rust intents.
 
 On `gated`, stop generating intents. The coordinator retains intent in the Rust journal and records unsent effects as abandoned; reservations stay. Resolve or cancel the single in-flight operation, stop the coordinator, reconcile through the sole Engine owner, and create a new coordinator. Do not reset a latch with a boolean or resubmit old IDs. A `BlockingExecutor` timeout leaves its worker busy; a replacement writer/executor cannot safely start while that worker could still send. Native async cancellation likewise requires a venue-specific outcome contract.
 
