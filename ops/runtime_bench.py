@@ -118,9 +118,9 @@ async def run(args):
         async def execute(effect):
             nonlocal private_seq
             ready = effect.pop('_ready_ns', time.perf_counter_ns())
-            executor_ages.append(time.perf_counter_ns()-ready)
             if not any(name in effect for name in ('SendOrder', 'SendCancel')):
                 return
+            executor_ages.append(time.perf_counter_ns()-ready)
             reports = await venue.execute(effect)
             for report in reports:
                 private_seq += 1
@@ -144,6 +144,17 @@ async def run(args):
             max_message=config['message_bytes'], reserve=config['critical_reserve'],
             effect_capacity=config['effect_capacity'], effect_bytes=config['effect_bytes'],
             source_limit=config['source_limit'], max_market_burst=config['max_market_burst']).start()
+        async def dispatch_guard(effect):
+            def inspect():
+                if 'SendCancel' in effect:
+                    order=engine.state['orders'][str(effect['SendCancel']['id'])]
+                    if order['lifecycle'] in ('Filled','Canceled','Rejected') and not order['uncertain']:
+                        return 'terminal_cancel'
+                return 'send'
+            return await loop.run_in_executor(executor,inspect)
+        if hasattr(runtime,'dispatch_guard'):
+            runtime.dispatch_guard=dispatch_guard
+            runtime.clock_ms=lambda:(time.perf_counter_ns()-origin)//1_000_000
         cpu_started = time.process_time_ns()
         count = int(config['seconds']*config['rate'])
         rng = random.Random(args.seed)
