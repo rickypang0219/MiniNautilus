@@ -10,6 +10,22 @@ from mininautilus.runtime import Coordinator
 
 
 class CoordinatorTests(unittest.IsolatedAsyncioTestCase):
+    async def test_admission_clock_excludes_producer_delay_from_queue_age(self):
+        from unittest.mock import patch
+        events=[]
+        async def apply(item):return []
+        async def execute(effect):pass
+        actor=Coordinator(apply,execute,observer=lambda kind,**row:events.append((kind,row)))
+        with patch('mininautilus.runtime.time.perf_counter_ns',return_value=100):
+            actor.offer(Input('market','market','Tick',received_ns=10,scheduled_ns=1))
+        with patch('mininautilus.runtime.time.perf_counter_ns',return_value=250):
+            actor.start();await actor.finish()
+        admitted=next(row for kind,row in events if kind=='admission')
+        committed=next(row for kind,row in events if kind=='input')
+        self.assertEqual(admitted['admitted_ns']-admitted['item'].scheduled_ns,99)
+        self.assertEqual(committed['started_ns']-committed['admitted_ns'],150)
+        self.assertEqual(actor.admission_times,{})
+
     async def test_slow_execution_does_not_block_writer(self):
         started, release, seen = asyncio.Event(), asyncio.Event(), asyncio.Event()
         async def apply(item):

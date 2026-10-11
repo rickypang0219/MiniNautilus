@@ -3,7 +3,7 @@
 No environment dump or credential files are read. A release receipt binds the
 executable to its Rust build inputs; Git cleanliness covers the entire checkout.
 """
-from collections import Counter
+from collections import Counter, deque
 import hashlib
 import json
 import math
@@ -104,14 +104,22 @@ def compatible_reports(reports):
     if not reports:
         return False
     fingerprint = reports[0].get('experiment')
+    def environment(provenance):
+        build=provenance.get('build',{})
+        resources=provenance.get('resources',{})
+        return dict(python=provenance.get('python'),platform=provenance.get('platform'),
+            compiler={key:build.get(key) for key in ('profile','build_command','features','rustc','rustflags','encoded_rustflags','profile_overrides')},
+            resources={key:resources.get(key) for key in ('cpus','affinity','cpu_model','filesystem_block_bytes')})
+    fixed_environment=environment(reports[0].get('provenance') or {})
     for report in reports:
-        provenance = report.get('provenance', {})
+        provenance = report.get('provenance') or {}
         build = provenance.get('build', {})
         if (report.get('session_exit') != 0 or provenance.get('dirty') is not False
                 or not fingerprint or report.get('experiment') != fingerprint
                 or build.get('profile') != 'release'
                 or build.get('binary_sha256') != provenance.get('binary_sha256')
                 or build.get('rust_inputs') != rust_inputs(provenance.get('source_hashes', {}))
+                or environment(provenance)!=fixed_environment
                 or provenance.get('source_hashes', {}).get('ops/runtime_bench.py') != reports[0].get('provenance', {}).get('source_hashes', {}).get('ops/runtime_bench.py')):
             return False
     return True
@@ -130,3 +138,29 @@ def histogram_estimate(text,name,quantile=.99):
             return low+(bound-low)*(rank-previous)/(count-previous) if count>previous else bound
         low,previous=bound,count
     return None
+
+
+class QueueMeasurements:
+    """Bounded admission-to-writer samples by source and event kind."""
+    def __init__(self, *, retention=10000, max_groups=32):
+        if retention<1 or max_groups<1:raise ValueError('positive telemetry bounds required')
+        self.retention,self.max_groups=retention,max_groups
+        self.groups={};self.folded_events=0
+
+    def record(self,item,admitted_ns,started_ns):
+        kind=next(iter(item.payload),'empty') if isinstance(item.payload,dict) else str(item.payload)
+        key=item.source,kind
+        if key not in self.groups and len(self.groups)>=self.max_groups:
+            key=('__other__','__other__');self.folded_events+=1
+        group=self.groups.setdefault(key,dict(events=0,invalid_clock_samples=0,samples=deque(maxlen=self.retention)))
+        group['events']+=1
+        if type(started_ns) is not int or type(admitted_ns) is not int or started_ns<admitted_ns:
+            group['invalid_clock_samples']+=1;return
+        group['samples'].append(started_ns-admitted_ns)
+
+    def report(self):
+        return dict(retention=self.retention,max_regular_groups=self.max_groups,folded_events=self.folded_events,
+            scope='Same Python monotonic clock; rolling retained admission-to-writer durations. One additional overflow group; invalid clocks remain unknown.',
+            rows=[dict(source=source,kind=kind,events=group['events'],invalid_clock_samples=group['invalid_clock_samples'],
+                retained_samples=len(group['samples']),p99_ms=percentile(group['samples'],.99)/1e6 if group['samples'] else None)
+                for (source,kind),group in sorted(self.groups.items())])

@@ -20,7 +20,7 @@ ROOT = Path(__file__).resolve().parents[1]
 sys.path[:0] = [str(ROOT / 'python'), str(ROOT / 'ops')]
 from mininautilus.bridge import Engine
 from mininautilus.backtest import Bar, SmaTarget, plan
-from mininautilus.evidence import percentile, validate_actions, verified_identity, write_receipt, histogram_estimate
+from mininautilus.evidence import percentile, validate_actions, verified_identity, write_receipt, histogram_estimate, QueueMeasurements
 from mininautilus.offline import FakeVenue, Input, SerialRuntime
 from system_sample import sample
 
@@ -64,6 +64,9 @@ async def run(args):
     warm_ns = int(config['warmup_seconds'] * 1e9)
     trace_path = args.run_dir / 'orders.jsonl'
     encode,decode,mirror=(deque(maxlen=10000) for _ in range(3))
+    queue_groups=QueueMeasurements(retention=config.get('latency_retention_samples',10000),
+                                   max_groups=config.get('queue_metric_group_limit',32))
+    producer_overrun=deque(maxlen=10000)
     with socket.socket() as listener:
         listener.bind(('127.0.0.1',0));metrics_port=listener.getsockname()[1]
     rust_env={'MINI_METRICS_ADDR':f'127.0.0.1:{metrics_port}'}
@@ -130,10 +133,13 @@ async def run(args):
                     raise RuntimeError('private report overflow; reconciliation required')
 
         def observe(kind, **record):
-            if kind == 'input':
+            if kind=='admission':
+                admission.append(record['admitted_ns']-record['item'].scheduled_ns)
+            elif kind == 'input':
                 item = record['item']
                 if item.received_ns-origin >= warm_ns:
-                    ages.append(record['started_ns']-item.received_ns)
+                    ages.append(record['started_ns']-record['admitted_ns'])
+                    queue_groups.record(item,record['admitted_ns'],record['started_ns'])
 
         runtime_type = SerialRuntime
         if args.runtime == 'actor':
@@ -171,7 +177,7 @@ async def run(args):
                 price = max(1, price+rng.randint(-20, 20))
                 payload = {'Quote': {'bid': price, 'ask': price}}
                 input_hash.update(json.dumps(payload).encode())
-                admission.append(now-due)
+                producer_overrun.append(now-due)
                 runtime.offer(Input('market', 'market', payload, source_seq=n+1, received_ns=now, scheduled_ns=due))
                 if n % max(1, int(config['rate'])) == 0:
                     runtime.offer(Input('timer', 'timer', 'Heartbeat', received_ns=now, scheduled_ns=due))
@@ -208,6 +214,7 @@ async def run(args):
         gate_reason=getattr(runtime,'gate_reason',None),effects_abandoned=getattr(runtime,'effects_abandoned',0),
         elapsed_seconds=elapsed, final=final,
         metrics=dict(admission=summary(admission), input_queue_age=summary(ages),
+                     producer_overrun=summary(producer_overrun),input_queue_age_by_source_and_kind=queue_groups.report(),
                      internal_tick_to_effect=summary(internal), rust_before_response=summary(rust),
                      rust_full_request_histogram_p99_ms=rust_full_p99*1000 if rust_full_p99 is not None else None,
                      python_encode=summary(encode),python_decode=summary(decode),python_mirror_apply=summary(mirror),
@@ -246,7 +253,17 @@ def main():
         return 0
     if args.run_dir is None:
         p.error('--run-dir required unless --build')
-    return asyncio.run(run(args))
+    try:
+        return asyncio.run(run(args))
+    except Exception as error:
+        # Bootstrap/read/scrape failures must not disappear from a cohort. An
+        # unknown count is unknown, never a fabricated zero or success sample.
+        if args.run_dir.exists() and not (args.run_dir/'report.json').exists():
+            provenance=args.run_dir/'provenance.json'
+            (args.run_dir/'report.json').write_text(json.dumps(dict(session_exit=1,
+                failure=type(error).__name__,counts=None,metrics=None,
+                provenance=json.loads(provenance.read_text()) if provenance.exists() else None))+'\n')
+        raise
 
 if __name__ == '__main__':
     sys.exit(main())

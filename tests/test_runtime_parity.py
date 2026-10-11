@@ -33,7 +33,8 @@ class RuntimeParityTests(unittest.IsolatedAsyncioTestCase):
             async def apply(item):
                 return await loop.run_in_executor(pool, transition, item)
             async def execute(effect):
-                dispatched.append(effect)
+                if any(name in effect for name in ('SendOrder','SendCancel')):
+                    dispatched.append(effect)
             actor = kind(apply, execute, clock_ms=lambda: 0).start()
             events = [
                 {'Quote': {'bid': 99, 'ask': 101}}, {'New': [1, 3]},
@@ -44,6 +45,7 @@ class RuntimeParityTests(unittest.IsolatedAsyncioTestCase):
                 {'Execution': dict(epoch=0, venue_seq=4, report={'Fill': dict(execution_id=1, order_id=1, qty=1, price=100)})},
                 {'New': [2, 1]},
                 {'Execution': dict(epoch=0, venue_seq=5, report={'Rejected': {'id': 2}})},
+                {'New': [3, 50]},  # Deterministic risk refusal, not an adapter call.
                 {'Heartbeat': {'epoch': 0}}, 'Tick',
             ]
             for n, event in enumerate(events):
@@ -71,3 +73,5 @@ class RuntimeParityTests(unittest.IsolatedAsyncioTestCase):
             self.assertEqual(a[0][-1][0]['position'], 1)
             self.assertEqual(len(a[0][-1][0]['fills']), 1)
             self.assertFalse(a[0][-1][0]['killed'])
+            self.assertNotIn('3',a[0][-1][0]['orders'])
+            self.assertTrue(any('Refused' in effect for _,effects in a[0] for effect in effects))

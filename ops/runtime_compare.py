@@ -71,6 +71,7 @@ def load(path):
     reports=[]
     for file in files:
         report=json.loads(file.read_text())
+        if not isinstance(report.get('metrics'),dict):report['metrics']={}
         samples=file.parent/'system.jsonl'
         peaks={'python':None,'rust':None}
         if samples.exists():
@@ -82,7 +83,7 @@ def load(path):
                     if value:
                         rss=int(value.split()[0]);peaks[who]=max(peaks[who] or 0,rss)
         for who,value in peaks.items():
-            report.setdefault('metrics',{})[who+'_sampled_peak_rss_kib']=value
+            report['metrics'][who+'_sampled_peak_rss_kib']=value
         reports.append(report)
     return reports
 

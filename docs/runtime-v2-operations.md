@@ -27,6 +27,15 @@ Put at least five uniquely named per-run directories under each comparison direc
 
 `internal_tick_to_effect` includes queueing and ends before fake venue I/O. `ipc_roundtrip` includes Rust service and sync. `rust_before_response` excludes response serialization; `rust_full_request_histogram_p99_ms` is a labelled Prometheus bucket estimate including response work. Python encode/decode/mirror stages are durations from the same request; never subtract unrelated p99s. Histograms and exact rolling samples are different measurements. Low-overhead aggregate runs can set `trace: false` in a separate manifest; they lack per-action stage samples and are not directly interchangeable with trace runs.
 
+The admission timestamp is captured only after validation/snapshot and queue
+insertion. `admission` now measures scheduled time to that timestamp, while
+`input_queue_age` measures it to writer start. Producer overrun is separate.
+Source/event-kind queue samples retain at most 10,000 observations in each of
+32 regular groups plus one overflow group. Bad clocks remain explicit unknown
+samples. Reports produced before the admission-timestamp change measured
+receive-to-writer under the old queue-age name; do not relabel their raw values
+as the corrected endpoint or compare across harness versions.
+
 A performance verdict requires five repetitions, nonoverlapping ranges and at least 10% median effect. A/A instability or guardrail uncertainty remains INCONCLUSIVE. The frozen 5 ms internal target and 0.5 ms Rust target can still fail on the current filesystem; passing correctness does not override them. CI has no absolute timing assertions.
 
 ## Long reliability coverage

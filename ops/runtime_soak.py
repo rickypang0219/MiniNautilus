@@ -22,7 +22,7 @@ sys.path[:0]=[str(ROOT/'python'),str(ROOT/'ops')]
 from mininautilus.audit import IncrementalAudit,full_audit
 from mininautilus.backtest import Bar,SmaTarget,plan
 from mininautilus.bridge import Engine
-from mininautilus.evidence import verified_identity,validate_actions,percentile
+from mininautilus.evidence import verified_identity,validate_actions,percentile,QueueMeasurements
 from mininautilus.offline import FakeVenue,Input
 from mininautilus.runtime import Coordinator
 from mininautilus.targets import target_event,target_order
@@ -46,6 +46,7 @@ async def run(args):
     actor=None;engine=None;audit=None
     view={};peak_python=peak_rust=0
     timings=deque(maxlen=10000);queue_ages=deque(maxlen=10000)
+    queue_groups=QueueMeasurements()
     events=args.run_dir/'events.log.jsonl';faults=[];sessions=[]
     unexpected=[];offered_market=0;missed=0;phase='active';strategy_enabled=True
     fault_types=['lost_ack','source_gap','input_overflow','writer_kill','executor_cancel','late_epoch']
@@ -101,7 +102,9 @@ async def run(args):
                                       at=now(),received_ns=t,scheduled_ns=t)):
                 raise RuntimeError('private overflow requires reconciliation')
     def observe(kind,**record):
-        if kind=='input':queue_ages.append(record['started_ns']-record['item'].received_ns)
+        if kind=='input':
+            queue_ages.append(record['started_ns']-record['admitted_ns'])
+            queue_groups.record(record['item'],record['admitted_ns'],record['started_ns'])
         elif kind=='gate':note('gate',reason=record['reason'])
     def open_engine(recover):
         nonlocal engine,audit,view
@@ -231,6 +234,7 @@ async def run(args):
         final=dict(position=final['position'],cash=final['cash'],orders=len(final['orders']),fills=len(final['fills']),killed=final['killed'],health=final['health']),
         fake_venue=dict(calls=venue.calls,orders=len(venue.orders),fills=len(venue.fills),position=venue.position),
         rolling_internal_p99_ms=percentile(timings,.99)/1e6 if timings else None,
+        input_queue_age_by_source_and_kind=queue_groups.report(),
         rolling_queue_age_p99_ms=percentile(queue_ages,.99)/1e6 if queue_ages else None)
     (args.run_dir/'report.json').write_text(json.dumps(report,indent=2)+'\n')
     (args.run_dir/'venue-final.json').write_text(json.dumps(dict(orders=venue.orders,fills=venue.fills,position=venue.position)))

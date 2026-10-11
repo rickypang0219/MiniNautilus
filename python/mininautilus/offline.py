@@ -123,11 +123,16 @@ class SerialRuntime:
         if self.closed or item.size > self.max_message or len(self.queue) >= self.capacity or self.bytes + item.size > self.max_bytes:
             self.counts['rejected'] += 1
             return False
-        self.queue.append(item)
+        admitted=time.perf_counter_ns()
+        if not item.received_ns:
+            from dataclasses import replace
+            item=replace(item,received_ns=admitted,scheduled_ns=item.scheduled_ns or admitted)
+        self.queue.append((item,admitted))
         self.bytes += item.size
         self.counts['admitted'] += 1
         self.counts['pending'] += 1
         self.high_water = max(self.high_water, len(self.queue))
+        if self.observer:self.observer('admission',item=item,admitted_ns=admitted)
         self.wake.set()
         return True
 
@@ -141,12 +146,12 @@ class SerialRuntime:
                         return
                     await self.wake.wait()
                     continue
-                item = self.queue.popleft()
+                item,admitted = self.queue.popleft()
                 self.bytes -= item.size
                 began = time.perf_counter_ns()
                 effects = await self.apply(item)
                 if self.observer:
-                    self.observer('input', item=item, started_ns=began, finished_ns=time.perf_counter_ns())
+                    self.observer('input', item=item, admitted_ns=admitted, started_ns=began, finished_ns=time.perf_counter_ns())
                 self.counts['pending'] -= 1
                 self.counts['completed'] += 1
                 for effect in effects:
