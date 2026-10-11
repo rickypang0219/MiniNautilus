@@ -1,0 +1,16 @@
+{
+  "schema": 1,
+  "scope": "Functional load coverage addendum, not a retroactive performance baseline",
+  "calibration_source": "a52ec4d",
+  "calibration_run": "runs/runtime-v2-load-calibration/serial-400",
+  "reference_market_events_per_second": 400,
+  "reference_definition": "Conservative serial rate observed with zero rejected/pending inputs; not maximum host capacity",
+  "host_condition": "Three offline reliability soaks running; timings unsuitable for controlled A/B",
+  "seed": 7,
+  "rates": {"25_percent": 100, "75_percent": 300, "150_percent_burst": 600},
+  "seconds": 10,
+  "base_manifest": "comparisons/runtime-v2/manifest.json",
+  "runtimes": ["serial", "actor"],
+  "additional_io_cases": ["immediate", "1-second delay", "reject", "never", "lost_ack", "duplicate", "reordered"],
+  "interpretation": "Nonzero sessions remain explicit outcomes. Uncertainty/overload cases require gate and reconciliation, never a performance PASS. Burst need not overflow this conservative reference; capacity boundary is proven separately with controlled queue barriers."
+}
