@@ -100,9 +100,12 @@ def main():
     command = [sys.executable, *session, "--run-dir", str(run / "session"),
                "--seconds", str(seconds), "--metrics-port", str(args.metrics_port)]
     (run / "command.json").write_text(json.dumps(command))
+    provenance = {"commit": subprocess.check_output(["git", "rev-parse", "HEAD"], cwd=ROOT, text=True).strip(),
+                  "dirty": bool(subprocess.check_output(["git", "status", "--porcelain"], cwd=ROOT, text=True).strip())}
     started = time.time()
     log = open(run / "session.log", "w")
-    proc = subprocess.Popen(command, cwd=ROOT, stdout=log, stderr=subprocess.STDOUT)
+    proc = subprocess.Popen(command, cwd=ROOT, stdout=log, stderr=subprocess.STDOUT,
+                            env=dict(os.environ, MINI_ORDER_TRACE=str(run / "orders.jsonl")))
     perf_files, pyspy_files = [], []
     next_profile = time.time() + 60  # first profile after warm-up
     system_log = open(run / "system.jsonl", "x")
@@ -149,12 +152,21 @@ def main():
         report = json.loads(report_path.read_text())
         # Remove only the candidate sync policy from the workload fingerprint.
         workload = list(session)
-        if "--sync" in workload:
-            i = workload.index("--sync"); del workload[i:i+2]
+        candidates = {}
+        for option in ("--sync", "--rotate-orders"):
+            if option in workload:
+                i = workload.index(option)
+                candidates[option] = workload[i+1]
+                del workload[i:i+2]
+        candidates["unbatched"] = "--unbatched" in workload
+        if "--unbatched" in workload:
+            workload.remove("--unbatched")
+        report["candidate"] = candidates
+        report["provenance"] = provenance
         report["experiment"] = {"machine": hashlib.sha256(platform.node().encode()).hexdigest(),
                                 "platform": platform.platform(), "minutes": args.minutes,
                                 "session": workload, "metrics_port": args.metrics_port,
-                                "profile_every": args.profile_every, "profile_seconds": args.profile_seconds}
+                                "profile_every": args.profile_every, "profile_seconds": args.profile_seconds, "order_trace": True}
         report["session_exit"] = proc.returncode
         report_path.write_text(json.dumps(report, indent=2))
     if os.environ.get("SOAK_KEEP_PROMETHEUS") != "1":
