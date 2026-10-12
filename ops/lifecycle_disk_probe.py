@@ -80,15 +80,20 @@ def main():
             stop.set();worker.join(timeout=5)
             session.close(reconcile=False)
         orders_before=len(adapter.submits);time.sleep(.2)
-        no_new_risk=len(adapter.submits)==orders_before
+        no_late_calls=len(adapter.submits)==orders_before
         state=dict(engine.state)
     notes.close()
+    dispatches=[json.loads(line) for line in (run/'lifecycle.jsonl').read_text().splitlines()
+                if json.loads(line)['kind']=='order']
+    after_gate=[r for r in dispatches if observations and r['observed_ns']>=observations[0]]
+    no_new_risk=bool(observations) and not after_gate and no_late_calls
     delay=(observations[0]-crossing['pre_allocation_ns'])/1e6 if observations and crossing else None
     markers=[json.loads(path.read_text()) for path in run.glob('stop-*.json')]
     result=dict(schema='lc_evidence_v2_fast',scope='isolated mounted disk-floor fault; no soak resource claim',
         provenance=identity,floor_bytes=floor,crossing=crossing,gate_observed_ns=observations,
         response_upper_bound_ms=delay,error=error,fill_errors=fill_errors,worker_quiescent=not worker.is_alive(),
-        no_new_risk_after_gate=no_new_risk,stop_markers=markers,health=state['health'],position=state['position'])
+        no_new_risk_after_gate=no_new_risk,dispatches_after_gate=after_gate,
+        stop_markers=markers,health=state['health'],position=state['position'])
     with a.output.open('x') as f:json.dump(result,f,indent=2,allow_nan=False)
     passed=(delay is not None and delay<=1000 and error=='disk_headroom_exhausted' and no_new_risk
             and not fill_errors and not worker.is_alive() and any(m.get('journal_flush') is True for m in markers))
