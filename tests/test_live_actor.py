@@ -71,6 +71,7 @@ class LiveActorFaultTests(unittest.TestCase):
         self.assertTrue(session.fail_closed)
         self.assertIn('resource_guard', session.report()['gates'])
         self.assertTrue(any(n['kind']=='durable_stop' for n in notes))
+        self.assertTrue(any(n['kind']=='durable_stop' and n['reason']=='resource_guard' for n in notes))
         self.assertNotEqual(final['health'], 'Healthy')
 
     def test_trades_end_to_end_and_reconciles_with_venue(self):

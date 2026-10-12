@@ -648,7 +648,7 @@ class ActorSession:
         except FailClosed:
             self.fail_closed = True
             if self.fatal != 'disk_headroom_exhausted':
-                self._stop_marker('quiescence_unproven')
+                self._stop_marker(self.fatal or 'quiescence_unproven')
             raise
         except Exception:
             self.fail_closed = True

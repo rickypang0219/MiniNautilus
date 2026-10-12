@@ -176,7 +176,18 @@ def report(directory, session=None, credits=None):
             for kind in ('late_result','sdk_held','gap','overflow','writer_kill','executor_cancel','old_epoch'):
                 out.append(check(directory.name,kind+'_injections',counts[kind],3,'count',
                                  [session/'faults.jsonl'],ac_id='AC-F',comparator='>='))
-            unmatched=set(ids)-{f['fault_id'] for f in recovered}
+            from lifecycle_fast_soak import FAULT_GATES
+            notes=lines(session/'lifecycle.jsonl')
+            valid=[]
+            for f in recovered:
+                gate=f.get('gate_observed_ns')
+                if gate is None or not f['injected_ns']<=gate<f['recovered_ns']:continue
+                if f.get('gate_reason') not in FAULT_GATES[f['kind']]:continue
+                if not any(r['kind']=='coordinator_accounting' and r['monotonic_ns']==gate
+                           and r['runner_generation']==f['generation'] and r['gate_reason']==f['gate_reason'] for r in notes):continue
+                if not any(r['kind']=='risk_admission' and r['enabled'] and r['monotonic_ns']==f['recovered_ns'] for r in notes):continue
+                valid.append(f)
+            unmatched=set(ids)-{f['fault_id'] for f in valid}
             out.append(check(directory.name,'unrecovered_faults',len(unmatched),0,'count',
                              [session/'faults.jsonl'],ac_id='AC-F'))
             elapsed=[f['injected_ns'] for f in injected]
@@ -198,7 +209,6 @@ def report(directory, session=None, credits=None):
                               [session/'venue.jsonl'],ac_id='AC-C'),
                         check(directory.name,'unproved_durable_external_submits',bad,0,'count',
                               [session/'venue.jsonl'],ac_id='AC-C')])
-            notes=lines(session/'lifecycle.jsonl')
             rotations=sum(r['kind']=='rotated' for r in notes)
             mismatches=0
             for row in notes:

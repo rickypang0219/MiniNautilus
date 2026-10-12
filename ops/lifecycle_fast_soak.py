@@ -27,6 +27,21 @@ from mininautilus.offline import FakeLiveAdapter,Input
 from mininautilus.sma import SmaStrategy
 
 FAULTS=('late_result','sdk_held','gap','overflow','writer_kill','executor_cancel','old_epoch')
+FAULT_GATES = dict(late_result={'delivery_uncertain'}, sdk_held={'delivery_uncertain'},
+                   gap={'source_sequence_gap'}, overflow={'input_overflow'},
+                   writer_kill={'writer_failed'}, executor_cancel={'executor_cancelled','executor_stopped'},
+                   old_epoch={'old_source_epoch'})
+
+
+def fault_recovered(pending, kind, row):
+    """Ordinary eligibility changes do not prove that an armed fault happened."""
+    if kind=='coordinator_accounting' and row['runner_generation']==pending['generation']:
+        reason=row.get('gate_reason')
+        if reason in FAULT_GATES[pending['kind']]:
+            pending.update(gate_observed_ns=row['monotonic_ns'],gate_reason=reason)
+    return (kind=='risk_admission' and row['enabled']
+            and 'gate_observed_ns' in pending
+            and row['monotonic_ns']>pending['gate_observed_ns'])
 
 class ObservedVenue(FakeLiveAdapter):
     def __init__(self, log, **kwargs):
@@ -87,9 +102,10 @@ async def execute(args,identity):
             for r in data['source_counts']:
                 if r['offered']!=r['admitted']+r['rejected'] or r['admitted']!=r['completed']+r['pending']:source_failures.append(row)
             if data['accounting_overflow']:source_failures.append(row)
+        recovered = pending is not None and fault_recovered(pending, kind, row)
         if kind=='risk_admission' and data['enabled']:
             if resume and resume[-1]['enabled_ns'] is None:resume[-1]['enabled_ns']=row['monotonic_ns']
-            if pending is not None:
+            if recovered:
                 pending.update(recovered_ns=row['monotonic_ns'],recovery='quiescent reconciliation and eligible quote');faultlog.write(json.dumps(pending)+'\n');faultlog.flush();pending=None
     while time.monotonic()<deadline:
         launch=time.monotonic_ns();generation+=1
