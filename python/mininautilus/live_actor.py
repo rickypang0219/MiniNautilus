@@ -26,6 +26,7 @@ Adapter contract (all methods blocking, called from worker threads):
   timing(event) -> engine time metadata
 """
 import asyncio
+from collections import deque
 from concurrent.futures import ThreadPoolExecutor
 import copy
 from dataclasses import asdict
@@ -90,7 +91,7 @@ class ActorSession:
                              executions=0, late_results=0, invariant_checks=0, gates={},
                              rotations=0, rotation_blocked_signals=0)
         self.high_water = dict(input=0, effects=0)
-        self.tick_to_submit_ms = []
+        self.tick_to_submit_ms = deque(maxlen=10000)  # bounded: last 10k orders
 
     # ---- writer thread (owns Engine, strategy and audit) -------------------------------
     def _send(self, event, **timing):
@@ -550,7 +551,9 @@ class ActorSession:
         ordered = sorted(self.tick_to_submit_ms)
         def pct(q):
             return round(ordered[int((len(ordered) - 1) * q)], 3) if ordered else None
+        hot_now = self._hot()
         return dict(self.counters, queue_high_water=self.high_water, hot_max=self.hot_max,
-                    hot_now=self._hot() if self.rotate_orders else None,
-                    tick_to_submit_ms=dict(samples=len(ordered), p50=pct(.5), p99=pct(.99)))
+                    hot_now=hot_now,
+                    tick_to_submit_ms=dict(samples=len(ordered), p50=pct(.5), p99=pct(.99),
+                                           retention='last 10000 orders'))
 

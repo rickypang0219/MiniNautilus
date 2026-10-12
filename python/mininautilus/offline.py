@@ -1,9 +1,13 @@
 """Offline serial reference and controllable venue; never opens a network socket."""
 import asyncio
 from collections import deque
+from contextlib import contextmanager
+import threading
 from dataclasses import dataclass
 import json
 import time
+
+from .sma import Candle
 
 
 @dataclass(frozen=True)
@@ -165,3 +169,173 @@ class SerialRuntime:
         self.finishing = True
         self.wake.set()
         await self.task
+
+
+# Rising then falling closes: long, then flat again.
+PRICES = [100, 100, 100, 101, 102, 103, 104, 105, 104, 103, 102, 101, 100, 99, 98, 97] * 3
+
+
+class FakeLiveAdapter:
+    """Blocking live-actor adapter (live_actor.ActorSession contract) with a trivial
+    venue: resting orders fill on the next poll. Offline only; never opens a socket."""
+
+    def __init__(self, *, interval_ms=1000, pace=0.03, submit_delay=0.0, submit_block=None,
+                 submit_lost_before_send=False, disconnect_after=None, poll_fail_once_after=None,
+                 timing_delay=0.0, prices=PRICES, auto_fill=True, replay_retired=False,
+                 reconcile_fail_from=None, forget_retired=False, candles=None):
+        self.interval_ms, self.pace, self.prices = interval_ms, pace, prices
+        self.submit_delay, self.submit_block = submit_delay, submit_block
+        self.submit_lost_before_send = submit_lost_before_send
+        self.disconnect_after, self.poll_fail_once_after = disconnect_after, poll_fail_once_after
+        self.timing_delay = timing_delay
+        self.auto_fill, self.replay_retired = auto_fill, replay_retired
+        self.reconcile_fail_from = reconcile_fail_from
+        self.retired, self.rotations, self.replayed = set(), 0, 0
+        self.forget_retired = forget_retired  # long probes: keep fake venue memory flat
+        self.limit = len(prices) - 1 if candles is None else candles
+        self.lock = threading.Lock()
+        self.orders, self.fills, self.submits, self.position = {}, {}, [], 0
+        self.next_execution, self.cursor, self.streams, self.polls, self.reconciles = 0, 0, 0, 0, 0
+        self.last_close = 0
+
+    def candle(self, index):
+        open_ms = 1_000_000 + index*self.interval_ms
+        return Candle(open_ms, open_ms+self.interval_ms-1, self.prices[index % len(self.prices)])
+
+    @contextmanager
+    def stream(self):
+        self.streams += 1
+        disconnect_at = (self.cursor+self.disconnect_after
+                         if self.disconnect_after and self.streams == 1 else None)
+
+        def candles():
+            while self.cursor < self.limit:
+                if disconnect_at is not None and self.cursor >= disconnect_at:
+                    raise OSError('fake stream closed')
+                time.sleep(self.pace)
+                self.cursor += 1
+                candle = self.candle(self.cursor)
+                self.last_close = candle.close_ms
+                yield candle, time.perf_counter_ns()
+            while True:  # idle stream until the runner stops
+                time.sleep(self.pace)
+                yield None
+        yield candles()
+
+    def warmup(self, count):
+        bars = [self.candle(i) for i in range(max(0, self.cursor-count+1), self.cursor+1)]
+        self.last_close = bars[-1].close_ms
+        return bars
+
+    def backfill(self, last, candle):
+        return [self.candle(i) for i in range((last.open_ms-1_000_000)//self.interval_ms+1,
+                                              (candle.open_ms-1_000_000)//self.interval_ms)]
+
+    def quote(self):
+        price = self.prices[self.cursor % len(self.prices)]
+        return {'bid': price, 'ask': price}
+
+    def exchange_now_ms(self):
+        return self.last_close + 1
+
+    def free_base_lots(self):
+        return self.position
+
+    def validate(self, intent):
+        pass
+
+    def timing(self, event):
+        if self.timing_delay:
+            time.sleep(self.timing_delay)
+        return {}
+
+    def submit(self, intent):
+        self.submits.append(intent['id'])
+        if self.submit_lost_before_send:
+            self.submit_lost_before_send = False
+            raise TimeoutError('request never left the client')
+        if self.submit_block is not None:
+            self.submit_block.wait()
+        if self.submit_delay:
+            time.sleep(self.submit_delay)
+        with self.lock:
+            if intent['id'] in self.orders:
+                raise AssertionError('blind resubmission reached the fake venue')
+            self.orders[intent['id']] = dict(intent=intent, filled=0, lifecycle='Accepted')
+
+    def cancel(self, intent):
+        with self.lock:
+            order = self.orders.get(intent['id'])
+            if order and order['lifecycle'] == 'Accepted':
+                order['lifecycle'] = 'Canceled'
+
+    def _fill(self, order):
+        intent = order['intent']
+        self.next_execution += 1
+        fill = dict(execution_id=self.next_execution, order_id=intent['id'], qty=intent['qty'], price=intent['limit'])
+        self.fills[self.next_execution] = fill
+        order['filled'], order['lifecycle'] = intent['qty'], 'Filled'
+        self.position += intent['qty'] * (1 if intent['side'] == 'Buy' else -1)
+
+    def poll(self, snapshot):
+        self.polls += 1
+        if self.poll_fail_once_after is not None and self.polls == self.poll_fail_once_after:
+            raise OSError('fake private endpoint failure')
+        reports = []
+        with self.lock:
+            for oid, local in snapshot['orders'].items():
+                order = self.orders.get(int(oid))
+                if order is None:
+                    continue
+                if order['lifecycle'] == 'Accepted' and self.auto_fill:
+                    self._fill(order)
+                for fill in self.fills.values():
+                    if fill['order_id'] == int(oid) and str(fill['execution_id']) not in snapshot['fills']:
+                        reports.append({'Fill': fill})
+                if order['lifecycle'] == 'Canceled':
+                    reports.append({'Canceled': {'id': int(oid), 'cumulative_filled': order['filled']}})
+            if self.replay_retired and self.retired:
+                # A late duplicate of a retired fill, as a venue could resend it.
+                fill = next(f for f in self.fills.values() if f['order_id'] in self.retired)
+                reports.append({'Fill': dict(fill)})
+                self.replayed += 1
+        return reports
+
+    def rotation_state(self):
+        return {'segment': self.rotations + 1}
+
+    def rotated(self, venue_state):
+        self.rotations += 1
+        if self.forget_retired:
+            with self.lock:
+                self.orders = {k: v for k, v in self.orders.items() if v['lifecycle'] == 'Accepted'}
+                self.fills = {}
+            return
+        self.retired |= set(self.orders)
+
+    def heartbeat(self):
+        pass
+
+    def reconcile(self, state):
+        self.reconciles += 1
+        if self.reconcile_fail_from is not None and self.reconciles >= self.reconcile_fail_from:
+            raise OSError('fake venue cannot establish a barrier')
+        with self.lock:
+            for order in self.orders.values():
+                if order['lifecycle'] == 'Accepted':
+                    order['lifecycle'] = 'Canceled'
+            orders, absent = [], []
+            for oid, local in state['orders'].items():
+                order = self.orders.get(int(oid))
+                if order is not None:
+                    orders.append(dict(intent=order['intent'], filled=order['filled'], lifecycle=order['lifecycle']))
+                elif local['lifecycle'] == 'Pending' and local['filled'] == 0:
+                    absent.append(int(oid))
+                elif local['lifecycle'] == 'Rejected':
+                    orders.append(dict(intent=local['intent'], filled=0, lifecycle='Rejected'))
+            local = {int(oid) for oid in state['orders']}
+            fills = [f for f in self.fills.values() if f['order_id'] in local]
+            position = sum(f['qty'] * (1 if self.orders[f['order_id']]['intent']['side'] == 'Buy' else -1)
+                           for f in fills)  # relative to the segment's opening position
+            return dict(epoch=state['epoch'], watermark=state['venue_seq'], orders=orders,
+                        fills=fills, position=position, absent=sorted(absent))
