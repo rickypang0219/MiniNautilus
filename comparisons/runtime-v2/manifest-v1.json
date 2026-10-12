@@ -1,0 +1,48 @@
+{
+  "schema": 1,
+  "workload": "runtime-v2-offline-sma-thresholds-v1",
+  "seeds": [
+    7,
+    17,
+    29
+  ],
+  "rate": 100,
+  "seconds": 70,
+  "warmup_seconds": 10,
+  "fast": 3,
+  "slow": 8,
+  "lots": 2,
+  "history_sizes": [
+    0,
+    1000,
+    100000
+  ],
+  "input_capacity": 128,
+  "input_bytes": 1048576,
+  "message_bytes": 65536,
+  "critical_reserve": 32,
+  "effect_capacity": 32,
+  "effect_bytes": 65536,
+  "source_limit": 8,
+  "max_market_burst": 8,
+  "sync": "outbox",
+  "fake_delay_seconds": 0,
+  "fake_mode": "immediate",
+  "trace": true,
+  "latency_retention_samples": 10000,
+  "queue_metric_group_limit": 32,
+  "budgets": {
+    "internal_tick_to_effect_p99_ms": 5,
+    "rust_request_p99_ms": 0.5,
+    "history_p99_ratio": 2,
+    "guardrail_regression_pct": 10,
+    "minimum_improvement_pct": 10,
+    "minimum_repetitions": 5,
+    "steal_limit_pct": 5,
+    "rust_request_p99_ms_v0": 0.5
+  },
+  "clock": "perf_counter_ns durations; no cross-process timestamp subtraction",
+  "metric_scope": "Internal tick-to-effect ends before fake venue invocation; rust_before_response excludes response serialization; legacy L1 is a separate metric.",
+  "rust_aggregate_metrics": true,
+  "thresholds": "docs/perf-thresholds.md v1"
+}

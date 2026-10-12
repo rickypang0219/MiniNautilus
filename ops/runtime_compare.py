@@ -20,6 +20,8 @@ METRICS = {
     'executor_queue_age_p99_ms': ('executor_queue_age', 'p99_ms'),
     'completed_per_second': ('completed_per_second',),
     'python_cpu_ns_per_event': ('python_cpu_ns_per_event',),
+    'rust_cpu_ns_per_event': ('rust_cpu_ns_per_event',),
+    'total_cpu_ns_per_event': ('total_cpu_ns_per_event',),
     'python_sampled_peak_rss_kib': ('python_sampled_peak_rss_kib',),
     'rust_sampled_peak_rss_kib': ('rust_sampled_peak_rss_kib',),
 }
@@ -32,8 +34,20 @@ def get(report, path):
     return value
 
 
+STEAL_LIMIT_PCT = 5  # docs/perf-thresholds.md v1
+
+
+def unusable(report):
+    """Host steal above the frozen limit makes a run unusable as evidence; unknown is not usable either."""
+    host = report.get('host')
+    if host is None:
+        return False  # pre-v1 reports did not record the host; compatibility rules still apply
+    steal = host.get('steal_pct')
+    return steal is None or steal > STEAL_LIMIT_PCT
+
+
 def compare(before, after, aa=False):
-    compatible = compatible_reports(before+after)
+    compatible = compatible_reports(before+after) and not any(map(unusable, before+after))
     rows = []
     for name, path in METRICS.items():
         a, b = [[get(report, path) for report in group] for group in (before, after)]
@@ -58,7 +72,8 @@ def compare(before, after, aa=False):
     for group in (before,after):
         outcomes.append([dict(session_exit=r.get('session_exit'),counts=r.get('counts'),
             queue_high_water=r.get('queue_high_water'),missed_deadlines=r.get('missed_deadlines'),
-            gate_reason=r.get('gate_reason'),effects_abandoned=r.get('effects_abandoned')) for r in group])
+            gate_reason=r.get('gate_reason'),effects_abandoned=r.get('effects_abandoned'),
+            host=r.get('host'),unusable=unusable(r)) for r in group])
     return dict(compatible=compatible, before_reps=len(before), after_reps=len(after), aa=aa, rows=rows,
                 outcomes=outcomes,resource_scope='Sampled VmRSS peaks from system.jsonl; missing samples remain unknown, not zero. Correctness/session errors have zero tolerance.')
 

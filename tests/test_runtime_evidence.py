@@ -147,3 +147,24 @@ class HistogramTests(unittest.TestCase):
             result=compare(load(run),load(run))
             self.assertFalse(result['compatible'])
             self.assertEqual(result['outcomes'][0][0]['session_exit'],1)
+
+
+class ThresholdsV1Tests(unittest.TestCase):
+    def test_host_steal_and_child_cpu_are_measured_not_invented(self):
+        sys.path.insert(0,str(ROOT/'ops'))
+        import os
+        import runtime_bench
+        self.assertIsNone(runtime_bench.process_cpu_ns(2**22+12345))
+        self.assertIsInstance(runtime_bench.process_cpu_ns(os.getpid()),int)
+        before=dict(jiffies=[100,0,0,0,0,0,0,0],loadavg=.1)
+        after=dict(jiffies=[190,0,0,0,0,0,0,10],loadavg=.2)
+        self.assertAlmostEqual(runtime_bench.host_report(before,after)['steal_pct'],10)
+        self.assertIsNone(runtime_bench.host_report(None,after)['steal_pct'])
+
+    def test_steal_above_limit_or_unknown_makes_a_cohort_incomparable(self):
+        sys.path.insert(0,str(ROOT/'ops'))
+        from runtime_compare import unusable
+        self.assertFalse(unusable({}))
+        self.assertFalse(unusable({'host':{'steal_pct':4.9}}))
+        self.assertTrue(unusable({'host':{'steal_pct':5.1}}))
+        self.assertTrue(unusable({'host':{'steal_pct':None}}))

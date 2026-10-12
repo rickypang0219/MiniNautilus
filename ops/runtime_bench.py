@@ -25,6 +25,33 @@ from mininautilus.offline import FakeVenue, Input, SerialRuntime
 from system_sample import sample
 
 
+def process_cpu_ns(pid):
+    """utime+stime of a child process from /proc; None when unavailable (never zero)."""
+    try:
+        fields = Path(f'/proc/{pid}/stat').read_text().rsplit(')', 1)[1].split()
+        return (int(fields[11])+int(fields[12]))*1_000_000_000//os.sysconf('SC_CLK_TCK')
+    except (OSError, ValueError, IndexError):
+        return None
+
+
+def host_cpu():
+    """Aggregate /proc/stat jiffies (for steal share) and the 1-minute load."""
+    try:
+        values = [int(x) for x in Path('/proc/stat').read_text().splitlines()[0].split()[1:]]
+        return dict(jiffies=values, loadavg=os.getloadavg()[0])
+    except (OSError, ValueError, IndexError):
+        return None
+
+
+def host_report(before, after):
+    if not before or not after:
+        return dict(steal_pct=None, loadavg_start=None, loadavg_end=None)
+    delta = [b-a for a, b in zip(before['jiffies'], after['jiffies'])]
+    total = sum(delta[:8])
+    return dict(steal_pct=100*delta[7]/total if total and len(delta) > 7 else None,
+                loadavg_start=before['loadavg'], loadavg_end=after['loadavg'])
+
+
 def summary(values):
     if not values:
         return dict(count=0, p50_ms=None, p99_ms=None, max_ms=None)
@@ -162,6 +189,7 @@ async def run(args):
             runtime.dispatch_guard=dispatch_guard
             runtime.clock_ms=lambda:(time.perf_counter_ns()-origin)//1_000_000
         cpu_started = time.process_time_ns()
+        rust_cpu_started, host_started = process_cpu_ns(engine.process.pid), host_cpu()
         count = int(config['seconds']*config['rate'])
         rng = random.Random(args.seed)
         price = 100000
@@ -195,6 +223,9 @@ async def run(args):
         else:
             failure = None
         cpu_ns = time.process_time_ns()-cpu_started
+        rust_cpu_finished, host_finished = process_cpu_ns(engine.process.pid), host_cpu()
+        rust_cpu_ns = (rust_cpu_finished-rust_cpu_started
+                       if None not in (rust_cpu_started, rust_cpu_finished) else None)
         with urllib.request.urlopen(f'http://127.0.0.1:{metrics_port}/metrics',timeout=3) as response:
             metrics_text=response.read().decode()
         (args.run_dir/'rust.prom').write_text(metrics_text)
@@ -220,8 +251,14 @@ async def run(args):
                      python_encode=summary(encode),python_decode=summary(decode),python_mirror_apply=summary(mirror),
                      ipc_roundtrip=summary(ipc), order_sync=summary(sync), executor_queue_age=summary(executor_ages),
                      completed_per_second=runtime.counts['completed']/elapsed,
-                     python_cpu_ns_per_event=cpu_ns/max(1, runtime.counts['completed'])),
-        metric_scope=dict(rust_before_response='Excludes response serialization; not full Rust request',
+                     python_cpu_ns_per_event=cpu_ns/max(1, runtime.counts['completed']),
+                     rust_cpu_ns_per_event=(rust_cpu_ns/max(1, runtime.counts['completed'])
+                                            if rust_cpu_ns is not None else None),
+                     total_cpu_ns_per_event=((cpu_ns+rust_cpu_ns)/max(1, runtime.counts['completed'])
+                                             if rust_cpu_ns is not None else None)),
+        host=host_report(host_started, host_finished),
+        metric_scope=dict(total_cpu_ns_per_event='Python process CPU plus Rust child utime+stime over the run, per completed input (thresholds v1)',
+                          rust_before_response='Excludes response serialization; not full Rust request',
                           ipc_roundtrip='Includes Rust, fsync, pipe, decode and mirror apply',
                           internal_tick_to_effect='receive to durable effect; excludes fake venue I/O'))
     (args.run_dir / 'report.json').write_text(json.dumps(report, indent=2)+'\n')
