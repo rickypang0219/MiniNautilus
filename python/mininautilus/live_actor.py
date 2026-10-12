@@ -60,7 +60,7 @@ class ActorSession:
                  execution_timeout=10.0, quiescence_seconds=60.0, poll_seconds=1.0,
                  market_errors=MARKET_ERRORS, reconcile_attempts=3, reconcile_retry=None,
                  coordinator_options=None, drills=(), rotate_orders=None, max_rotation_delay=60.0,
-                 heartbeat_seconds=5.0, reclaim_cold=False, rotate_bytes=8*1024*1024, disk_headroom_guard=True, paged_cold=False, max_hot_fills=10000):
+                 heartbeat_seconds=5.0, reclaim_cold=False, rotate_bytes=8*1024*1024, disk_headroom_guard=True, paged_cold=False, max_hot_fills=10000, stop_requested=None):
         self.engine, self.adapter, self.strategy = engine, adapter, strategy
         self.availability = AdmissionClock(note)
         self.rotation_started_ns = None
@@ -80,6 +80,7 @@ class ActorSession:
             raise ValueError('live rotation needs a positive order count and a live venue')
         if max_hot_fills<1:raise ValueError("positive hot fill cap required")
         self.max_hot_fills = max_hot_fills
+        self.stop_requested = stop_requested
         self.paged_cold = paged_cold
         self.next_gc_retry = time.monotonic()
         self.rotate_orders, self.max_rotation_delay = rotate_orders, max_rotation_delay
@@ -500,6 +501,10 @@ class ActorSession:
         tasks = [asyncio.create_task(self._timer()), asyncio.create_task(self._poll())]
         try:
             while not coordinator.gated and not coordinator.closed and self.fatal is None:
+                if self.stop_requested is not None and self.stop_requested():
+                    coordinator.gate('resource_guard')
+                    self.fatal = 'resource_guard'
+                    break
                 if time.monotonic() >= deadline:
                     break
                 if time.monotonic()-self.last_disk_check >= 0.5:

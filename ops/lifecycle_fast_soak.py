@@ -11,6 +11,7 @@ from collections import Counter
 from contextlib import contextmanager
 import hashlib
 import json
+import os
 from pathlib import Path
 import random
 import sys
@@ -96,7 +97,8 @@ async def execute(args,identity):
             initial,origin=engine.state['now'],time.monotonic()
             now=lambda:initial+int((time.monotonic()-origin)*1000)
             audit=IncrementalAudit(1,long_only=True);audit.check(engine.state,None)
-            session=ActorSession(engine,adapter,SmaStrategy(3,8,1,'1s',long_only=True),identity=('fake','dedicated','TEST'),now=now,note=record,audit=audit,max_orders=10**9,poll_seconds=.01,execution_timeout=.5,quiescence_seconds=1,rotate_orders=200,paged_cold=True,reclaim_cold=True,reconcile_retry=lambda attempt:time.sleep(.1))
+            resource_stop=os.environ.get('MINI_LC_RESOURCE_STOP_FILE')
+            session=ActorSession(engine,adapter,SmaStrategy(3,8,1,'1s',long_only=True),identity=('fake','dedicated','TEST'),now=now,note=record,audit=audit,max_orders=10**9,poll_seconds=.01,execution_timeout=.5,quiescence_seconds=1,rotate_orders=200,paged_cold=True,reclaim_cold=True,reconcile_retry=lambda attempt:time.sleep(.1),stop_requested=(lambda:Path(resource_stop).exists()) if resource_stop else None)
             if generation>1:session._reconcile()
             resume.append(dict(launch_ns=launch,enabled_ns=None,generation=generation))
             async def injector():

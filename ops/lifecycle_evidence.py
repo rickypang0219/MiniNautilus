@@ -246,10 +246,18 @@ def run(args):
         manifest.update(command_receipt=receipt,command_receipt_sha256=sha(args.command_receipt))
     with (d/'stdout.log').open('x') as out, (d/'stderr.log').open('x') as err, (d/'resources.jsonl').open('x') as log:
         usage_before = resource.getrusage(resource.RUSAGE_CHILDREN)
-        process = subprocess.Popen(command, cwd=ROOT, stdout=out, stderr=err, start_new_session=True)
+        stop_file = getattr(args, 'stop_file', None)
+        env = dict(os.environ)
+        if stop_file is not None:
+            stop_file = stop_file.resolve()
+            if stop_file.exists(): raise ValueError('resource stop file already exists')
+            env['MINI_LC_RESOURCE_STOP_FILE'] = str(stop_file)
+            manifest['resource_stop_file'] = str(stop_file)
+        process = subprocess.Popen(command, cwd=ROOT, stdout=out, stderr=err, start_new_session=True, env=env)
         stop = threading.Event()
         def sample():
             previous = host()[1]
+            initial_vm = None
             deadline = time.monotonic()
             final_sample = False
             while True:
@@ -262,6 +270,18 @@ def run(args):
                               cgroup=cgroup(process.pid, args.cgroup), host=h,
                               disk_free_bytes=vfs.f_bavail*vfs.f_frsize)
                 log.write(json.dumps(record, allow_nan=False)+'\n'); log.flush()
+                if initial_vm is None: initial_vm = h
+                reasons = []
+                if h.get('mem_available_bytes', 2**63) < 192*2**20: reasons.append('host_headroom')
+                if (record['rss_bytes'] or 0) > 384*2**20: reasons.append('runtime_rss')
+                if (record['cgroup'].get('peak_bytes') or 0) > 640*2**20: reasons.append('cgroup_peak')
+                for key in ('pswpin', 'pswpout', 'oom_kill'):
+                    if h.get(key, 0) > initial_vm.get(key, 0): reasons.append(key)
+                if stop_file is not None and reasons and not stop_file.exists():
+                    sys.path.insert(0, str(ROOT/'python'))
+                    from mininautilus.lifecycle import publish_sidecar
+                    publish_sidecar(stop_file, dict(reason='resource_guard', violations=reasons,
+                                                  detected_ns=sample_ns, timestamp=utc()))
                 if final_sample:
                     break
                 deadline += args.interval
@@ -301,6 +321,7 @@ def main():
     r.add_argument('--interval', type=float, default=.1)
     r.add_argument('--cgroup')
     r.add_argument('--allow-dirty', action='store_true')
+    r.add_argument('--stop-file', type=Path, help='cooperative actor stop on resource violation; use with LC actor harnesses')
     r.add_argument('command', nargs=argparse.REMAINDER)
     a = modes.add_parser('analyse')
     a.add_argument('directory', type=Path)

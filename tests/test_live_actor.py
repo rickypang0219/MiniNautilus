@@ -59,6 +59,20 @@ def run_session(adapter, seconds=3.0, **options):
 
 
 class LiveActorFaultTests(unittest.TestCase):
+    def test_resource_stop_latches_without_new_submission_and_flushes_marker(self):
+        adapter = FakeAdapter()
+        start = time.monotonic()
+        session, final, notes, error, reconciled = run_session(
+            adapter, seconds=2, stop_requested=lambda: True)
+        self.assertIsInstance(error, FailClosed)
+        self.assertLess(time.monotonic()-start, 1)
+        self.assertEqual(adapter.submits, [])
+        self.assertFalse(reconciled)
+        self.assertTrue(session.fail_closed)
+        self.assertIn('resource_guard', session.report()['gates'])
+        self.assertTrue(any(n['kind']=='durable_stop' for n in notes))
+        self.assertNotEqual(final['health'], 'Healthy')
+
     def test_trades_end_to_end_and_reconciles_with_venue(self):
         adapter = FakeAdapter(submit_delay=0.2)
         session, final, notes, error, reconciled = run_session(adapter)
