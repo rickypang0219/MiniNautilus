@@ -194,6 +194,11 @@ class FakeLiveAdapter:
         self.forget_retired = forget_retired  # long probes: keep fake venue memory flat
         self.limit = len(prices) - 1 if candles is None else candles
         self.record_submits = record_submits  # tests assert on IDs; long probes stay flat
+        # One-shot faults armed by soaks: next submit late, next stream drop, next poll error.
+        self.delay_next_submit = 0.0
+        self.disconnect_next = False
+        self.fail_next_poll = False
+        self.resubmissions = 0
         self.lock = threading.Lock()
         self.orders, self.fills, self.submits, self.position = {}, {}, [], 0
         self.next_execution, self.cursor, self.streams, self.polls, self.reconciles = 0, 0, 0, 0, 0
@@ -213,6 +218,9 @@ class FakeLiveAdapter:
             while self.cursor < self.limit:
                 if disconnect_at is not None and self.cursor >= disconnect_at:
                     raise OSError('fake stream closed')
+                if self.disconnect_next:
+                    self.disconnect_next = False
+                    raise OSError('fake stream dropped')
                 time.sleep(self.pace)
                 self.cursor += 1
                 candle = self.candle(self.cursor)
@@ -260,8 +268,12 @@ class FakeLiveAdapter:
             self.submit_block.wait()
         if self.submit_delay:
             time.sleep(self.submit_delay)
+        if self.delay_next_submit:
+            delay, self.delay_next_submit = self.delay_next_submit, 0.0
+            time.sleep(delay)
         with self.lock:
             if intent['id'] in self.orders:
+                self.resubmissions += 1
                 raise AssertionError('blind resubmission reached the fake venue')
             self.orders[intent['id']] = dict(intent=intent, filled=0, lifecycle='Accepted')
 
@@ -282,6 +294,9 @@ class FakeLiveAdapter:
     def poll(self, snapshot):
         self.polls += 1
         if self.poll_fail_once_after is not None and self.polls == self.poll_fail_once_after:
+            raise OSError('fake private endpoint failure')
+        if self.fail_next_poll:
+            self.fail_next_poll = False
             raise OSError('fake private endpoint failure')
         reports = []
         with self.lock:

@@ -167,4 +167,34 @@ Probe (`ops/retention_probe.py`): TODO, results to follow.
 
 ## 5. Ledger (proposal §6)
 
-TODO: completed after the soak.
+| Item | Status | Evidence / reason |
+|---|---|---|
+| §2.1 decision table frozen | PASS | `docs/perf-thresholds.md` v1 at `b986486`, before the cohort |
+| NP0-AC1 clean source/receipt | PASS | `provenance.json` per run; dirty or receipt mismatch refused (`runtime_bench`, `sma_spot --receipt`) |
+| NP0-AC2 frozen manifest, 10 s warm-up / 60 s measure | PASS | `manifest-v1.json`; immediate, 20 ms and overload cases (1 s fault case: functional tests only) |
+| NP0-AC3 A/A ≥5, interleaved | PASS (measurement) | 46/48 stable; serial tick-to-effect p99 unstable, not usable for adoption |
+| NP0-AC4 correlated stages, no p99 subtraction | PASS | `orders.jsonl` per-request traces (`MINI_ORDER_TRACE`), unchanged harness |
+| NP0-AC5 keep failed runs, report all guardrails | PASS | overload run (exit 1) kept; all metrics in `compare-*.json` |
+| Common gate v0 absolute targets | **FAIL** | Rust request p99 4.6 ms vs 0.5 ms; serial-slow tick-to-effect 28 ms |
+| NP1-AC1 profile | PASS | py-spy steady-state, §1 |
+| NP1-AC2 ≤3 single-factor candidates | PASS (none adopted) | C1 bounded <1% by microbenchmark, not run (§1) |
+| NP1-AC3 new vs serial reference | PASS (reported) | `ab-serial-vs-actor-*.json`: guardrail FAIL persists in slow case |
+| NP1-AC4 runtime fault tests still pass | PASS | `tests/test_runtime.py` in every `VERIFY OK` |
+| NP1-AC5 actor stays opt-in | PASS | serial remains default; `--runtime actor` explicit |
+| NP2-AC1 ADR with trust contract | PASS | `docs/adr-live-rotation.md` §2, §5 |
+| NP2-AC2 terminal IDs not TTL-dropped; evidence missing fails closed | PASS | cold index; `Unavailable` gates (`corrupt_cold_index_fails_closed`) |
+| NP2-AC3 (replaced by §4.1 item 4) | see §4 | hot counts bounded N + open; RSS per segment reported, HWM not used |
+| NP2-AC4 replay oracle equality and crash points | PASS (scoped) | journaled verdicts replay without the cold file; crash after Closed/before successor; stray cold before Closed. Not covered: power-loss hardware, ENOSPC during cold write |
+| NP2-AC5 cold miss bounded | PASS | O(log n) positioned reads only for retired reports; no queue of lookups |
+| NP2-AC6 fast startup | PASS (scoped) | recovery replays the current segment only (§4 probe); this is the ADR trust contract, not a checkpoint of one long journal |
+| NP2b bounded hot state (now mandatory) | PASS (opt-in flag) | `--rotate-orders N`; without the flag history still grows |
+| NP3 durability candidates | DEFERRED | storage floor measured (gp3 fsync ≈ 2.5 ms of 4.6 ms p99); no candidate run: changing durability needs a design choice and NP0 shows the absolute target unreachable on gp3 without it |
+| NP4-AC1 bounds | PASS | coordinator bounds; one market thread, one poll worker, one venue worker; WS `max_queue=8` |
+| NP4-AC2 gap/duplicate/reconnect/late epoch/lost ACK fixtures | PASS | `tests/test_live_actor.py`, `tests/test_runtime.py` |
+| NP4-AC3 cancel ≠ external cancel; late result reconciled; no replacement while busy | PASS | `test_late_sdk_result_*`, `test_unresolved_venue_call_fails_closed_*` |
+| NP4-AC4 actor/serial state parity | PASS (existing) | `tests/test_runtime_parity.py` (offline); live parity is not claimed |
+| NP4-AC5 capability gaps listed | PASS | Binance adapter: REST polling for private state, local delivery sequence only, 4 req/s budget |
+| NP5-AC1 verify | PASS | `scripts/verify.sh` → `VERIFY OK` on each commit (one intermittent pre-existing timing test failure observed once, then 33/33 passes; not loosened) |
+| NP5-AC2 three 90-min offline fault soaks | DEFERRED | RV7 cohort (`c71ec6a`) is the latest; the coordinator is unchanged in this phase, the new runner is covered by fault tests and a Testnet soak |
+| NP5-AC4 ≥3 real rotation cycles | PASS | smoke 3, container probe 65 rotations |
+| G2 Testnet soak | TODO | §3 |
