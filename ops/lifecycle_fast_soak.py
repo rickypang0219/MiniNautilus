@@ -8,6 +8,8 @@ SDK deadline behavior is separately tested; it is never claimed recovered here.
 import argparse
 import asyncio
 from collections import Counter
+from contextlib import contextmanager
+import hashlib
 import json
 from pathlib import Path
 import random
@@ -20,7 +22,7 @@ from mininautilus.bridge import Engine,current_journal
 from mininautilus.audit import IncrementalAudit
 from mininautilus.evidence import verified_identity
 from mininautilus.live_actor import ActorSession
-from mininautilus.offline import FakeLiveAdapter,Input,PRICES
+from mininautilus.offline import FakeLiveAdapter,Input
 from mininautilus.sma import SmaStrategy
 
 FAULTS=('late_result','sdk_held','gap','overflow','writer_kill','executor_cancel','old_epoch')
@@ -30,28 +32,49 @@ class ObservedVenue(FakeLiveAdapter):
         super().__init__(**kwargs)
         self.cash = 0
         self.external_log = log
+        self.log_lock = threading.RLock()
+        self.producer_overruns = 0
+        self.producer_origin = None
+    @contextmanager
+    def stream(self):
+        def rows():
+            if self.producer_origin is None:
+                self.producer_origin = time.perf_counter() - self.cursor / 100
+            while True:
+                deadline = self.producer_origin + (self.cursor + 1) / 100
+                remaining = deadline - time.perf_counter()
+                if remaining > 0: time.sleep(remaining)
+                else: self.producer_overruns += 1
+                self.cursor += 1
+                candle = self.candle(self.cursor)
+                self.last_close = candle.close_ms
+                yield candle, time.perf_counter_ns()
+        yield rows()
     def submit(self, intent):
-        self.external_log.write(json.dumps(dict(kind='external_submit', monotonic_ns=time.monotonic_ns(), intent=dict(intent)))+'\n'); self.external_log.flush()
+        with self.log_lock:
+            self.external_log.write(json.dumps(dict(kind='external_submit', monotonic_ns=time.monotonic_ns(), intent=dict(intent)))+'\n'); self.external_log.flush()
         return super().submit(intent)
     def _fill(self, order):
-        super()._fill(order)
-        fill=self.fills[self.next_execution]
-        self.cash -= fill['qty']*fill['price']*(1 if order['intent']['side']=='Buy' else -1)
-        self.external_log.write(json.dumps(dict(kind='external_fill', monotonic_ns=time.monotonic_ns(), fill=fill, position=self.position, cash=self.cash))+'\n');self.external_log.flush()
+        with self.log_lock:
+            super()._fill(order)
+            fill=self.fills[self.next_execution]
+            self.cash -= fill['qty']*fill['price']*(1 if order['intent']['side']=='Buy' else -1)
+            self.external_log.write(json.dumps(dict(kind='external_fill', monotonic_ns=time.monotonic_ns(), fill=fill, position=self.position, cash=self.cash))+'\n');self.external_log.flush()
 
 async def execute(args,identity):
     args.run_dir.mkdir(parents=True,exist_ok=False)
     config=args.run_dir/'config.json'
     config.write_text(json.dumps(dict(max_abs_position=1,max_order_qty=1,max_order_notional=10**9,request_timeout_ms=30000,market_stale_ms=3000,private_stale_ms=30000,max_signal_lag=10)))
     external=(args.run_dir/'venue.jsonl').open('x')
-    adapter=ObservedVenue(external,pace=.01,prices=PRICES,candles=10**9,forget_retired=True)
+    adapter=ObservedVenue(external,pace=.01,prices=[100]*10+[101]*10,candles=10**9,forget_retired=True)
     rng=random.Random(args.seed)
     plan=[]
     for repetition in range(3):
         batch=list(FAULTS);rng.shuffle(batch)
         plan.extend(batch)
+    short_diagnostic = args.diagnostic and args.seconds < 900
     start=time.monotonic();deadline=start+args.seconds
-    next_fault=start+(2 if args.diagnostic else 60);armed=[];resume=[];notes=[];errors=[];phases=[];source_failures=[]
+    next_fault=start+(2 if short_diagnostic else 60);armed=[];resume=[];notes=[];errors=[];phases=[];source_failures=[]
     journal=args.run_dir/'events.jsonl';log=(args.run_dir/'lifecycle.jsonl').open('x');faultlog=(args.run_dir/'faults.jsonl').open('x')
     # notes are streamed; keep only currently unresolved fault and bounded totals.
     pending=None;generation=0;totals=Counter()
@@ -73,7 +96,7 @@ async def execute(args,identity):
             initial,origin=engine.state['now'],time.monotonic()
             now=lambda:initial+int((time.monotonic()-origin)*1000)
             audit=IncrementalAudit(1,long_only=True);audit.check(engine.state,None)
-            session=ActorSession(engine,adapter,SmaStrategy(2,3,1,'1s',long_only=True),identity=('fake','dedicated','TEST'),now=now,note=record,audit=audit,max_orders=10**9,poll_seconds=.01,execution_timeout=.5,quiescence_seconds=1,rotate_orders=200,paged_cold=True,reclaim_cold=True,reconcile_retry=lambda attempt:time.sleep(.1))
+            session=ActorSession(engine,adapter,SmaStrategy(3,8,1,'1s',long_only=True),identity=('fake','dedicated','TEST'),now=now,note=record,audit=audit,max_orders=10**9,poll_seconds=.01,execution_timeout=.5,quiescence_seconds=1,rotate_orders=200,paged_cold=True,reclaim_cold=True,reconcile_retry=lambda attempt:time.sleep(.1))
             if generation>1:session._reconcile()
             resume.append(dict(launch_ns=launch,enabled_ns=None,generation=generation))
             async def injector():
@@ -82,7 +105,7 @@ async def execute(args,identity):
                     await asyncio.sleep(.05)
                     c=session.coordinator
                     if len(armed)>=len(plan) or pending is not None or c is None or c.gated or c.closed or not session.availability.enabled or time.monotonic()<next_fault:continue
-                    kind=plan[len(armed)];pending=dict(fault_id=len(armed),kind=kind,injected_ns=time.monotonic_ns(),generation=generation);armed.append(dict(pending));next_fault=time.monotonic()+(1 if args.diagnostic else 30)
+                    kind=plan[len(armed)];pending=dict(fault_id=len(armed),kind=kind,injected_ns=time.monotonic_ns(),generation=generation);armed.append(dict(pending));next_fault=time.monotonic()+(1 if short_diagnostic else 30)
                     faultlog.write(json.dumps(dict(pending,stage='injected'))+'\n');faultlog.flush()
                     ident=dict(zip(('venue','account','instrument'),session.identity))
                     if kind=='late_result':adapter.delay_next_submit=1.2
@@ -136,7 +159,7 @@ async def execute(args,identity):
 
     counts=Counter(a['kind'] for a in armed)
     checks=dict(no_unexpected_error=not errors,no_unexpected_gates=not unexpected_gates,durable_submit_trace=not unproved,cash_matches= cash==adapter.cash,venue_position_matches=position==adapter.position,no_blind_resubmission=adapter.resubmissions==0 and len(adapter.submits)==len(set(adapter.submits)),final_reconciled=healthy,source_accounting=not source_failures,all_faults_three_times=all(counts[k]>=3 for k in FAULTS),all_faults_recovered=pending is None,minimum_submissions=totals['submissions']>=5000,minimum_rotations=totals['rotations']>=20,observation_complete=time.monotonic()-start>=args.seconds)
-    report=dict(schema='lc_evidence_v2_fast',scope='DIAGNOSTIC' if args.diagnostic else 'FAST_INTEGRATION',seed=args.seed,seconds=args.seconds,checks=checks,passed=all(checks.values()),errors=errors,totals=dict(totals),fault_counts=dict(counts),resumes=resume,position=position,venue_position=adapter.position,cash=cash,venue_cash=adapter.cash,unproved_external_submits=unproved,unexpected_gates=unexpected_gates,final_journal=final_journal,provenance=identity,limitations=['sdk_held is deliberately released after fail-closed; permanently blocked SDK tested separately','100 candles/s producer, SMA2/3 natural fake signals; not the W0 one-order-per-ten-input trace','Detailed resource acceptance requires external collector'],phases=phases)
+    report=dict(schema='lc_evidence_v2_fast',scope='DIAGNOSTIC' if args.diagnostic else 'FAST_INTEGRATION',seed=args.seed,seconds=args.seconds,producer_overruns=adapter.producer_overruns,logical_trace_sha256=hashlib.sha256(json.dumps([100]*10+[101]*10).encode()).hexdigest(),checks=checks,passed=all(checks.values()),errors=errors,totals=dict(totals),fault_counts=dict(counts),resumes=resume,position=position,venue_position=adapter.position,cash=cash,venue_cash=adapter.cash,unproved_external_submits=unproved,unexpected_gates=unexpected_gates,final_journal=final_journal,provenance=identity,limitations=['sdk_held is deliberately released after fail-closed; permanently blocked SDK tested separately','Absolute 100Hz deadlines and cyclic ten-bar long/flat targets, SMA3/8; recovery can reject queued inputs','Detailed resource acceptance requires external collector'],phases=phases)
     (args.run_dir/'summary.json').write_text(json.dumps(report,indent=2,allow_nan=False));print(json.dumps({k:report[k] for k in ('passed','errors','totals','fault_counts','checks')}));return 0 if report['passed'] else 1
 
 def main():

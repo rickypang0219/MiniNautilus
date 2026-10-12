@@ -2,6 +2,8 @@
 
 Created at: 2026-10-12T16:10:00+08:00. Status: approved for isolated Testnet current-segment startup and immutable-page root/path verification by explicit owner reply on 2026-10-12; see adr-cold-pages-v2.md. This approval does not waive acceptance gates or authorize mainnet.
 
+## Historical LC-v1 decision context (superseded by the approval below)
+
 The existing `b0223f3` rotation implementation validates only the current journal
 at startup and the complete current cold index at first use. No explicit owner
 approval of this departure from pre-Runtime-v2 full-history validation has been
@@ -33,3 +35,16 @@ comparison. That change is not implemented or approved by this record.
 Offline fault experiments remain permitted. Testnet rotation adoption stays
 BLOCKED until the contract choice is explicitly recorded; ordinary compatible
 code, offline measurements and safety testing continue.
+
+
+## Current decision
+
+The owner explicitly approved current-segment startup and immutable-page
+root/path verification for isolated Testnet: “做先，如果差異大性能下降的話我們之後再switch back”.
+The preceding question described publication verification, durable-root startup,
+visited-page checks and delayed discovery of unvisited damage. See
+`adr-cold-pages-v2.md` and `comparisons/runtime-v2/lifecycle-fast-approval.json`.
+The earlier BLOCKED statements above record LC-v1's status at that time; they
+are not the current permission state. Defaults still fully verify cold indexes;
+Testnet rollout additionally requires LC-v2 short gates. Mainnet remains outside
+scope. No performance or integrity gate is waived by this approval.

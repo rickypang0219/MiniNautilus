@@ -143,14 +143,18 @@ outcome in `docs/deep-dive-20261011.md`.
 Durability depends on filesystem/device sync semantics; no power-loss hardware
 test has been performed. Filesystem calls have been exercised on macOS.
 
-LC review notes: live rotation's current-segment/first-use integrity contract is
-an explicit owner decision, not implicitly approved by an opt-in feature or prior
-Testnet run. See [the decision record](adr-lifecycle-contract-decision.md). Streaming
-cold merge retains the MNCOLD01 format and complete checksum verification; working
-memory is bounded but total reads/writes remain O(retired history). Optional cold
-reclamation only removes the immediate superseded generation after publication and
-successor verification. Shared reader locks prevent reclaiming pinned files; old
-journals remain. Historical `verify-cold` on a reclaimed generation is unavailable.
+LC-v2 adds explicit opt-in immutable paged cold indexes, with legacy MNCOLD01
+remaining the default and readable. See [the format ADR](adr-cold-pages-v2.md).
+The owner approved isolated Testnet current-segment startup and root/visited-page
+verification; unvisited corruption can be discovered later. Known cold damage
+latches a durable integrity-stop marker until a full verified repair. Complete
+cold verification remains the default and the explicit `verify-cold` scrub.
+A durable retirement catalogue retries pinned generations; shared immutable pages
+are reclaimed only after all store reader leases are gone. Budget/debt admission
+can refuse publication. Journals and unregistered orphan pages are never guessed
+safe to delete. Migration/export are verified offline primitives; exchanging an
+old binary alone is not a safe rollback after v2 writes. Performance and Testnet
+acceptance remain separate from permission and implementation completeness.
 
 ## Recovery
 

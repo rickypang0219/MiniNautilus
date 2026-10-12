@@ -21,7 +21,11 @@ fn lock(directory: &Path, exclusive: bool) -> io::Result<File> {
         .write(true)
         .create(true)
         .truncate(false)
-        .open(directory.join(".cold-gc.lock"))?;
+        .open(directory.join(if exclusive {
+            ".cold-retirement.lock"
+        } else {
+            ".cold-gc.lock"
+        }))?;
     if exclusive {
         f.try_lock().map_err(io::Error::other)?;
     } else {
@@ -49,6 +53,7 @@ pub struct Report {
     pub pages_removed: u64,
     pub pinned_roots: u64,
     pub logical_write_bytes: u64,
+    pub page_readers_present: bool,
 }
 fn load(directory: &Path) -> io::Result<Option<Catalogue>> {
     let p = directory.join(".cold-retirement-v1.json");
@@ -126,12 +131,14 @@ pub fn register_and_sweep_with(
     }
     // Validate outside exclusive registration lock to avoid lock inversion.
     let current_index = ColdIndex::open_with(directory, current, verification)?;
-    let magic = fs::read(directory.join(&current.file))?;
-    let pages = if magic.starts_with(b"{") {
+    let mut magic = [0_u8; 8];
+    File::open(directory.join(&current.file))?.read_exact(&mut magic)?;
+    let pages = if magic[0] == b'{' {
         crate::cold_pages::retired_pages(directory, previous, current)?
     } else {
         Vec::new()
     };
+    drop(current_index);
     let _guard = lock(directory, true)?;
     let mut c = load(directory)?.unwrap_or(Catalogue {
         current: previous.clone(),
@@ -153,7 +160,6 @@ pub fn register_and_sweep_with(
         logical_write_bytes: save(directory, &c)?,
         ..Report::default()
     };
-    drop(current_index); // no longer needed; durable root validated above
     sweep_locked(directory, &mut c, &mut report)?;
     Ok(report)
 }
@@ -167,14 +173,27 @@ pub fn retry_with(
     verification: crate::cold_pages::Verification,
 ) -> io::Result<Report> {
     let verified = ColdIndex::open_with(directory, current, verification)?;
-    let _guard = lock(directory, true)?;
-    let Some(mut c) = load(directory)? else {
+    let parent = verified.publication_parent();
+    drop(verified);
+    let guard = lock(directory, true)?;
+    let catalogue = load(directory)?;
+    let previous = match &catalogue {
+        Some(c) if c.current != *current => {
+            if parent.as_ref() != Some(&c.current) {
+                return Err(bad("stale cold GC caller or unsupported missing lineage"));
+            }
+            Some(c.current.clone())
+        }
+        None => parent,
+        _ => None,
+    };
+    if let Some(previous) = previous {
+        drop(guard);
+        return register_and_sweep_with(directory, &previous, current, verification);
+    }
+    let Some(mut c) = catalogue else {
         return Ok(Report::default());
     };
-    if c.current != *current {
-        return Err(bad("stale cold GC caller"));
-    }
-    drop(verified);
     let mut report = Report::default();
     sweep_locked(directory, &mut c, &mut report)?;
     Ok(report)
@@ -200,7 +219,15 @@ fn sweep_locked(directory: &Path, c: &mut Catalogue, r: &mut Report) -> io::Resu
     }
     // Conservative sharing policy: no replaced pages until every retired pin is gone.
     // Current readers reference no replaced page. No historical graph scan is needed.
-    if retained.is_empty() {
+    let page_guard = OpenOptions::new()
+        .read(true)
+        .write(true)
+        .create(true)
+        .truncate(false)
+        .open(directory.join(".cold-gc.lock"))?;
+    let readers_absent = page_guard.try_lock().is_ok();
+    r.page_readers_present = !readers_absent;
+    if retained.is_empty() && readers_absent {
         for h in &c.retired_pages {
             let path = directory
                 .join(".cold-pages-v2")

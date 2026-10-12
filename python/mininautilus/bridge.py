@@ -216,6 +216,9 @@ class Engine:
         self.journal = str(Path(successor).resolve())
         return effects
 
+    def flush(self):
+        return self._roundtrip(self._encode({"at": self.state["now"], "sync_only": True}))
+
     def retry_cold_gc(self):
         return self._roundtrip(self._encode({"at": self.state["now"], "retry_cold_gc": True}))
 

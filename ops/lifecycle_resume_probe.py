@@ -36,7 +36,7 @@ def main():
    def note(kind,**data):
     if kind=='risk_admission' and data['enabled'] and not ready:ready.append(data['monotonic_ns'])
     if kind=='reconciled':phases.append(time.monotonic_ns())
-   session=ActorSession(engine,adapter,SmaStrategy(2,3,1,'1s',long_only=True),identity=('fake','dedicated','TEST'),now=lambda:initial+int((time.monotonic()-origin)*1000),note=note,lots=1,max_orders=10**9,poll_seconds=.01)
+   session=ActorSession(engine,adapter,SmaStrategy(3,8,1,'1s',long_only=True),identity=('fake','dedicated','TEST'),now=lambda:initial+int((time.monotonic()-origin)*1000),note=note,lots=1,max_orders=10**9,poll_seconds=.01)
    session._reconcile();asyncio.run(session.run(.2));reconciled=session.close(reconcile=True)
    if not reconciled or engine.state['position']!=adapter.position:raise ValueError('full runner venue oracle mismatch')
    rows.append(dict(repetition=rep,launch_ns=start,engine_ready_ns=engine_ready,reconciled_ns=phases[0] if phases else None,eligible_quote_ns=ready[0] if ready else None,engine_startup_ms=(engine_ready-start)/1e6,full_resume_ms=(ready[0]-start)/1e6 if ready else None,position=engine.state['position'],venue_position=adapter.position,copy=copy.name))

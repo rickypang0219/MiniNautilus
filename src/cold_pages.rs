@@ -87,6 +87,7 @@ pub struct Index {
     root: Root,
     reference: ColdRef,
     _pin: File,
+    _store_reader: File,
     stats: Cell<Stats>,
 }
 impl Index {
@@ -99,9 +100,14 @@ impl Index {
             return Err(bad("invalid cold root filename"));
         }
         let registration = crate::cold_gc::registration(directory)?;
+        if !fs::symlink_metadata(directory.join(".cold-pages-v2"))?
+            .file_type()
+            .is_dir()
+        {
+            return Err(bad("cold page store must be a real directory"));
+        }
         let mut pin = File::open(directory.join(&reference.file))?;
         pin.try_lock_shared().map_err(io::Error::other)?;
-        drop(registration);
         if pin.metadata()?.len() > 65536 {
             return Err(bad("oversized cold root"));
         }
@@ -122,6 +128,7 @@ impl Index {
             root,
             reference: reference.clone(),
             _pin: pin,
+            _store_reader: registration,
             stats: Cell::new(Stats {
                 logical_read_bytes: bytes.len() as u64,
                 ..Stats::default()
@@ -263,6 +270,10 @@ impl Index {
             price: r[3] as i64,
         }))
     }
+    pub(crate) fn publication_parent(&self) -> Option<ColdRef> {
+        self.root.parent.clone()
+    }
+
     pub fn stats(&self) -> Stats {
         self.stats.get()
     }
@@ -404,6 +415,13 @@ pub fn extend(
     orders: &[RetiredOrder],
     fills: &[Fill],
 ) -> io::Result<(ColdRef, Stats)> {
+    let name = path
+        .file_name()
+        .and_then(|n| n.to_str())
+        .ok_or_else(|| bad("invalid cold root filename"))?;
+    if name.starts_with('.') {
+        return Err(bad("cold root must be a plain filename"));
+    }
     if orders.len() > 10000
         || fills.len() > 10000
         || orders.windows(2).any(|w| w[0].id >= w[1].id)
@@ -422,7 +440,15 @@ pub fn extend(
     {
         return Err(bad("cold tree update requires same directory"));
     }
-    fs::create_dir_all(directory.join(".cold-pages-v2"))?;
+    let store = directory.join(".cold-pages-v2");
+    match fs::create_dir(&store) {
+        Ok(()) => {}
+        Err(e) if e.kind() == io::ErrorKind::AlreadyExists => {}
+        Err(e) => return Err(e),
+    }
+    if !fs::symlink_metadata(&store)?.file_type().is_dir() {
+        return Err(bad("cold page store must not be a symlink"));
+    }
     let mut writer = Writer {
         directory,
         source: previous,

@@ -60,7 +60,7 @@ class ActorSession:
                  execution_timeout=10.0, quiescence_seconds=60.0, poll_seconds=1.0,
                  market_errors=MARKET_ERRORS, reconcile_attempts=3, reconcile_retry=None,
                  coordinator_options=None, drills=(), rotate_orders=None, max_rotation_delay=60.0,
-                 heartbeat_seconds=5.0, reclaim_cold=False, rotate_bytes=8*1024*1024, disk_headroom_guard=True, paged_cold=False):
+                 heartbeat_seconds=5.0, reclaim_cold=False, rotate_bytes=8*1024*1024, disk_headroom_guard=True, paged_cold=False, max_hot_fills=10000):
         self.engine, self.adapter, self.strategy = engine, adapter, strategy
         self.availability = AdmissionClock(note)
         self.rotation_started_ns = None
@@ -78,6 +78,8 @@ class ActorSession:
         # Live retention (docs/adr-live-rotation.md): soft trigger N, hard limit 2N.
         if rotate_orders is not None and (rotate_orders < 1 or paper):
             raise ValueError('live rotation needs a positive order count and a live venue')
+        if max_hot_fills<1:raise ValueError("positive hot fill cap required")
+        self.max_hot_fills = max_hot_fills
         self.paged_cold = paged_cold
         self.next_gc_retry = time.monotonic()
         self.rotate_orders, self.max_rotation_delay = rotate_orders, max_rotation_delay
@@ -111,6 +113,12 @@ class ActorSession:
 
     # ---- writer thread (owns Engine, strategy and audit) -------------------------------
     def _send(self, event, **timing):
+        incoming = event.get('Execution', {}).get('report') if isinstance(event, dict) else None
+        if isinstance(incoming, dict) and 'Fill' in incoming and len(self.engine.state['fills']) >= self.max_hot_fills and incoming['Fill']['order_id'] > self.engine.state.get('id_floor', 0):
+            self.fatal = 'hot_fill_limit'
+            self.engine.send(self.now(), 'Disconnect')
+            self._admission_update('hot_fill_limit')
+            raise FailClosed('hot_fill_limit')
         effects = self.engine.send(self.now(), event, **(self.adapter.timing(event) | timing))
         if self.audit is not None:
             self.audit.check(self.engine.state, self.engine.last_change)
@@ -119,6 +127,13 @@ class ActorSession:
         for key, fill in change.get('fills', {}).items():
             self.fills_by_order.setdefault(str(fill['order_id']), set()).add(key)
             self.counters['fills_applied'] += 1
+        incoming_fill = isinstance(event,dict) and 'Execution' in event and isinstance(event['Execution'].get('report'),dict) and 'Fill' in event['Execution']['report']
+        if incoming_fill and len(self.engine.state['fills']) >= self.max_hot_fills:
+            self.fatal = 'hot_fill_limit'
+            self.engine.send(self.now(), 'Disconnect')
+            if self.audit is not None:self.audit.check(self.engine.state,self.engine.last_change)
+            self._admission_update('hot_fill_limit')
+            raise FailClosed('hot_fill_limit')
         self._admission_update('writer_state')
         return effects
 
@@ -129,6 +144,7 @@ class ActorSession:
         fresh = (quote is not None and 0 <= state['now']-quote[2] <= config['market_stale_ms']
                  and 0 <= state['now']-state['last_private_at'] <= config['private_stale_ms'])
         enabled = (state['health'] == 'Healthy' and not state.get('killed', False)
+                   and len(state['fills']) < self.max_hot_fills
                    and fresh and self.strategy.ready
                    and self.rotation_pending_since is None
                    and (self.coordinator is None or not self.coordinator.gated))
@@ -254,6 +270,9 @@ class ActorSession:
             self._send('Reconnect')
             try:
                 snapshot = self.adapter.reconcile(self.engine.state)
+                if len(snapshot['fills']) > self.max_hot_fills:
+                    self.fatal = 'hot_fill_limit'
+                    raise FailClosed('reconciliation_exceeds_hot_fill_limit')
                 self._send({'Reconcile': snapshot})
                 if self.engine.state['health'] != 'Healthy':
                     raise RuntimeError('Rust rejected reconciliation')
@@ -446,9 +465,15 @@ class ActorSession:
             await asyncio.sleep(0.05)
 
     def _stop_marker(self, reason):
+        journal_flush = None
+        if self.engine.process.poll() is None:
+            try:
+                self.engine.flush(); journal_flush = True
+            except (OSError, RuntimeError, ValueError):
+                journal_flush = False
         import uuid
         path = Path(self.engine.journal).parent / f'stop-{uuid.uuid4().hex}.json'
-        publish_sidecar(path, dict(reason=reason, observed_seq=self.engine.state['seq'],
+        publish_sidecar(path, dict(reason=reason, journal_flush=journal_flush, observed_seq=self.engine.state['seq'],
                                    epoch=self.engine.state['epoch'], killed=self.engine.state['killed']))
         self.note('durable_stop', reason=reason, file=path.name, monotonic_ns=time.perf_counter_ns())
 
@@ -601,6 +626,10 @@ class ActorSession:
         self.started = time.monotonic()
         deadline = self.started + seconds
         try:
+            if len(self.engine.state['fills']) >= self.max_hot_fills:
+                self.fatal = 'hot_fill_limit'
+                await self._on_writer(self._send, 'Disconnect')
+                raise FailClosed('hot_fill_limit')
             while time.monotonic() < deadline:
                 if await self._segment(deadline):
                     await self._on_writer(self._reconcile)

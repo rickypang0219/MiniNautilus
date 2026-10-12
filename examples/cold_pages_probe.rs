@@ -123,6 +123,7 @@ fn main() -> io::Result<()> {
     let pinned = pins.len();
     let steady = allocated(d)?;
     drop(pins);
+    drop(path);
     let gc = cold_gc::retry_with(d, &r, Verification::PathVerified)?;
     Index::open(d, &r, Verification::Full)?.verify()?;
     let status = fs::read_to_string("/proc/self/status")?;

@@ -159,3 +159,42 @@ only task-owned local derived copies. No source/evidence may be overwritten.
 The raw recorder is a prototype: complete LC0 receipt/schema validation and W0
 host-gate qualification are still required. Short native probe results do not
 certify full actor CPU, memory or trade-enabled availability.
+
+
+## LC-v2 immutable page candidate
+
+Use `--cold-format pages --cold-verify pages --rotation-trust-contract
+current-segment-v1` only with the approved isolated Testnet actor profile and
+its release receipt. Legacy writes and full cold verification remain defaults.
+The approval is in `adr-cold-pages-v2.md`; it does not mean numerical acceptance
+has passed. `--reclaim-cold` now uses a durable retry catalogue (one-second actor
+retry), reader lifetime leases and publication budget admission. Retired pages
+remain while any paged reader exists. Release readers to let GC make progress;
+never forcibly delete their files. Unknown orphan/migration files are preserved.
+
+`mininautilus verify-cold CURRENT_JOURNAL` scrubs the complete current index.
+A known corrupt/missing index leaves `.cold-integrity-stop-*`; reconciliation
+cannot erase it. Restore verified evidence and let full verification clear the
+marker. Never manually remove it to permit trading. `export-cold CURRENT_JOURNAL
+UNUSED_OUTPUT.cold` makes a full verified legacy export, without rebinding the
+journal. Offline migration/export are not an automatic live rollback facility.
+
+The actor enforces a 10,000 hot-fill hard cap and fails closed at the cap,
+preserving fills and reservations. A stop sidecar reports whether journal flush
+succeeded; observed sequence alone is not a durable-sequence guarantee.
+
+For process-crash matrices use `cargo test --features fault-injection --test
+live_rotation -- --test-threads=1`. Process spawning in parallel can temporarily
+inherit another test's open journal lock before exec; the ordinary parallel
+suite and serialized crash suite are distinct results. All assertions and all
+crash repetitions still run. This tests process death, not physical power loss.
+
+Use a fresh named directory for `ops/lifecycle_fast_soak.py --seconds 900`.
+`--diagnostic` labels a development result; at 900s its fault schedule still starts
+at 60s with at least 30s spacing. Short diagnostic schedules are accelerated and
+cannot pass formal fault coverage. Full resume uses SMA3/8 and an eight-bar ring.
+
+Before handing the Tokyo host back: archive all task-owned run data, download
+and verify archive SHA, stop only task-owned processes, restore the captured
+original checkout, binary and receipt, then verify the original binary hash and
+idle state. Existing stack, networking and unrelated data must be preserved.

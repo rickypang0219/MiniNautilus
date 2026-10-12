@@ -30,6 +30,8 @@ struct Request {
     #[serde(default)]
     retry_cold_gc: bool,
     #[serde(default)]
+    sync_only: bool,
+    #[serde(default)]
     event: Option<Event>,
     #[serde(default)]
     events: Vec<Event>,
@@ -373,6 +375,21 @@ fn serve(mut engine: Backend, simulate: bool) -> Result<(), Box<dyn std::error::
         let started = std::time::Instant::now();
         let mut request: Request = serde_json::from_str(&line)?;
         let rotated = request.rotate_to.is_some();
+        if request.sync_only {
+            if rotated
+                || request.retry_cold_gc
+                || request.event.is_some()
+                || !request.events.is_empty()
+                || !request.batch.is_empty()
+                || request.time.is_some()
+                || simulate
+            {
+                return Err("sync requires isolated durable request".into());
+            }
+            if let Backend::Durable(writer) = &mut engine {
+                writer.sync()?;
+            }
+        }
         if request.paged_cold && (!rotated || simulate) {
             return Err("paged cold requires isolated live rotation".into());
         }
@@ -386,7 +403,7 @@ fn serve(mut engine: Backend, simulate: bool) -> Result<(), Box<dyn std::error::
             {
                 return Err("GC retry requires an isolated live request".into());
             }
-            if let Backend::Durable(writer) = &engine {
+            if let Backend::Durable(writer) = &mut engine {
                 writer.retry_cold_reclamation()?;
             }
         }

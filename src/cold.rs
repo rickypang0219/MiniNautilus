@@ -400,6 +400,10 @@ impl ColdIndex {
         })
     }
 
+    pub(crate) fn publication_parent(&self) -> Option<ColdRef> {
+        self.paged.as_ref().and_then(|p| p.publication_parent())
+    }
+
     pub(crate) fn is_paged(&self) -> bool {
         self.paged.is_some()
     }

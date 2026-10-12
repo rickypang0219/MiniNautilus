@@ -300,3 +300,15 @@ class LiveRetentionTests(unittest.TestCase):
 
 if __name__ == '__main__':
     unittest.main()
+
+class HotFillLimitTests(unittest.TestCase):
+    def test_fill_cap_keeps_applied_dedup_and_stops_risk(self):
+        adapter=FakeAdapter(prices=PRICES*10,candles=10000)
+        session,final,notes,error,reconciled=run_session(adapter,seconds=.8,max_hot_fills=1)
+        self.assertEqual(session.fatal,'hot_fill_limit')
+        self.assertIsNotNone(error)
+        self.assertFalse(reconciled)
+        self.assertTrue(session.fail_closed)
+        self.assertEqual(final['position'],adapter.position)
+        self.assertLessEqual(session.report()['hot_now']['core_fills'],1)
+        self.assertEqual(len(adapter.submits),len(set(adapter.submits)))

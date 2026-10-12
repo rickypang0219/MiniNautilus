@@ -1,6 +1,6 @@
 # Immutable cold pages v2
 
-Created: 2026-10-12T20:25:00+08:00. Status: implementation candidate; owner approved root/path verification for isolated Testnet in this conversation (2026-10-12, Asia/Hong_Kong). Approval wording: “做先，如果差異大性能下降的話我們之後再switch back”. The preceding question stated the full unvisited-page detection window and current-segment startup scope. Performance adoption remains subject to evidence.
+Created: 2026-10-12T20:31:03+08:00. Status: implementation candidate; owner approved root/path verification for isolated Testnet in this conversation (2026-10-12, Asia/Hong_Kong). Approval wording: “做先，如果差異大性能下降的話我們之後再switch back”. The preceding question stated the full unvisited-page detection window and current-segment startup scope. Performance adoption remains subject to evidence.
 
 MNCOLD01 remains readable and the default writer. Candidate MNCOLD02 stores two
 immutable B+ trees (order ID, execution ID). Each 4096-byte page has a type, level,
@@ -44,3 +44,30 @@ reachability sweep is initially a correctness implementation, not a claim of
 constant-time maintenance. Production adoption requires measured bounded
 maintenance, catalogue retry and crash recovery. The implementation records replaced page hashes in the checksummed successor root; a durable catalogue carries this debt across generations. Conservative GC retains replaced pages while any retired generation is pinned, then retries disposal. Preflight rejects growth beyond the numerical disk/debt budget. Full reachability sweeps are not used on every rotation. This ADR does not approve page
 removal merely because a publication failed.
+
+
+Reader/GC locking uses two files. `.cold-retirement.lock` serializes catalogue
+mutations; each paged Index holds a shared `.cold-gc.lock` lease for its entire
+lifetime, including historical readers that were never in the catalogue. Page
+unlink requires an exclusive lease, so any reader conservatively defers all
+retired-page disposal. Root pins remain per-file. The engine drops its own cached
+Index before retrying collection. This prevents an old unregistered reader from
+losing shared pages after a later registered generation is reclaimed.
+
+A checksummed parent reference permits restart to repair one missed catalogue
+registration after durable successor publication. A larger unknown lineage gap
+fails closed; directory names are never used to infer ownership. Interrupted
+migration intermediates and unregistered orphan pages are preserved for operator
+inspection and remain included in disk accounting.
+
+Known unavailable cold evidence creates a synced integrity-stop marker. Restart,
+reconciliation and new-risk admission require a complete successful verification
+before that marker can be removed. The approved unvisited-page detection window
+does not allow a known corruption to be forgotten by restarting or reconciling.
+`verify-cold` provides explicit full scrub; there is no periodic scrub scheduler.
+
+`export-cold JOURNAL OUTPUT.cold` produces a fully verified MNCOLD01 export,
+without changing the authoritative journal reference. It is an inspection/rebuild
+primitive, not an automatic old-binary rollback: rebinding a live journal to an
+exported root is not implemented. Stop executors and preserve uncertainty before
+any operator migration or rollback. Live legacy-to-v2 adoption is not automatic.

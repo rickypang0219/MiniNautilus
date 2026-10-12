@@ -204,3 +204,51 @@ fn corrupted_retirement_catalogue_refuses_gc_and_preserves_current() {
     assert!(Index::open(&d, &r, Verification::Full).is_ok());
     fs::remove_dir_all(d).unwrap();
 }
+
+#[test]
+fn unregistered_old_reader_prevents_reclamation_of_shared_pages() {
+    let d = dir();
+    let (o, f) = rows(1, 120);
+    let (r0, _) = cold_pages::extend(&d.join("g0.cold"), None, &o, &f).unwrap();
+    let unregistered = Index::open(&d, &r0, Verification::PathVerified).unwrap();
+    let (o, f) = rows(121, 100);
+    let (r1, _) = cold_pages::extend(&d.join("g1.cold"), Some(&unregistered), &o, &f).unwrap();
+    let old = Index::open(&d, &r1, Verification::PathVerified).unwrap();
+    let (o, mut f) = rows(221, 1);
+    f[0].execution_id = 1;
+    let (r2, _) = cold_pages::extend(&d.join("g2.cold"), Some(&old), &o, &f).unwrap();
+    drop(old);
+    let report =
+        mininautilus::cold_gc::register_and_sweep_with(&d, &r1, &r2, Verification::PathVerified)
+            .unwrap();
+    assert!(report.page_readers_present);
+    assert_eq!(report.pages_removed, 0);
+    assert_eq!(unregistered.fill(2).unwrap().unwrap().order_id, 1);
+    drop(unregistered);
+    let report = mininautilus::cold_gc::retry_with(&d, &r2, Verification::PathVerified).unwrap();
+    assert!(report.pages_removed > 0);
+    Index::open(&d, &r2, Verification::Full).unwrap();
+    fs::remove_dir_all(d).unwrap();
+}
+
+#[test]
+fn committed_successor_repairs_catalogue_gap_after_publication_crash() {
+    let d = dir();
+    let (o, f) = rows(1, 10);
+    let (r0, _) = cold_pages::extend(&d.join("g0.cold"), None, &o, &f).unwrap();
+    let old = Index::open(&d, &r0, Verification::PathVerified).unwrap();
+    let (o, f) = rows(11, 10);
+    let (r1, _) = cold_pages::extend(&d.join("g1.cold"), Some(&old), &o, &f).unwrap();
+    drop(old);
+    let report = mininautilus::cold_gc::retry_with(&d, &r1, Verification::PathVerified).unwrap();
+    assert_eq!(report.roots_removed, 1);
+    assert!(!d.join("g0.cold").exists());
+    let old = Index::open(&d, &r1, Verification::PathVerified).unwrap();
+    let (o, f) = rows(21, 10);
+    let (r2, _) = cold_pages::extend(&d.join("g2.cold"), Some(&old), &o, &f).unwrap();
+    drop(old);
+    mininautilus::cold_gc::retry_with(&d, &r2, Verification::PathVerified).unwrap();
+    assert!(!d.join("g1.cold").exists());
+    Index::open(&d, &r2, Verification::Full).unwrap();
+    fs::remove_dir_all(d).unwrap();
+}

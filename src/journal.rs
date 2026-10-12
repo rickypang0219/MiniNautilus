@@ -151,6 +151,7 @@ pub struct DurableEngine {
     /// Verified lazily on the first report about a retired order; never read by Core.
     cold: Option<ColdIndex>,
     cold_verification: crate::cold_pages::Verification,
+    cold_integrity_failed: bool,
 }
 
 impl DurableEngine {
@@ -173,6 +174,7 @@ impl DurableEngine {
             pending_bytes: 0,
             cold: None,
             cold_verification: crate::cold_pages::Verification::Full,
+            cold_integrity_failed: false,
         };
         engine.append(&Payload::Genesis {
             schema: 1,
@@ -215,7 +217,9 @@ impl DurableEngine {
             pending_bytes: 0,
             cold: None,
             cold_verification: crate::cold_pages::Verification::Full,
+            cold_integrity_failed: false,
         };
+        engine.revalidate_known_cold_damage()?;
         // A recovered local state is not proof of current venue state.
         engine.process(engine.core.now, Event::Disconnect)?;
         Ok(engine)
@@ -239,7 +243,46 @@ impl DurableEngine {
         Ok(())
     }
 
-    pub fn retry_cold_reclamation(&self) -> io::Result<crate::cold_gc::Report> {
+    fn integrity_marker(&self) -> Option<PathBuf> {
+        self.core.cold.as_ref().map(|r| {
+            self.journal_path
+                .parent()
+                .unwrap()
+                .join(format!(".cold-integrity-stop-{:016x}", r.checksum))
+        })
+    }
+    fn revalidate_known_cold_damage(&mut self) -> io::Result<()> {
+        let Some(marker) = self.integrity_marker() else {
+            return Ok(());
+        };
+        if self.cold_integrity_failed || marker.exists() {
+            let reference = self.core.cold.as_ref().unwrap();
+            let verified = ColdIndex::open(self.journal_path.parent().unwrap(), reference)?;
+            if marker.exists() {
+                fs::remove_file(&marker)?;
+                sync_parent(&marker)?;
+            }
+            self.cold = Some(verified);
+            self.cold_integrity_failed = false;
+        }
+        Ok(())
+    }
+    fn remember_cold_damage(&mut self) -> io::Result<()> {
+        let Some(marker) = self.integrity_marker() else {
+            return Ok(());
+        };
+        self.cold_integrity_failed = true;
+        let file = OpenOptions::new()
+            .write(true)
+            .create(true)
+            .truncate(false)
+            .open(&marker)?;
+        file.sync_all()?;
+        sync_parent(&marker)
+    }
+
+    pub fn retry_cold_reclamation(&mut self) -> io::Result<crate::cold_gc::Report> {
+        self.cold = None; // release our own page-reader lease before sweeping
         match &self.core.cold {
             Some(r) => crate::cold_gc::retry_with(
                 self.journal_path.parent().unwrap(),
@@ -309,6 +352,15 @@ impl DurableEngine {
         time: Option<EventTime>,
         mut stages: Option<&mut Stages>,
     ) -> io::Result<Vec<Effect>> {
+        if matches!(
+            &event,
+            Event::Reconcile(_)
+                | Event::Submit(_)
+                | Event::SubmitTargeted { .. }
+                | Event::SetTarget(_)
+        ) {
+            self.revalidate_known_cold_damage()?;
+        }
         let clock = stages.as_ref().map(|_| std::time::Instant::now());
         let lap = |field: fn(&mut Stages) -> &mut u64, stages: &mut Option<&mut Stages>| {
             if let (Some(stages), Some(clock)) = (stages.as_deref_mut(), clock) {
@@ -409,6 +461,9 @@ impl DurableEngine {
                 .unwrap_or(RetiredVerdict::Unavailable),
             None => RetiredVerdict::Unavailable,
         };
+        if verdict == RetiredVerdict::Unavailable {
+            self.remember_cold_damage()?;
+        }
         Ok(Event::Execution {
             epoch,
             venue_seq,
@@ -501,6 +556,7 @@ impl DurableEngine {
         next.set_cold_verification(verification)?;
         if reclaim && let (Some(previous), Some(current)) = (previous_cold, next.core.cold.as_ref())
         {
+            next.cold = None;
             crate::cold_gc::register_and_sweep_with(
                 old.parent().unwrap(),
                 &previous,

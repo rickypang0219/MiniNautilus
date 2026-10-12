@@ -607,3 +607,81 @@ fn paged_publication_and_catalog_crashes_preserve_a_unique_state_or_fail_closed(
         }
     }
 }
+
+#[test]
+fn known_cold_corruption_cannot_be_cleared_by_reconciliation_or_restart() {
+    let (_, second, engine, at) = rotated_session("known-corruption-latch");
+    drop(engine);
+    let cold = second.with_file_name("events-1.jsonl.cold");
+    let original = fs::read(&cold).unwrap();
+    let mut corrupt = original.clone();
+    corrupt[30] ^= 1;
+    fs::write(&cold, corrupt).unwrap();
+    let mut engine = DurableEngine::recover(&second, None).unwrap();
+    reconcile(&mut engine, at);
+    report(&mut engine, at, Report::Fill(fill(2)));
+    assert_eq!(engine.core().health, Health::Reconciling);
+    let seq = engine.core().seq;
+    let snapshot = Reconciliation {
+        epoch: engine.core().epoch,
+        watermark: engine.core().venue_seq,
+        orders: vec![],
+        fills: vec![],
+        position: 0,
+        absent: vec![],
+    };
+    assert!(engine.process(at, Event::Reconcile(snapshot)).is_err());
+    assert_eq!(engine.core().seq, seq);
+    drop(engine);
+    assert!(DurableEngine::recover(&second, None).is_err());
+    fs::write(cold, original).unwrap();
+    let mut repaired = DurableEngine::recover(&second, None).unwrap();
+    reconcile(&mut repaired, at);
+    assert_eq!(repaired.core().health, Health::Healthy);
+    assert_eq!(repaired.core().position, 5);
+}
+
+#[test]
+fn visited_page_damage_latches_until_complete_verified_repair() {
+    use mininautilus::cold_pages::Verification;
+    let d = dir("paged-known-corruption");
+    let path = d.join("events.jsonl");
+    let mut engine = DurableEngine::create(&path, config()).unwrap();
+    engine
+        .set_cold_verification(Verification::PathVerified)
+        .unwrap();
+    let mut at = 0;
+    trade(&mut engine, &mut at, 1, 2);
+    reconcile(&mut engine, at);
+    let next = d.join("next.jsonl");
+    let engine = engine.rotate_into_retaining_paged(&next).unwrap();
+    let reference = engine.core().cold.clone().unwrap();
+    drop(engine);
+    let root: serde_json::Value =
+        serde_json::from_slice(&fs::read(d.join(reference.file)).unwrap()).unwrap();
+    let page = d.join(".cold-pages-v2").join(format!(
+        "{:016x}.page",
+        root["fills"]["hash"].as_u64().unwrap()
+    ));
+    let original = fs::read(&page).unwrap();
+    let mut corrupt = original.clone();
+    corrupt[70] ^= 1;
+    fs::write(&page, corrupt).unwrap();
+    let mut engine = DurableEngine::recover(&next, None).unwrap();
+    engine
+        .set_cold_verification(Verification::PathVerified)
+        .unwrap();
+    reconcile(&mut engine, at);
+    report(&mut engine, at, Report::Fill(fill(1)));
+    assert_eq!(engine.core().health, Health::Reconciling);
+    drop(engine);
+    assert!(DurableEngine::recover(&next, None).is_err());
+    fs::write(page, original).unwrap();
+    let mut engine = DurableEngine::recover(&next, None).unwrap();
+    engine
+        .set_cold_verification(Verification::PathVerified)
+        .unwrap();
+    reconcile(&mut engine, at);
+    assert_eq!(engine.core().health, Health::Healthy);
+    assert_eq!(engine.core().position, 2);
+}
