@@ -141,7 +141,8 @@ def main():
     args.run_dir.mkdir(parents=True, exist_ok=False)
     (args.run_dir/'provenance.json').write_text(json.dumps(identity, indent=2))
     baseline = args.minutes if args.baseline_minutes is None else args.baseline_minutes
-    cases = [('rotating', args.rotate_orders, args.minutes)] + ([('baseline', None, baseline)] if baseline else [])
+    cases = ([('rotating', args.rotate_orders, args.minutes)] if args.minutes else []) + \
+        ([('baseline', None, baseline)] if baseline else [])
     results = {case: run(args.run_dir/case, minutes, rotate, args.binary, args.pace)
                for case, rotate, minutes in cases}
     (args.run_dir/'summary.json').write_text(json.dumps(results, indent=2))

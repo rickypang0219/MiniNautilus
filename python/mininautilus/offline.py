@@ -201,6 +201,7 @@ class FakeLiveAdapter:
         self.resubmissions = 0
         self.lock = threading.Lock()
         self.orders, self.fills, self.submits, self.position = {}, {}, [], 0
+        self.fills_by_order = {}  # poll is O(open orders), not O(venue history)
         self.next_execution, self.cursor, self.streams, self.polls, self.reconciles = 0, 0, 0, 0, 0
         self.last_close = 0
 
@@ -288,6 +289,7 @@ class FakeLiveAdapter:
         self.next_execution += 1
         fill = dict(execution_id=self.next_execution, order_id=intent['id'], qty=intent['qty'], price=intent['limit'])
         self.fills[self.next_execution] = fill
+        self.fills_by_order.setdefault(intent['id'], []).append(fill)
         order['filled'], order['lifecycle'] = intent['qty'], 'Filled'
         self.position += intent['qty'] * (1 if intent['side'] == 'Buy' else -1)
 
@@ -306,8 +308,8 @@ class FakeLiveAdapter:
                     continue
                 if order['lifecycle'] == 'Accepted' and self.auto_fill:
                     self._fill(order)
-                for fill in self.fills.values():
-                    if fill['order_id'] == int(oid) and str(fill['execution_id']) not in snapshot['fills']:
+                for fill in self.fills_by_order.get(int(oid), ()):
+                    if str(fill['execution_id']) not in snapshot['fills']:
                         reports.append({'Fill': fill})
                 if order['lifecycle'] == 'Canceled':
                     reports.append({'Canceled': {'id': int(oid), 'cumulative_filled': order['filled']}})
@@ -326,7 +328,7 @@ class FakeLiveAdapter:
         if self.forget_retired:
             with self.lock:
                 self.orders = {k: v for k, v in self.orders.items() if v['lifecycle'] == 'Accepted'}
-                self.fills = {}
+                self.fills, self.fills_by_order = {}, {}
             return
         self.retired |= set(self.orders)
 
@@ -351,7 +353,7 @@ class FakeLiveAdapter:
                 elif local['lifecycle'] == 'Rejected':
                     orders.append(dict(intent=local['intent'], filled=0, lifecycle='Rejected'))
             local = {int(oid) for oid in state['orders']}
-            fills = [f for f in self.fills.values() if f['order_id'] in local]
+            fills = [f for oid in sorted(local) for f in self.fills_by_order.get(oid, ())]
             position = sum(f['qty'] * (1 if self.orders[f['order_id']]['intent']['side'] == 'Buy' else -1)
                            for f in fills)  # relative to the segment's opening position
             return dict(epoch=state['epoch'], watermark=state['venue_seq'], orders=orders,
