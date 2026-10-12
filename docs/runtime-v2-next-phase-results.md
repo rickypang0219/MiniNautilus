@@ -14,7 +14,7 @@ external precondition is missing), TODO (not done). One section per outcome goal
 |---|---|
 | G1 trustworthy performance conclusions | **Measurement complete** on the deployment host: 4 cases × 5+5 interleaved A/A, steal ≤ 0.6%, CPU credits never fell. 46 of 48 case×metric rows were A/A-stable. Serial tick-to-effect p99 was unstable. **No optimisation was adopted.** The one profiled candidate was bounded below 1% by a microbenchmark and was not run. The v0 absolute targets still FAIL on this host (Rust request p99 4.6 ms against 0.5 ms). The actor CPU guardrail still FAILs in the slow-I/O case. |
 | G2 actor in the live runner | **PASS on the §3 acceptance items.** Offline fault tests pass (12 cases), and release provenance is enforced. The 95-minute Testnet soak placed 506 orders with 496 fills, ran 2 drills and 5 rotations with 0 REST errors, and its final reconciliation agreed with the venue. The absolute latency checks still FAIL (single run, limited by REST pacing). |
-| G3 bounded long-run resources | ADR answers §4.1 and §4.2. Live rotation with a cold dedup index is implemented and tested (Rust 7, Python 4). It was exercised on Testnet (3 rotations in the smoke). Probe results are in §4. |
+| G3 bounded long-run resources | **PASS (opt-in `--rotate-orders`).** The ADR answers §4.1 and §4.2, and live rotation keeps exact dedup in a cold index. Tests: Rust 7, Python 4 plus 3 offline 90-min soaks (≈ 160 rotations each). On Testnet: 5 rotations in 95 min and resume across the chain. On t4g.micro, hot orders stayed ≤ N + open, the Python RSS slope was 0.34 MiB/h over 30 min, and recovery took 8 ms vs 684 ms. The trust contract changed and needs the owner's review (§6). |
 
 ## 1. G1: measurement
 
@@ -217,7 +217,44 @@ Python coverage (`LiveRetentionTests`):
 - No barrier means the session stops without rotating.
 - Resume follows the rotation chain.
 
-Probe (`ops/retention_probe.py`): TODO, results to follow.
+**Probe** (`ops/retention_probe.py`).
+
+- Real release engine and the actor runner, with `FakeLiveAdapter` (no network).
+- Fake candles every 5 ms, about 1,000 orders/min.
+- Samples once per second, streamed to disk. The probe holds O(1) state: online slope and
+  per-minute maxima.
+- In the rotating case the fake venue forgets retired orders, so Python RSS measures the runner.
+- In the no-rotation case Python RSS includes the fake venue's own history.
+- Summaries are in `comparisons/results/retention-20261012/`.
+
+| Run | Host / commit | Orders | Rotations | Hot orders max | Python RSS (per-minute max) | Python slope after 60 s | Rust RSS | Recovery of final journal |
+|---|---|---|---|---|---|---|---|---|
+| Rotating N = 200, 30 min | EC2 t4g.micro / `6331a39` | 29,260 | 146 | 200 | 30.0 → peak 31.4 → 30.0 MB | **0.34 MiB/h** | 3.2–7.7 MB, slope −2.1 MiB/h | 8.2 ms (399 KB segment) |
+| No rotation (comparator) | EC2 / `80809a2` | 7,553 in 7.5 min | 0 | 7,551 | 31.4 → 58.8 MB | 241 MiB/h | 13.9 MiB/h | 684 ms (53.6 MB journal) |
+| Rotating N = 200, 20 min | container (4 vCPU) / `cee0fd3` | 26,093 | 130 | 200 | 29.7 → 31.3 MB | 3.8 MiB/h* | flat | 6.7 ms |
+
+\* This run still kept every sample in memory; that list alone accounts for about 1.8 MiB/h. It
+was fixed in `6331a39` before the EC2 run.
+
+**Verdicts against thresholds v1.**
+
+| Criterion | Result |
+|---|---|
+| Hot object counts | **PASS.** Bounded by N plus open orders, with no growth over 146 rotations. |
+| RSS slope ≤ 1 MiB/h | **PASS** on the deployment host: 0.34 MiB/h over 30 min. This is one run; it is not a proof of indefinitely bounded RSS. |
+| Recovery | **PASS** under the ADR trust contract: 8 ms for the current segment against 684 ms for one long journal. Archive validation moved to rotation time and the lazily checked cold index. |
+
+The no-rotation comparator failed closed twice on t4g.micro (after 209 s, and after 7.5 min
+once a fixture O(history) poll was fixed).
+
+- Mechanism: periodic writer stalls overflowed the 95-slot market lane, and repeated resyncs
+  exhausted the reconnect budget (`market_reconnect_budget_exhausted`).
+- That is the designed fail-closed path.
+- Cause of the stall: suspected to be heap-size-dependent pauses (for example full GC). Not
+  proven, and not pursued, because this is the comparator, not the candidate.
+
+`tracemalloc` after `gc.collect()` found no coordinator retained across 12 rotations. Remaining
+growth came from the bounded tick-to-submit deque and the fixture's submit log.
 
 ## 5. Ledger (proposal §6)
 
@@ -237,12 +274,12 @@ Probe (`ops/retention_probe.py`): TODO, results to follow.
 | NP1-AC5 actor stays opt-in | PASS | serial remains default; `--runtime actor` explicit |
 | NP2-AC1 ADR with trust contract | PASS | `docs/adr-live-rotation.md` §2, §5 |
 | NP2-AC2 terminal IDs not TTL-dropped; evidence missing fails closed | PASS | cold index; `Unavailable` gates (`corrupt_cold_index_fails_closed`) |
-| NP2-AC3 (replaced by §4.1 item 4) | see §4 | hot counts bounded N + open; RSS per segment reported, HWM not used |
+| NP2-AC3 (replaced by §4.1 item 4) | PASS (one run per host) | hot counts ≤ N + open over 146 rotations; Python RSS slope 0.34 MiB/h on t4g.micro over 30 min; HWM reported, not used as evidence |
 | NP2-AC4 replay oracle equality and crash points | PASS (scoped) | journaled verdicts replay without the cold file; crash after Closed/before successor; stray cold before Closed. Not covered: power-loss hardware, ENOSPC during cold write |
 | NP2-AC5 cold miss bounded | PASS | O(log n) positioned reads only for retired reports; no queue of lookups |
 | NP2-AC6 fast startup | PASS (scoped) | recovery replays the current segment only (§4 probe); this is the ADR trust contract, not a checkpoint of one long journal |
 | NP2b bounded hot state (now mandatory) | PASS (opt-in flag) | `--rotate-orders N`; without the flag history still grows |
-| NP3 durability candidates | DEFERRED | storage floor measured (gp3 fsync ≈ 2.5 ms of 4.6 ms p99); no candidate run: changing durability needs a design choice and NP0 shows the absolute target unreachable on gp3 without it |
+| NP3 durability candidates | DEFERRED (investigation only) | storage floor measured: journal_sync p99 4.97 ms on gp3 in the Testnet soak, full Rust request p99 4.6 ms in the cohort; no candidate run — every option changes the durability contract or the host (owner decision, §6); v0 0.5 ms stays FAIL |
 | NP4-AC1 bounds | PASS | coordinator bounds; one market thread, one poll worker, one venue worker; WS `max_queue=8` |
 | NP4-AC2 gap/duplicate/reconnect/late epoch/lost ACK fixtures | PASS | `tests/test_live_actor.py`, `tests/test_runtime.py` |
 | NP4-AC3 cancel ≠ external cancel; late result reconciled; no replacement while busy | PASS | `test_late_sdk_result_*`, `test_unresolved_venue_call_fails_closed_*` |
@@ -250,6 +287,30 @@ Probe (`ops/retention_probe.py`): TODO, results to follow.
 | NP4-AC5 capability gaps listed | PASS | Binance adapter: REST polling for private state, local delivery sequence only, 4 req/s budget |
 | NP5-AC1 verify | PASS | `scripts/verify.sh` → `VERIFY OK` on each commit (one intermittent pre-existing timing test failure observed once, then 33/33 passes; not loosened) |
 | NP5-AC2 three 90-min offline fault soaks | PASS (reliability only) | `ops/actor_soak.py`, seeds 7/17/29 concurrently at `c671a76` (clean, release receipt `4b8dc267…`): each 5,400 s, ≈ 32,200 orders, 160–161 rotations, 46–55 injected faults (late result 10–14, lost before send 9–13, poll failure 11–17, stream drop 10–13, drill 11–13); all checks pass — no error, shutdown reconciled, position = venue, no resubmission, only injected latch reasons. `comparisons/results/actor-soak-20261012/` |
-| NP5-AC4 ≥3 real rotation cycles | PASS | smoke 3, container probe 65 rotations |
+| NP5-AC4 ≥3 real rotation cycles, retained counts and RSS per segment | PASS | Testnet smoke 3, Testnet soak 5, EC2 probe 146, offline soaks 160–161 each; §4 |
 | G2 Testnet soak (§3 items 1–6) | PASS | §3; single run |
 | Soak absolute checks (Rust p99, IPC, tick-to-trade, healthy ≥ 99%) | FAIL | §3: storage floor, REST pacing, rotation barriers |
+
+## 6. Needs the owner's decision
+
+- **Architecture contract change.** `docs/architecture.md` previously said automatic live rotation
+  is refused. It now describes opt-in live rotation under the ADR.
+  - Startup validates only the current segment.
+  - Old segments are trusted via rotation-time validation and the checksummed cold index.
+  - The proposal (v1.2 §6) made live compaction conditional on §4.1/§4.2 being answered and
+    tested. That condition is met, but the trust contract itself changed.
+  - CLAUDE.md asks for explicit human approval of a weakened invariant. Please confirm or reject.
+    The feature is behind `--rotate-orders` and is off by default.
+- **v0 absolute targets.** Rust request p99 ≤ 0.5 ms is out of reach on gp3 with per-order fsync
+  (sync stage p99 ≈ 5 ms). Reaching it needs a durability or storage decision, such as a
+  non-burstable host with faster storage or group commit. Under thresholds v1 that host requires
+  your price approval.
+- **Actor CPU.** The slow-I/O guardrail (+25% per event, +15% per market input) is unresolved.
+  Reducing per-event thread and loop handoffs would mean batching, which ADR2 forbids. It needs a
+  design decision.
+- **Rotation barrier cost on Binance.** About 75 s gated per 100 orders, because REST
+  reconciliation runs at the fixed 0.25 s pacing. Options:
+  - a larger N;
+  - rotating only when flat or idle;
+  - WebSocket user-data reports, which change the adapter contract.
+- **EC2 host.** `i-015087878f29f14cd` is still running (≈ USD 12.69/month fixed).
