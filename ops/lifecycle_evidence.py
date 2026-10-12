@@ -218,6 +218,8 @@ def run(args):
         if args.engine_binary is None or args.engine_receipt is None:
             raise ValueError('fast evidence requires exact engine binary and release receipt')
         identity = verified_identity(ROOT,args.engine_binary,args.engine_receipt)
+        if identity['build'].get('source_dirty') or not identity['build'].get('source_commit'):
+            raise ValueError('fast receipt requires a clean, explicit build source commit')
         frozen = json.loads(Path(threshold).read_text())
         if frozen['threshold_version'] != 'LC-v2-fast':
             raise ValueError('wrong frozen threshold version')
@@ -234,6 +236,14 @@ def run(args):
         manifest.update(schema='lc_evidence_v2_fast',threshold_version='LC-v2-fast',engine_identity=identity,engine_receipt_sha256=sha(args.engine_receipt),harness_sha256=sha(Path(__file__)),trust_contract_id=args.trust_contract)
     binary = Path(command[0])
     manifest['command_binary_sha256'] = sha(binary) if binary.is_file() else None
+    if fast and binary.name not in ('python','python3'):
+        if args.command_receipt is None:raise ValueError('native command requires its own example receipt')
+        receipt=json.loads(args.command_receipt.read_text())
+        if receipt.get('profile')!='release' or receipt['binary_sha256']!=manifest['command_binary_sha256']:
+            raise ValueError('command binary receipt mismatch')
+        if any(not (ROOT/name).is_file() or sha(ROOT/name)!=value for name,value in receipt['inputs'].items()):
+            raise ValueError('command source receipt mismatch')
+        manifest.update(command_receipt=receipt,command_receipt_sha256=sha(args.command_receipt))
     with (d/'stdout.log').open('x') as out, (d/'stderr.log').open('x') as err, (d/'resources.jsonl').open('x') as log:
         usage_before = resource.getrusage(resource.RUSAGE_CHILDREN)
         process = subprocess.Popen(command, cwd=ROOT, stdout=out, stderr=err, start_new_session=True)
@@ -286,6 +296,7 @@ def main():
     r.add_argument('--threshold-manifest',type=Path)
     r.add_argument('--engine-binary',type=Path)
     r.add_argument('--engine-receipt',type=Path)
+    r.add_argument('--command-receipt',type=Path)
     r.add_argument('--trust-contract',default='full-cold-verification')
     r.add_argument('--interval', type=float, default=.1)
     r.add_argument('--cgroup')

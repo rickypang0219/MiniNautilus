@@ -49,7 +49,7 @@ def build_identity(root, binary):
 
 def write_receipt(root, binary, destination):
     identity = build_identity(root, binary)
-    receipt = dict(profile='release', build_command=['cargo', 'build', '--locked', '--release', '--bin', 'mininautilus'],
+    receipt = dict(source_commit=identity['commit'], source_dirty=identity['dirty'], profile='release', build_command=['cargo', 'build', '--locked', '--release', '--bin', 'mininautilus'],
                    features=[], rustc=command(root, 'rustc', '-Vv'),
                    rustflags=os.environ.get('RUSTFLAGS',''), encoded_rustflags=os.environ.get('CARGO_ENCODED_RUSTFLAGS',''),
                    profile_overrides={name:os.environ[name] for name in ('CARGO_PROFILE_RELEASE_OPT_LEVEL','CARGO_PROFILE_RELEASE_LTO','CARGO_PROFILE_RELEASE_CODEGEN_UNITS','CARGO_PROFILE_RELEASE_DEBUG_ASSERTIONS','CARGO_PROFILE_RELEASE_OVERFLOW_CHECKS','CARGO_PROFILE_RELEASE_PANIC') if name in os.environ},
