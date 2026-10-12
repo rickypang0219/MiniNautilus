@@ -52,7 +52,7 @@ class ActorSession:
                  order_ttl_ms=10_000, max_orders=6, paper=False, lots=1,
                  execution_timeout=10.0, quiescence_seconds=60.0, poll_seconds=1.0,
                  market_errors=MARKET_ERRORS, reconcile_attempts=3, reconcile_retry=None,
-                 coordinator_options=None):
+                 coordinator_options=None, drills=()):
         self.engine, self.adapter, self.strategy = engine, adapter, strategy
         self.identity, self.now, self.note, self.audit = tuple(identity), now, note, audit
         self.order_ttl_ms, self.max_orders, self.paper, self.lots = order_ttl_ms, max_orders, paper, lots
@@ -60,6 +60,8 @@ class ActorSession:
         self.poll_seconds, self.market_errors = poll_seconds, market_errors
         self.reconcile_attempts = reconcile_attempts
         self.coordinator_options = dict(coordinator_options or {})
+        # Operator recovery drills (seconds after start): latch, reconcile, restart.
+        self.drills = sorted(drills)
         self.reconcile_retry = reconcile_retry or (lambda attempt: time.sleep(2 ** attempt))
         self.writer = ThreadPoolExecutor(max_workers=1, thread_name_prefix='core-writer')
         self.poller = ThreadPoolExecutor(max_workers=1, thread_name_prefix='private-poll')
@@ -390,6 +392,11 @@ class ActorSession:
             while not coordinator.gated and not coordinator.closed and self.fatal is None:
                 if time.monotonic() >= deadline:
                     break
+                if self.drills and time.monotonic() - self.started >= self.drills[0]:
+                    self.drills.pop(0)
+                    self.counters['drills'] = self.counters.get('drills', 0) + 1
+                    coordinator.gate('recovery_drill')
+                    break
                 await asyncio.sleep(0.05)
         finally:
             writer_failure = coordinator.failure  # before abort() cancels the writer task
@@ -420,7 +427,8 @@ class ActorSession:
 
     async def run(self, seconds):
         self.loop = asyncio.get_running_loop()
-        deadline = time.monotonic() + seconds
+        self.started = time.monotonic()
+        deadline = self.started + seconds
         try:
             while time.monotonic() < deadline:
                 if await self._segment(deadline):

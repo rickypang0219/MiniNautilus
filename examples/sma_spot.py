@@ -94,7 +94,8 @@ def run_actor(args, engine, venue, strategy, ledger_audit, now, note, metadata, 
                                   validate=lambda intent: validate(venue, intent, args.max_notional))
     session = ActorSession(engine, adapter, strategy, identity=('binance-spot-testnet', metadata['session'], args.symbol),
                            now=now, note=note, audit=ledger_audit, order_ttl_ms=args.order_ttl * 1000,
-                           max_orders=args.max_orders, paper=args.mode == 'paper', lots=lots)
+                           max_orders=args.max_orders, paper=args.mode == 'paper', lots=lots,
+                           drills=args.recovery_drill)
     completed = reconciled = False
     try:
         if args.resume:
@@ -392,6 +393,8 @@ if __name__ == '__main__':
     p.add_argument('--metrics-port', type=int, help='expose Python metrics here and Rust metrics on PORT-1')
     p.add_argument('--sync', choices=['every', 'outbox'], default='every', help='journal sync policy (acceptance L3)')
     p.add_argument('--runtime', choices=['serial', 'actor'], default='serial', help='actor is opt-in and requires --receipt')
+    p.add_argument('--recovery-drill', type=float, action='append', default=[],
+                   help='actor only: seconds after start to latch, reconcile and restart (repeatable)')
     p.add_argument('--binary', type=Path, default=ROOT / 'target/debug/mininautilus')
     p.add_argument('--receipt', type=Path, help='release receipt (ops/runtime_bench.py --build); refuses a mismatched binary')
     a = p.parse_args()

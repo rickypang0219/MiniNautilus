@@ -271,6 +271,18 @@ class LiveActorFaultTests(unittest.TestCase):
         self.assertGreaterEqual(session.report()['gates'].get('delivery_uncertain', 0), 1)
         self.assertEqual(final['position'], adapter.position)
 
+    def test_recovery_drill_reconciles_and_trading_continues(self):
+        adapter = FakeAdapter(prices=PRICES*2)
+        session, final, notes, error, reconciled = run_session(adapter, seconds=4.0, drills=[1.0])
+        self.assertIsNone(error)
+        report = session.report()
+        self.assertEqual(report['drills'], 1)
+        self.assertEqual(report['gates'].get('recovery_drill'), 1)
+        self.assertGreaterEqual(report['reconciliations'], 2)  # drill + shutdown
+        self.assertGreaterEqual(report['coordinators'], 2)
+        self.assertEqual(len(adapter.submits), len(set(adapter.submits)))
+        self.assertEqual(final['position'], adapter.position)
+
 
 if __name__ == '__main__':
     unittest.main()
