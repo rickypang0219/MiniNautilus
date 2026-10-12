@@ -13,7 +13,7 @@ external precondition is missing), TODO (not done). One section per outcome goal
 | Goal | Result |
 |---|---|
 | G1 trustworthy performance conclusions | **Measurement complete** on the deployment host: 4 cases × 5+5 interleaved A/A, steal ≤ 0.6%, CPU credits never fell. 46 of 48 case×metric rows were A/A-stable. Serial tick-to-effect p99 was unstable. **No optimisation was adopted.** The one profiled candidate was bounded below 1% by a microbenchmark and was not run. The v0 absolute targets still FAIL on this host (Rust request p99 4.6 ms against 0.5 ms). The actor CPU guardrail still FAILs in the slow-I/O case. |
-| G2 actor in the live runner | Offline fault tests PASS (12 cases). Release provenance is enforced. The Testnet soak result is below (§3). |
+| G2 actor in the live runner | **PASS on the §3 acceptance items.** Offline fault tests pass (12 cases), and release provenance is enforced. The 95-minute Testnet soak placed 506 orders with 496 fills, ran 2 drills and 5 rotations with 0 REST errors, and its final reconciliation agreed with the venue. The absolute latency checks still FAIL (single run, limited by REST pacing). |
 | G3 bounded long-run resources | ADR answers §4.1 and §4.2. Live rotation with a cold dedup index is implemented and tested (Rust 7, Python 4). It was exercised on Testnet (3 rotations in the smoke). Probe results are in §4. |
 
 ## 1. G1: measurement
@@ -140,7 +140,58 @@ Release provenance:
 The smoke found one issue, now fixed in `2ffc97e`: an account request per candle on top of the
 quote and polling, against a 4 req/s budget.
 
-**90-minute soak.** `runs/live-actor-20261012`. TODO: filled in after the run.
+**90-minute soak.** `runs/live-actor-20261012`, single run.
+
+```
+ops/soak.py --minutes 95 -- examples/sma_spot.py --mode testnet --runtime actor \
+  --receipt target/runtime-v2-build.json --binary target/release/mininautilus \
+  --interval 1s --fast 3 --slow 8 --max-orders 100000 --order-ttl 10 --sync outbox \
+  --rotate-orders 100 --recovery-drill 1800 --recovery-drill 3600
+```
+
+| Item | Value |
+|---|---|
+| Source | `2ffc97e`, clean |
+| Binary | release receipt, sha256 `e8ab3699…1a11`; `provenance_complete: true` |
+| Archive | `runs/live-actor-20261012.tgz` in the stack bucket, sha256 `eabfbf0a…ef9f` |
+| In git | Summaries in `comparisons/results/live-actor-20261012/` |
+
+| §3 acceptance item | Result |
+|---|---|
+| 1. Existing Binance Testnet adapter; actor is opt-in | PASS: `--runtime actor`; serial stays the default |
+| 2. Release binary verified at start | PASS: receipt hash and Rust inputs matched; clean tree |
+| 3. ≥ 90 min with real orders and fills | PASS: 5,704 s, 5,251 closed candles, 506 orders (IDs 1–506, all unique), 496 fills, 11 cancels, 0 REST errors |
+| 4. Market data keeps flowing during slow execution; queues bounded | PASS: 11 market inputs were applied while a venue call was outstanding (out of 517 executions); input high-water 3, effects 1; WS event lag p99 48 ms |
+| 5. ≥ 1 recovery, no duplicate send, no unexplained uncertainty | PASS: 2 drills + 5 rotation barriers = 13 reconciliations across 8 coordinators; 0 reconciliation failures; 0 uncertain orders in the final segment |
+| 6. Final reconciliation agrees with the venue | PASS: shutdown reconcile left the engine Healthy at 100 lots with the base-balance identity verified. A later `--resume --reconcile-only` followed the 5-segment chain using the sidecar baseline and reconciled again |
+
+**Retention on Testnet.**
+
+- 5 rotations, each at 100 hot orders.
+- Core, mirror, audit and runner each held ≤ 100 hot orders; the final segment holds 6.
+- The cold index `events-5.jsonl.cold` (500 orders, 490 fills) passes `verify-cold`.
+- Each rotation barrier took about 75 s: the Binance REST reconcile of 100 orders at the fixed
+  0.25 s pacing.
+- As a result the engine was Healthy for 92.1% of the run. The soak's gate check (≥ 99%) FAILs.
+- Shutdown reconciliation of the final 6-order segment took about 7 s.
+
+**Observations, not performance claims.** This is one run, and the Rust provenance of the
+2026-10-11 serial run is incomplete.
+
+| Metric | Actor run | 2026-10-11 serial run |
+|---|---|---|
+| Tick-to-trade p50 / p99 | 37 / 484 ms | 500 / 990 ms |
+| Shutdown reconciliation | ≈ 7 s | 344 s |
+
+The soak's absolute checks:
+
+| Check | Value | Target | Status |
+|---|---|---|---|
+| Rust request p99 | 3.84 ms | 0.5 ms (v0) | FAIL |
+| IPC p99 | 4.05 ms | 2 ms | FAIL |
+| Tick-to-trade p99 | 484 ms | 5 ms | FAIL (REST pacing) |
+| Drift | 1.02 | < 2 | PASS |
+| REST errors | 0 | 0 | PASS |
 
 ## 4. G3: retention
 
@@ -155,6 +206,9 @@ ADR: [adr-live-rotation.md](adr-live-rotation.md). Rust coverage is in `tests/li
 | Forged verdicts | A caller-supplied `Retired` is refused |
 | Second rotation | The index is extended; rerunning after a crash between Closed and the successor is idempotent |
 | Stray cold file | Ignored |
+
+Offline fault soaks (§5 NP5-AC2) also ran live rotation throughout: 160–161 rotations per seed
+at N = 200 with hot orders ≤ 200.
 
 Python coverage (`LiveRetentionTests`):
 
@@ -195,6 +249,7 @@ Probe (`ops/retention_probe.py`): TODO, results to follow.
 | NP4-AC4 actor/serial state parity | PASS (existing) | `tests/test_runtime_parity.py` (offline); live parity is not claimed |
 | NP4-AC5 capability gaps listed | PASS | Binance adapter: REST polling for private state, local delivery sequence only, 4 req/s budget |
 | NP5-AC1 verify | PASS | `scripts/verify.sh` → `VERIFY OK` on each commit (one intermittent pre-existing timing test failure observed once, then 33/33 passes; not loosened) |
-| NP5-AC2 three 90-min offline fault soaks | DEFERRED | RV7 cohort (`c71ec6a`) is the latest; the coordinator is unchanged in this phase, the new runner is covered by fault tests and a Testnet soak |
+| NP5-AC2 three 90-min offline fault soaks | PASS (reliability only) | `ops/actor_soak.py`, seeds 7/17/29 concurrently at `c671a76` (clean, release receipt `4b8dc267…`): each 5,400 s, ≈ 32,200 orders, 160–161 rotations, 46–55 injected faults (late result 10–14, lost before send 9–13, poll failure 11–17, stream drop 10–13, drill 11–13); all checks pass — no error, shutdown reconciled, position = venue, no resubmission, only injected latch reasons. `comparisons/results/actor-soak-20261012/` |
 | NP5-AC4 ≥3 real rotation cycles | PASS | smoke 3, container probe 65 rotations |
-| G2 Testnet soak | TODO | §3 |
+| G2 Testnet soak (§3 items 1–6) | PASS | §3; single run |
+| Soak absolute checks (Rust p99, IPC, tick-to-trade, healthy ≥ 99%) | FAIL | §3: storage floor, REST pacing, rotation barriers |

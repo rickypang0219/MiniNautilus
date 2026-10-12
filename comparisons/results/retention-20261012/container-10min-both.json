@@ -1,0 +1,190 @@
+{
+  "rotating": {
+    "rotate_orders": 200,
+    "error": null,
+    "submissions": 13112,
+    "rotations": 65,
+    "hot_max": {
+      "core_orders": 200,
+      "core_fills": 200,
+      "audit_orders": 200
+    },
+    "journal": "events-65.jsonl",
+    "journal_bytes": 636530,
+    "recovery_ms": 11.3,
+    "slope_mib_per_hour": {
+      "python": 11.63459038671524,
+      "rust": -12.661547173530588
+    },
+    "minute_slices": [
+      {
+        "minute": 0,
+        "python_rss_max_kib": 29852,
+        "rust_rss_max_kib": 5108,
+        "core_orders_max": 198,
+        "submissions": 1286
+      },
+      {
+        "minute": 1,
+        "python_rss_max_kib": 30068,
+        "rust_rss_max_kib": 5344,
+        "core_orders_max": 200,
+        "submissions": 2589
+      },
+      {
+        "minute": 2,
+        "python_rss_max_kib": 30824,
+        "rust_rss_max_kib": 5500,
+        "core_orders_max": 200,
+        "submissions": 3902
+      },
+      {
+        "minute": 3,
+        "python_rss_max_kib": 31000,
+        "rust_rss_max_kib": 5692,
+        "core_orders_max": 200,
+        "submissions": 5211
+      },
+      {
+        "minute": 4,
+        "python_rss_max_kib": 31108,
+        "rust_rss_max_kib": 5824,
+        "core_orders_max": 199,
+        "submissions": 6526
+      },
+      {
+        "minute": 5,
+        "python_rss_max_kib": 31308,
+        "rust_rss_max_kib": 4664,
+        "core_orders_max": 197,
+        "submissions": 7837
+      },
+      {
+        "minute": 6,
+        "python_rss_max_kib": 31420,
+        "rust_rss_max_kib": 4008,
+        "core_orders_max": 198,
+        "submissions": 9153
+      },
+      {
+        "minute": 7,
+        "python_rss_max_kib": 31568,
+        "rust_rss_max_kib": 6136,
+        "core_orders_max": 200,
+        "submissions": 10467
+      },
+      {
+        "minute": 8,
+        "python_rss_max_kib": 31644,
+        "rust_rss_max_kib": 4008,
+        "core_orders_max": 199,
+        "submissions": 11782
+      },
+      {
+        "minute": 9,
+        "python_rss_max_kib": 31756,
+        "rust_rss_max_kib": 5276,
+        "core_orders_max": 196,
+        "submissions": 13100
+      }
+    ],
+    "lifetime_hwm_kib": {
+      "python": 31756,
+      "rust": 6140
+    }
+  },
+  "baseline": {
+    "rotate_orders": null,
+    "error": null,
+    "submissions": 12948,
+    "rotations": 0,
+    "hot_max": {
+      "core_orders": 12942,
+      "core_fills": 12942,
+      "audit_orders": 12942
+    },
+    "journal": "events.jsonl",
+    "journal_bytes": 74511540,
+    "recovery_ms": 734.6,
+    "slope_mib_per_hour": {
+      "python": 288.44213392051057,
+      "rust": 18.33687183347865
+    },
+    "minute_slices": [
+      {
+        "minute": 0,
+        "python_rss_max_kib": 35648,
+        "rust_rss_max_kib": 3852,
+        "core_orders_max": 1291,
+        "submissions": 1291
+      },
+      {
+        "minute": 1,
+        "python_rss_max_kib": 40456,
+        "rust_rss_max_kib": 4172,
+        "core_orders_max": 2607,
+        "submissions": 2607
+      },
+      {
+        "minute": 2,
+        "python_rss_max_kib": 45744,
+        "rust_rss_max_kib": 4488,
+        "core_orders_max": 3920,
+        "submissions": 3920
+      },
+      {
+        "minute": 3,
+        "python_rss_max_kib": 50092,
+        "rust_rss_max_kib": 4804,
+        "core_orders_max": 5227,
+        "submissions": 5227
+      },
+      {
+        "minute": 4,
+        "python_rss_max_kib": 56084,
+        "rust_rss_max_kib": 5120,
+        "core_orders_max": 6538,
+        "submissions": 6538
+      },
+      {
+        "minute": 5,
+        "python_rss_max_kib": 60420,
+        "rust_rss_max_kib": 5436,
+        "core_orders_max": 7843,
+        "submissions": 7843
+      },
+      {
+        "minute": 6,
+        "python_rss_max_kib": 64732,
+        "rust_rss_max_kib": 5748,
+        "core_orders_max": 9139,
+        "submissions": 9139
+      },
+      {
+        "minute": 7,
+        "python_rss_max_kib": 68988,
+        "rust_rss_max_kib": 6060,
+        "core_orders_max": 10421,
+        "submissions": 10421
+      },
+      {
+        "minute": 8,
+        "python_rss_max_kib": 76344,
+        "rust_rss_max_kib": 6364,
+        "core_orders_max": 11686,
+        "submissions": 11686
+      },
+      {
+        "minute": 9,
+        "python_rss_max_kib": 79964,
+        "rust_rss_max_kib": 6668,
+        "core_orders_max": 12942,
+        "submissions": 12942
+      }
+    ],
+    "lifetime_hwm_kib": {
+      "python": 79964,
+      "rust": 6668
+    }
+  }
+}

@@ -1,0 +1,288 @@
+{
+  "rotating": {
+    "rotate_orders": 200,
+    "error": null,
+    "submissions": 29260,
+    "rotations": 146,
+    "hot_max": {
+      "core_orders": 200,
+      "core_fills": 200,
+      "audit_orders": 200
+    },
+    "journal": "events-146.jsonl",
+    "journal_bytes": 399058,
+    "recovery_ms": 8.2,
+    "slope_mib_per_hour": {
+      "python": 0.34477768509232715,
+      "rust": -2.0606253861141606
+    },
+    "minute_slices": [
+      {
+        "minute": 0,
+        "python_rss_max_kib": 30000,
+        "rust_rss_max_kib": 4488,
+        "core_orders_max": 199,
+        "submissions": 972
+      },
+      {
+        "minute": 1,
+        "python_rss_max_kib": 30000,
+        "rust_rss_max_kib": 4752,
+        "core_orders_max": 199,
+        "submissions": 1962
+      },
+      {
+        "minute": 2,
+        "python_rss_max_kib": 30264,
+        "rust_rss_max_kib": 4752,
+        "core_orders_max": 199,
+        "submissions": 2951
+      },
+      {
+        "minute": 3,
+        "python_rss_max_kib": 30264,
+        "rust_rss_max_kib": 4752,
+        "core_orders_max": 200,
+        "submissions": 3965
+      },
+      {
+        "minute": 4,
+        "python_rss_max_kib": 30264,
+        "rust_rss_max_kib": 5016,
+        "core_orders_max": 200,
+        "submissions": 4930
+      },
+      {
+        "minute": 5,
+        "python_rss_max_kib": 30264,
+        "rust_rss_max_kib": 5280,
+        "core_orders_max": 200,
+        "submissions": 5908
+      },
+      {
+        "minute": 6,
+        "python_rss_max_kib": 30532,
+        "rust_rss_max_kib": 5280,
+        "core_orders_max": 199,
+        "submissions": 6897
+      },
+      {
+        "minute": 7,
+        "python_rss_max_kib": 30532,
+        "rust_rss_max_kib": 5544,
+        "core_orders_max": 197,
+        "submissions": 7854
+      },
+      {
+        "minute": 8,
+        "python_rss_max_kib": 30532,
+        "rust_rss_max_kib": 5544,
+        "core_orders_max": 197,
+        "submissions": 8812
+      },
+      {
+        "minute": 9,
+        "python_rss_max_kib": 30532,
+        "rust_rss_max_kib": 4176,
+        "core_orders_max": 200,
+        "submissions": 9814
+      },
+      {
+        "minute": 10,
+        "python_rss_max_kib": 30532,
+        "rust_rss_max_kib": 4216,
+        "core_orders_max": 199,
+        "submissions": 10793
+      },
+      {
+        "minute": 11,
+        "python_rss_max_kib": 30532,
+        "rust_rss_max_kib": 3204,
+        "core_orders_max": 196,
+        "submissions": 11797
+      },
+      {
+        "minute": 12,
+        "python_rss_max_kib": 30796,
+        "rust_rss_max_kib": 4480,
+        "core_orders_max": 195,
+        "submissions": 12747
+      },
+      {
+        "minute": 13,
+        "python_rss_max_kib": 30796,
+        "rust_rss_max_kib": 4480,
+        "core_orders_max": 196,
+        "submissions": 13708
+      },
+      {
+        "minute": 14,
+        "python_rss_max_kib": 30796,
+        "rust_rss_max_kib": 3204,
+        "core_orders_max": 197,
+        "submissions": 14642
+      },
+      {
+        "minute": 15,
+        "python_rss_max_kib": 31352,
+        "rust_rss_max_kib": 3204,
+        "core_orders_max": 198,
+        "submissions": 15609
+      },
+      {
+        "minute": 16,
+        "python_rss_max_kib": 31352,
+        "rust_rss_max_kib": 3204,
+        "core_orders_max": 199,
+        "submissions": 16611
+      },
+      {
+        "minute": 17,
+        "python_rss_max_kib": 31348,
+        "rust_rss_max_kib": 3204,
+        "core_orders_max": 195,
+        "submissions": 17589
+      },
+      {
+        "minute": 18,
+        "python_rss_max_kib": 31348,
+        "rust_rss_max_kib": 3204,
+        "core_orders_max": 198,
+        "submissions": 18561
+      },
+      {
+        "minute": 19,
+        "python_rss_max_kib": 30888,
+        "rust_rss_max_kib": 6612,
+        "core_orders_max": 200,
+        "submissions": 19513
+      },
+      {
+        "minute": 20,
+        "python_rss_max_kib": 30712,
+        "rust_rss_max_kib": 4792,
+        "core_orders_max": 200,
+        "submissions": 20483
+      },
+      {
+        "minute": 21,
+        "python_rss_max_kib": 30676,
+        "rust_rss_max_kib": 4748,
+        "core_orders_max": 198,
+        "submissions": 21473
+      },
+      {
+        "minute": 22,
+        "python_rss_max_kib": 30676,
+        "rust_rss_max_kib": 4712,
+        "core_orders_max": 200,
+        "submissions": 22457
+      },
+      {
+        "minute": 23,
+        "python_rss_max_kib": 30632,
+        "rust_rss_max_kib": 4760,
+        "core_orders_max": 199,
+        "submissions": 23434
+      },
+      {
+        "minute": 24,
+        "python_rss_max_kib": 30632,
+        "rust_rss_max_kib": 4772,
+        "core_orders_max": 198,
+        "submissions": 24421
+      },
+      {
+        "minute": 25,
+        "python_rss_max_kib": 30440,
+        "rust_rss_max_kib": 4808,
+        "core_orders_max": 199,
+        "submissions": 25387
+      },
+      {
+        "minute": 26,
+        "python_rss_max_kib": 30440,
+        "rust_rss_max_kib": 7424,
+        "core_orders_max": 200,
+        "submissions": 26342
+      },
+      {
+        "minute": 27,
+        "python_rss_max_kib": 30356,
+        "rust_rss_max_kib": 3204,
+        "core_orders_max": 200,
+        "submissions": 27291
+      },
+      {
+        "minute": 28,
+        "python_rss_max_kib": 30152,
+        "rust_rss_max_kib": 3204,
+        "core_orders_max": 197,
+        "submissions": 28279
+      },
+      {
+        "minute": 29,
+        "python_rss_max_kib": 30044,
+        "rust_rss_max_kib": 7688,
+        "core_orders_max": 200,
+        "submissions": 29248
+      }
+    ],
+    "lifetime_hwm_kib": {
+      "python": 31584,
+      "rust": 7688
+    }
+  },
+  "baseline": {
+    "rotate_orders": null,
+    "error": "FailClosed",
+    "submissions": 3355,
+    "rotations": 0,
+    "hot_max": {
+      "core_orders": 3353,
+      "core_fills": 3352,
+      "audit_orders": 3353
+    },
+    "journal": "events.jsonl",
+    "journal_bytes": 23585233,
+    "recovery_ms": 272.6,
+    "slope_mib_per_hour": {
+      "python": 227.11158806402833,
+      "rust": 16.70759428074073
+    },
+    "minute_slices": [
+      {
+        "minute": 0,
+        "python_rss_max_kib": 32344,
+        "rust_rss_max_kib": 2928,
+        "core_orders_max": 967,
+        "submissions": 967
+      },
+      {
+        "minute": 1,
+        "python_rss_max_kib": 36376,
+        "rust_rss_max_kib": 3200,
+        "core_orders_max": 1961,
+        "submissions": 1961
+      },
+      {
+        "minute": 2,
+        "python_rss_max_kib": 40420,
+        "rust_rss_max_kib": 3460,
+        "core_orders_max": 2907,
+        "submissions": 2907
+      },
+      {
+        "minute": 3,
+        "python_rss_max_kib": 42268,
+        "rust_rss_max_kib": 3592,
+        "core_orders_max": 3353,
+        "submissions": 3353
+      }
+    ],
+    "lifetime_hwm_kib": {
+      "python": 42268,
+      "rust": 3592
+    }
+  }
+}

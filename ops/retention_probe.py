@@ -68,7 +68,8 @@ def run(case_dir, minutes, rotate_orders, binary, pace):
         def now():
             return initial + int((time.monotonic()-origin)*1000)
         def note(kind, **data):
-            if kind in ('rotated', 'coordinator_gated', 'rotation_pending', 'reconciled', 'summary'):
+            if kind in ('rotated', 'coordinator_gated', 'rotation_pending', 'reconciled', 'summary',
+                        'market_failure', 'rotation_failed', 'reconciliation_failed'):
                 log.write(json.dumps(dict(kind=kind, **data))+'\n')
         audit = IncrementalAudit(1, long_only=True)
         audit.check(engine.state, None)
@@ -100,7 +101,7 @@ def run(case_dir, minutes, rotate_orders, binary, pace):
         try:
             asyncio.run(session.run(minutes*60))
         except Exception as failure:
-            error = type(failure).__name__
+            error = f'{type(failure).__name__}: {failure}'
         stop.set(); thread.join()
         session.close(reconcile=True)
         journal = Path(engine.journal)
@@ -110,6 +111,8 @@ def run(case_dir, minutes, rotate_orders, binary, pace):
         recovery_ms = (time.perf_counter()-started)*1000
     result = dict(rotate_orders=rotate_orders, error=error, submissions=report['submissions'],
                   rotations=report['rotations'],
+                  counters={key: report[key] for key in ('market_rejected', 'reconnects', 'gates', 'market_inputs',
+                                                         'closed_bars', 'late_results')},
                   hot_max={key: peaks[key] for key in ('core_orders', 'core_fills', 'audit_orders')},
                   journal=journal.name, journal_bytes=journal.stat().st_size, recovery_ms=round(recovery_ms, 1),
                   slope_mib_per_hour=dict(python=python_trend.slope_mib_per_hour(),

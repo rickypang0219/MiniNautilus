@@ -1,0 +1,333 @@
+{
+  "seed": 7,
+  "minutes": 90.0,
+  "error": null,
+  "checks": {
+    "no_error": true,
+    "shutdown_reconciled": true,
+    "position_matches_venue": true,
+    "no_resubmission": true,
+    "only_expected_gates": true,
+    "every_fault_type_injected": true,
+    "rotated_at_least_three_times": true
+  },
+  "passed": true,
+  "final": {
+    "position": 1,
+    "venue_position": 1,
+    "journal": "events-161.jsonl",
+    "health": "Disconnected"
+  },
+  "injected": [
+    {
+      "fault": "late_result",
+      "t": 74.15
+    },
+    {
+      "fault": "lost_before_send",
+      "t": 132.72
+    },
+    {
+      "fault": "poll_failure",
+      "t": 236.31
+    },
+    {
+      "fault": "stream_drop",
+      "t": 287.83
+    },
+    {
+      "fault": "drill",
+      "t": 381.06
+    },
+    {
+      "fault": "late_result",
+      "t": 458.97
+    },
+    {
+      "fault": "lost_before_send",
+      "t": 585.84
+    },
+    {
+      "fault": "stream_drop",
+      "t": 634.22
+    },
+    {
+      "fault": "lost_before_send",
+      "t": 716.85
+    },
+    {
+      "fault": "stream_drop",
+      "t": 770.02
+    },
+    {
+      "fault": "drill",
+      "t": 820.34
+    },
+    {
+      "fault": "lost_before_send",
+      "t": 876.48
+    },
+    {
+      "fault": "drill",
+      "t": 978.24
+    },
+    {
+      "fault": "drill",
+      "t": 1108.53
+    },
+    {
+      "fault": "late_result",
+      "t": 1206.23
+    },
+    {
+      "fault": "late_result",
+      "t": 1339.09
+    },
+    {
+      "fault": "lost_before_send",
+      "t": 1434.19
+    },
+    {
+      "fault": "lost_before_send",
+      "t": 1505.26
+    },
+    {
+      "fault": "drill",
+      "t": 1598.92
+    },
+    {
+      "fault": "lost_before_send",
+      "t": 1671.69
+    },
+    {
+      "fault": "drill",
+      "t": 1725.96
+    },
+    {
+      "fault": "poll_failure",
+      "t": 1828.46
+    },
+    {
+      "fault": "late_result",
+      "t": 1882.23
+    },
+    {
+      "fault": "drill",
+      "t": 1978.03
+    },
+    {
+      "fault": "drill",
+      "t": 2041.56
+    },
+    {
+      "fault": "poll_failure",
+      "t": 2125.05
+    },
+    {
+      "fault": "stream_drop",
+      "t": 2211.95
+    },
+    {
+      "fault": "lost_before_send",
+      "t": 2289.49
+    },
+    {
+      "fault": "lost_before_send",
+      "t": 2405.99
+    },
+    {
+      "fault": "poll_failure",
+      "t": 2458.36
+    },
+    {
+      "fault": "poll_failure",
+      "t": 2550.62
+    },
+    {
+      "fault": "poll_failure",
+      "t": 2661.27
+    },
+    {
+      "fault": "late_result",
+      "t": 2761.08
+    },
+    {
+      "fault": "stream_drop",
+      "t": 2816.71
+    },
+    {
+      "fault": "poll_failure",
+      "t": 2876.55
+    },
+    {
+      "fault": "stream_drop",
+      "t": 2935.23
+    },
+    {
+      "fault": "late_result",
+      "t": 3018.18
+    },
+    {
+      "fault": "drill",
+      "t": 3132.0
+    },
+    {
+      "fault": "poll_failure",
+      "t": 3248.02
+    },
+    {
+      "fault": "poll_failure",
+      "t": 3323.63
+    },
+    {
+      "fault": "drill",
+      "t": 3422.12
+    },
+    {
+      "fault": "late_result",
+      "t": 3538.84
+    },
+    {
+      "fault": "poll_failure",
+      "t": 3659.44
+    },
+    {
+      "fault": "late_result",
+      "t": 3747.11
+    },
+    {
+      "fault": "poll_failure",
+      "t": 3797.57
+    },
+    {
+      "fault": "stream_drop",
+      "t": 3900.81
+    },
+    {
+      "fault": "stream_drop",
+      "t": 3971.42
+    },
+    {
+      "fault": "poll_failure",
+      "t": 4096.26
+    },
+    {
+      "fault": "stream_drop",
+      "t": 4143.29
+    },
+    {
+      "fault": "drill",
+      "t": 4220.28
+    },
+    {
+      "fault": "late_result",
+      "t": 4275.82
+    },
+    {
+      "fault": "poll_failure",
+      "t": 4340.46
+    },
+    {
+      "fault": "lost_before_send",
+      "t": 4397.1
+    },
+    {
+      "fault": "stream_drop",
+      "t": 4477.91
+    },
+    {
+      "fault": "stream_drop",
+      "t": 4530.16
+    },
+    {
+      "fault": "poll_failure",
+      "t": 4611.31
+    },
+    {
+      "fault": "stream_drop",
+      "t": 4735.82
+    },
+    {
+      "fault": "poll_failure",
+      "t": 4858.57
+    },
+    {
+      "fault": "poll_failure",
+      "t": 4967.15
+    },
+    {
+      "fault": "stream_drop",
+      "t": 5073.6
+    },
+    {
+      "fault": "lost_before_send",
+      "t": 5204.79
+    },
+    {
+      "fault": "lost_before_send",
+      "t": 5257.26
+    },
+    {
+      "fault": "lost_before_send",
+      "t": 5323.14
+    },
+    {
+      "fault": "drill",
+      "t": 5369.22
+    }
+  ],
+  "session": {
+    "closed_bars": 257477,
+    "signals": 256923,
+    "submissions": 32202,
+    "cancels": 0,
+    "reconnects": 13,
+    "reconciliations": 374,
+    "coordinators": 213,
+    "backfilled_bars": 0,
+    "duplicates": 0,
+    "market_rejected": 0,
+    "market_inputs": 257703,
+    "market_during_execution": 240,
+    "executions": 32202,
+    "late_results": 10,
+    "invariant_checks": 649618,
+    "gates": {
+      "rotation": 161,
+      "delivery_uncertain": 23,
+      "private_poll_failed": 16,
+      "recovery_drill": 12
+    },
+    "rotations": 161,
+    "rotation_blocked_signals": 487,
+    "fills_applied": 32165,
+    "drills": 12,
+    "queue_high_water": {
+      "input": 5,
+      "effects": 1
+    },
+    "hot_max": {
+      "core_orders": 200,
+      "core_fills": 200,
+      "audit_orders": 200,
+      "sent_at": 200
+    },
+    "hot_now": {
+      "core_orders": 2,
+      "core_fills": 1,
+      "audit_orders": 2,
+      "sent_at": 2
+    },
+    "tick_to_submit_ms": {
+      "samples": 10000,
+      "p50": 2.743,
+      "p99": 6.934,
+      "retention": "last 10000 orders"
+    }
+  },
+  "provenance": {
+    "commit": "c671a76d5cf1763d58e1f245d981249b33e48c87",
+    "dirty": false,
+    "binary_sha256": "4b8dc2673e52541705aff10396e1daf0c5aabd451b811cf70dd15f1e56e3aef3"
+  }
+}
