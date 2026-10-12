@@ -2,9 +2,9 @@
 
 - Created at：**2026-10-12T11:20:52+08:00（Asia/Hong_Kong）**
 - Created at UTC：2026-10-12T03:20:52Z
-- Updated at：2026-10-12（Asia/Hong_Kong）
-- 文件版本：1.1
-- 狀態：PROPOSED；所有任務仍為 TODO，並非實作成果或上線批准。
+- Updated at：2026-10-12T11:41:20+08:00（Asia/Hong_Kong）
+- 文件版本：1.2
+- 狀態：PROPOSED → 用戶於 2026-10-12 指示依本文件執行；個別 AC 狀態見結果文件，本文件本身不是實作成果。
 - 審閱基線：`c71ec6a4506a4e3b05d158dcb487d45722e52bbe`
 - Branch：`codex/cross-platform-backtest-audit`
 - 前置文件：[原 proposal](runtime-v2-proposal.md)、[47 項驗收結果](runtime-v2-results.md)、[設計](runtime-v2-design.md)、[操作手冊](runtime-v2-operations.md)。
@@ -13,63 +13,120 @@
 
 ### 變更摘要
 
-| 版本 | 變更 |
-|---|---|
-| 1.0 | 初版：NP0–NP5 任務與詳細 AC。 |
-| 1.1 | 縮成三個成果目標；優先次序改為量度 → actor 接入 live runner → 長時間資源。量度拆分須版本化並保留完整 tick-to-effect 及 CPU/event；舊 FAIL 保留。Benchmark 主機須檢查 steal、背景負載、EBS 與 A/A，並即時核實東京價格。Live actor 前須先通過離線故障測試，新 run 須驗證 release binary。Live rotation 改為「需證明的方案」並列出五項必答驗收。多 instrument 移至下一階段。v1.0 全文（證據與詳細 AC）保留於附錄 A。 |
+| 版本 | Updated at | 變更 |
+|---|---|---|
+| 1.0 | 2026-10-12T11:20:52+08:00 | 初版：NP0–NP5 任務與詳細 AC。 |
+| 1.1 | 2026-10-12（未記時間） | 縮成三個成果目標；量度拆分須版本化；benchmark 主機檢查；離線故障測試先於 live；rotation 列為需證明方案；多 instrument 移至下一階段；v1.0 全文移至附錄 A。 |
+| 1.2 | 2026-10-12T11:41:20+08:00 | G1 分開「量度完成」與「採用優化」，穩定證明無收益亦是完成；新增實驗前決策表（§2.1）及新舊門檻分欄；G2 Testnet 驗收具體化並分開離線／Testnet soak；G3 修正 HWM 描述，新增無法輪換時的資源行為；新增正文／附錄適用表（§6）；Updated at 改為 ISO 8601。 |
 
 ## 1. 三個成果目標
 
-| # | 目標 | 核心驗收（全部須有證據） |
+| # | 目標 | 完成定義 |
 |---|---|---|
-| G1 | 可信的性能結論 | 穩定 A/A；交錯 A/B（每邊 ≥ 5 次、範圍不重疊、效果 ≥ 10%）；硬體、負載、預算與門檻在實驗**前**凍結並版本化。 |
-| G2 | Actor 接入 live runner | 離線故障測試全部通過；release provenance 完整；Testnet soak 結束時與交易所對帳一致。 |
-| G3 | 長時間運行資源可控 | 實際觸發多次輪換／retention；記憶體與恢復成本符合預先寫明的上限；晚到回報安全處理。 |
+| G1 | 可信的性能結論 | **量度完成**：決策表已凍結、A/A 穩定（或不穩定原因已記錄）、比較有效、結果完整（含失敗 run）。**採用優化**（另一層）：目標 median 改善 ≥ 10%、run-level ranges 不重疊、全部 guardrails 通過。穩定地證明候選沒有收益、並 revert，是完成的調查結果。 |
+| G2 | Actor 接入 live runner | 離線故障測試全部通過；release provenance 完整；§3 的 Testnet 條件全部滿足。 |
+| G3 | 長時間運行資源可控 | Hot object counts 有結構上限；多次實際輪換／retention 後 RSS 不持續增長；恢復成本在上限內；**無法輪換時**按 §4.2 受控降級；晚到回報安全處理。 |
 
-優先次序 G1 → G2 → G3；G3 的設計（ADR）可與 G1 交錯，但實作與 live 驗收排在 G2 之後。
+優先次序 G1 → G2 → G3。外部條件（Testnet、benchmark 主機）受阻時，不阻止其他目標的離線實作與驗證；受阻項標 BLOCKED 並寫明缺甚麼。
 
 ## 2. G1 — 可信的性能結論
 
-1. **量度拆分**：可以把 Rust request、queue wait、sync、Python callback 等分開報告，但必須同時保留完整 internal tick-to-effect 及 CPU/completed event（效率指標）。拆分定義以版本號凍結，不得事後改名或排除 fsync 來「達標」。
-2. **每請求量度**：stage duration 由同一請求的時間戳計算（per-request trace），不得以 p99 相減推算。
-3. **門檻版本化**：門檻、硬體型號、負載 profile 在實驗前寫入 manifest；改門檻須升版並說明理由。上一輪的 FAIL（CPU/event +24%；Rust request p99 0.5 ms 目標）原樣保留，新結果只能以新版本門檻另列。
-4. **Benchmark 主機**：若短租非 burstable 實例，仍須記錄 CPU steal、背景負載、EBS 類型／IOPS／throughput 設定，並先跑 A/A。建立前即時核實東京（ap-northeast-1）當時價格，包括 EBS 與 public IPv4。在 benchmark 主機通過**不代表** t4g.micro 部署主機通過；部署主機的結論須在部署主機上另行量度。
-5. **Provenance**：每個 run 記錄 commit、dirty flag、binary 路徑與 build profile（release／debug）及其 hash；缺任何一項即視為 provenance 不完整，不能作性能結論。2026-10-11 live soak 的 Rust 數字屬此類（`bridge.py` 預設 debug 路徑，但當時未記錄實際 binary，主機副本亦是 `git init` 快照），既不能證明是 debug，也不能當 release 數字使用。
+1. **量度拆分**：可分開報 Rust request、queue wait、sync、Python callback 等，但必須同時保留完整 internal tick-to-effect 及 CPU/completed event（效率指標）。拆分定義以版本號凍結，不得事後改名或排除 fsync。
+2. **每請求量度**：stage duration 由同一請求的時間戳計算（per-request trace），不得以 p99 相減。
+3. **主機**：短租非 burstable 實例仍須記錄 CPU steal、背景負載、EBS 類型／IOPS／throughput，並先跑 A/A；建立前即時核實東京（ap-northeast-1）價格，包括 EBS 與 public IPv4。Benchmark 主機通過**不代表** t4g.micro 部署主機通過。
+4. **Provenance**：每個 run 記錄 commit、dirty flag、binary 路徑、build profile 及 binary hash；缺任何一項即 provenance 不完整，不作性能結論。2026-10-11 live soak 的 Rust 數字屬此類（未記錄實際 binary；主機副本為 `git init` 快照），既不能證明是 debug，也不能當 release 數字。
+
+### 2.1 實驗前決策表
+
+決策者：repo owner（用戶）。Agent 可提出數值並以 `docs/perf-thresholds.md` 版本 1（commit 記錄於結果文件）凍結；用戶可隨時否決，改動須升版並說明理由，不得在看到候選結果後修改同一版本。未凍結前只可做 calibration 與功能開發；正式候選比較前必須凍結。
+
+| 項目 | 必須填妥的內容 | 預設（v1） |
+|---|---|---|
+| 量度主機 | 機型、vCPU、EBS、是否 burstable、steal 上限 | 現有部署主機 t4g.micro（已付費，不增加成本）；記錄 CPU credit balance 與 steal，steal p99 > 5% 或 credit 耗盡的 run 標不可用 |
+| CPU 預算與分母 | 指標名稱與分母 | Python＋Rust process CPU 秒 ／ completed event；輔助：per admitted input、per logical order。v1 guardrail：相對 baseline 回退 ≤ 10% |
+| 正常負載 | quote／order 速率、時長 | `runtime_bench.py` canonical immediate 與 20 ms slow I/O；warm-up ≥ 10 s、量度 ≥ 60 s |
+| Burst／overload | 速率與期望行為 | 依 runtime_bench overload profile；期望：queue 有界、拒絕計數 > 0、無 unexpected error |
+| Durable latency | 指標與上限 | 完整 Rust request p99（含 fsync）；internal tick-to-effect p99 |
+| 記憶體上限 | 指標與上限 | Hot object counts 不隨 terminal history 增長；固定負載下多段 RSS 斜率 ≤ 1 MiB/h（分段報峰值） |
+| 恢復時間上限 | 指標與上限 | 固定 hot state＋tail 的 recovery ≤ 2 × 1k-history 基準（只在 G3 方案不讀全 archive 時適用；否則照實報 O(history)） |
+| Benchmark 花費／時長 | USD 與最長時間 | 新租主機預算 USD 0（需用戶另行批准）；單次 cohort ≤ 3 h |
+
+**新舊門檻分欄**：結果文件每個絕對目標列兩欄——「v0（原 RV／附錄 A：Rust request p99 ≤ 0.5 ms、tick-to-effect p99 ≤ 5 ms）」與「v1（本表）」。v0 的 FAIL 原樣保留；v1 若訂出不同目標，只在 v1 欄判定，不改寫 v0 欄。
 
 ## 3. G2 — Actor 接入 live runner
 
-先離線、後 live：
+| 項目 | 用途 | 次數／時長 |
+|---|---|---|
+| 離線故障測試（unit／integration） | 緩衝滿載背壓、SDK 結果在 cancel／shutdown 後才到、斷線重連、重連後 reconciliation 與 proof of absence | `scripts/verify.sh` 每次執行；不得 skip |
+| 離線故障 soak | Reliability：注入 lost ACK、gap、overflow、writer kill、executor cancel、old epoch | 沿用附錄 A NP5-AC2：三個 seeds 各 ≥ 90 分鐘 |
+| Testnet soak | 證明 actor 真實接入成交路徑 | 至少一次 ≥ 90 分鐘 |
 
-1. **離線故障測試**（adapter-neutral，錄製或模擬 venue）：bounded buffer 滿載時的背壓／拒絕行為；SDK 結果在 cancel 或 shutdown 之後才到；斷線與重連；重連後 reconciliation 與 proof of absence。每項需可重現測試，不得 skip。
-2. **Release 驗證**：live run 啟動時檢查並記錄 release binary（profile、hash、commit），不符即拒絕啟動。
-3. **Testnet soak**：只在用戶要求時、只用 Testnet；結束時 position、open orders、fills 與交易所對帳一致，並附 report。
+Testnet soak 驗收（全部須滿足）：
+
+1. 使用既有 Binance Spot Testnet adapter；actor runner 以明確 opt-in 旗標啟動，預設仍為串行 runner。
+2. 啟動時驗證 release binary（profile、hash、commit），不符即拒絕啟動。
+3. ≥ 90 分鐘；記錄實際送單、成交、取消數。**零成交不能算成交路徑通過**。
+4. 慢執行期間行情仍持續被處理（行情處理計數在慢執行區間持續增加），所有 queue 有界（報 high-water）。
+5. 期間至少一次重連或恢復；之後無重複送單，沒有未解釋的 uncertain order 或對帳差異。
+6. 結束時 position、open orders、fills 與交易所對帳一致，並附 report。
 
 ## 4. G3 — 長時間運行資源可控
 
-Live journal rotation **不是**自動保留契約的捷徑，而是需要證明的方案。採用前其 ADR 與測試須回答：
+### 4.1 Rotation 是需證明的方案
 
-1. **Quiescence**：adapter 靜止點如何建立；輪換期間收到的 execution／order report 如何處理（緩衝、拒絕或寫入新 segment），且不會遺失或重複套用。
-2. **原子發布與恢復**：carry、ID floor、Kill 狀態與 risk 狀態如何原子發布；任何時點 crash 後如何恢復到唯一一致狀態。
-3. **Dedup 證據**：舊 fill 的精確 dedup 證據放在哪裏（持久 index、carry 內嵌或其他），容量公式為何，晚到的舊 fill 如何被證明為重複。
-4. **記憶體**：哪些記憶體物件實際被釋放（以量度證明，例如 HWM／RSS 隨輪換回落），而非只是 journal 檔案變小。
-5. **信任契約**：舊 archive 是否仍在啟動時驗證；若不再驗證，新的信任契約是甚麼（例如 segment hash chain、簽核的 carry），以及其失敗模式。
+Live journal rotation 不是自動保留契約的捷徑。採用前 ADR 與測試須回答：
 
-驗收時須實際觸發多次輪換與 retention，記錄記憶體上限與恢復時間是否在預先寫明的上限內。
+1. **Quiescence**：adapter 靜止點如何建立；輪換期間收到的 report 如何處理（緩衝、拒絕或寫入新 segment），不遺失、不重複套用。
+2. **原子發布與恢復**：carry、ID floor、Kill、risk 狀態如何原子發布；任何時點 crash 後恢復到唯一一致狀態。
+3. **Dedup 證據**：舊 fill 的精確 dedup 證據放在哪裏、容量公式、晚到舊 fill 如何證明為重複。
+4. **記憶體**：哪些物件實際被釋放。驗收以 **hot object counts 有界**、**多次輪換後 RSS 不持續增長**證明，並分別報每段 RSS 與 lifetime 峰值。同一 process 的 HWM 是歷史最高值、不會下降；RSS 亦可能因 allocator 保留而不回落，兩者都不能單獨作為釋放證據。
+5. **信任契約**：舊 archive 是否仍在啟動時驗證；若否，新的信任契約與失敗模式。
+
+### 4.2 無法輪換時的行為
+
+只在每次都成功輪換的負載下宣稱資源有上限是不夠的。ADR 與實作須指定並測試：
+
+- **觸發條件**：例如 terminal history 數或 journal bytes 超過門檻。
+- **最大延後**：未能 quiescent（例如長期存在 uncertain order）時，輪換最多延後多久／多少額外事件。
+- **到達資源上限**：先停止新增風險（拒絕新開倉，只容許減倉、取消與對帳）；仍超出硬上限則受控停機（durable flush、記錄原因、fail closed），不得靜默丟棄 dedup 證據。
+- **測試**：以持續存在的 uncertain order 阻止 quiescence，證明上述降級按序發生且狀態可恢復。
+
+驗收時須實際觸發多次輪換與 retention，並分別報上限內與降級路徑的結果。
 
 ## 5. 不包括（下一階段）
 
-- 多 instrument：下一階段從「每個 account domain 一個 writer」開始；跨 domain 的邊界（共用風險、資金、Kill）仍待定義。
+- 多 instrument：從「每個 account domain 一個 writer」開始；跨 domain 邊界（共用風險、資金、Kill）仍待定義。
 - 新交易所 adapter（Hyperliquid、Kraken 等）與真實資金交易。
 
-## 6. 不可削弱的條件
+## 6. 正文與附錄的適用關係
 
-沿用附錄 A.3：durable-before-external、fail closed、單一 writer、決定性重播；不 skip 或放寬測試；`scripts/verify.sh` 須印出 `VERIFY OK`；性能結論不得只憑單次 run。
+不可削弱條件沿用附錄 A.3（durable-before-external、fail closed、單一 writer、決定性重播、不放寬測試、`VERIFY OK`、性能結論不憑單次 run）。附錄 A 每項的適用狀態如下；表中沒有列明「取代」的項目照原文適用。
+
+| 附錄項目 | 狀態 | 說明 |
+|---|---|---|
+| A.1 現況、A.2 依賴次序 | 沿用 | 次序改為 G1 → G2 → G3（§1）；外部受阻不阻止離線工作 |
+| A.2「不包括」：Testnet 下單 | **取代** | Testnet soak 屬 G2 驗收（§3）；主網、真實資金仍排除 |
+| A.2「不包括」：AWS 新部署／付費資源 | 沿用（加註） | 可使用已部署的 t4g.micro；新租 benchmark 主機需用戶另行批准（§2.1） |
+| A.2「不包括」：live compaction | **取代為有條件** | 只在 §4.1 五項及 §4.2 全部有答案並通過測試後可啟用 |
+| A.3 不可削弱條件 | 沿用 | — |
+| NP0-AC1～AC5、共同 gate | 沿用；門檻由 §2.1 取代 | 共同 gate 的 0.5 ms／5 ms 屬 v0 欄（§2.1 分欄）；「量度完成」與「採用」依 §1 分開 |
+| NP1-AC1～AC5 | 沿用 | 候選無收益並 revert 屬 G1 完成結果 |
+| NP2-AC1～AC2、AC4～AC6 | 沿用 | AC6 fast startup 仍可 DEFERRED，不阻止 G3 |
+| NP2-AC3 | **取代** | 記憶體驗收依 §4.1 第 4 點（object counts＋RSS 不增長，HWM 只報不判定） |
+| NP2b | **由有條件改為必做** | G3 要求資源有界；若 NP2a 證明無相容方案，標 FAIL 並交付證據，不標 DEFERRED |
+| NP3-AC1～AC4 | 沿用 | — |
+| NP4-AC1～AC5 | 沿用；AC5 補充 | 「生產連線不在本輪」由 §3 取代為 Testnet opt-in；不稱作 Kraken／Hyperliquid 認證 |
+| NP5-AC1～AC3、AC5～AC6 | 沿用 | 結果文件須含 v0／v1 門檻分欄 |
+| NP5-AC4 | 沿用並加嚴 | 另須覆蓋 §4.2 降級路徑 |
+| A.10、A.11 | 沿用 | Production readiness 仍非本輪結論 |
+
+外部驗收未具備條件時的狀態：Testnet 不可用 → G2 Testnet 項 BLOCKED（離線項照常判定）；benchmark 主機未批准 → 在部署主機量度並註明，或 BLOCKED；任何 BLOCKED 不得寫成 PASS 或 DEFERRED。
 
 ---
 
 ## 附錄 A — v1.0 全文（原有證據與詳細 AC）
 
-以下為 v1.0 第 1–11 節原文，僅調整標題層級，內容未改。NP 編號與 G 目標的對應：NP0、NP1、NP3 → G1；NP4、NP5 → G2；NP2a、NP2b → G3。若與正文衝突，以正文（v1.1）為準。
+以下為 v1.0 第 1–11 節原文，僅調整標題層級，內容未改。適用關係以 §6 為準。
 
 ### A.1. 目標與現況
 
