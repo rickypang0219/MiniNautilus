@@ -42,7 +42,7 @@ async def execute(args,identity):
     pending=None;generation=0;totals=Counter()
     def record(kind,**data):
         nonlocal pending
-        row=dict(kind=kind,monotonic_ns=time.monotonic_ns(),elapsed_seconds=time.monotonic()-start,runner_generation=generation,**data)
+        row=dict(kind=kind,monotonic_ns=time.monotonic_ns(),elapsed_seconds=time.monotonic()-start,runner_generation=generation);row.update(data)
         log.write(json.dumps(row,allow_nan=False)+'\n');log.flush()
         if kind=='coordinator_accounting':
             for r in data['source_counts']:
