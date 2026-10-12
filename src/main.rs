@@ -201,6 +201,16 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
             );
             Ok(())
         }
+        Some("repair-retaining") => {
+            let usage = "repair-retaining CLOSED_PREDECESSOR MISSING_SUCCESSOR";
+            let (old, new) = (args.get(2).ok_or(usage)?, args.get(3).ok_or(usage)?);
+            let core = mininautilus::journal::repair_retaining(Path::new(old), Path::new(new))?;
+            println!(
+                "repaired: position={} id_floor={}",
+                core.position, core.id_floor
+            );
+            Ok(())
+        }
         Some("verify-cold") => {
             let path = Path::new(args.get(2).ok_or("verify-cold JOURNAL")?);
             let state = mininautilus::journal::replay(path)?;

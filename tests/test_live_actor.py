@@ -30,6 +30,8 @@ def run_session(adapter, seconds=3.0, **options):
                                           private_stale_ms=30000, max_signal_lag=10)))
         notes = []
         with Engine(path/'events.jsonl', config=config) as engine:
+            if hasattr(adapter, 'bind_engine'):
+                adapter.bind_engine(engine)
             origin, initial = time.monotonic(), engine.state['now']
             def now():
                 return initial + int((time.monotonic()-origin)*1000)
@@ -149,6 +151,71 @@ class LiveActorFaultTests(unittest.TestCase):
         self.assertEqual(final['position'], adapter.position)
 
 
+class LifecycleRunnerFaultMatrixTests(unittest.TestCase):
+    def test_writer_kill_records_stop_without_masking_it_with_shutdown_pipe_error(self):
+        class KillWriter(FakeAdapter):
+            def bind_engine(self, engine):
+                self.engine = engine
+                self.killed = False
+            def timing(self, event):
+                if isinstance(event, dict) and 'QuoteObserved' in event and not self.killed:
+                    self.killed = True
+                    self.engine.process.kill()
+                    self.engine.process.wait(timeout=2)
+                return {}
+        for _ in range(3):
+            adapter = KillWriter(candles=100000)
+            session, final, notes, error, reconciled = run_session(adapter, seconds=1.0)
+            self.assertIsNotNone(error)
+            self.assertTrue(session.fail_closed)
+            self.assertFalse(reconciled)
+            self.assertTrue(any(n['kind'] == 'durable_stop' for n in notes))
+            self.assertTrue(any(n['kind'] == 'shutdown_without_writer' for n in notes))
+            for n in notes:
+                if n['kind'] == 'coordinator_accounting':
+                    c = n['counts']
+                    self.assertEqual(c['admitted'], c['completed']+c['pending'])
+
+    def test_new_runner_gap_overflow_cancel_and_old_epoch_preserve_venue_identity(self):
+        from unittest.mock import patch
+        from mininautilus.runtime import Coordinator
+        from mininautilus.offline import Input
+        for fault in ('gap', 'overflow', 'cancel', 'old_epoch'):
+            class Injected(Coordinator):
+                def start(self):
+                    result = super().start()
+                    def inject():
+                        if injected[0] or self.closed:
+                            return
+                        injected[0] = True
+                        identity = dict(zip(('venue','account','instrument'), self.identity))
+                        if fault == 'cancel':
+                            self.effect_task.cancel()
+                        elif fault == 'overflow':
+                            for seq in range(300):
+                                self.offer(Input('fixture-overflow','control','Tick',source_seq=seq,**identity))
+                        elif fault == 'gap':
+                            self.offer(Input('fixture-gap','control','Tick',source_seq=1,**identity))
+                            self.offer(Input('fixture-gap','control','Tick',source_seq=3,**identity))
+                        else:
+                            self.offer(Input('fixture-epoch','control','Tick',epoch=2,source_seq=1,**identity))
+                            self.offer(Input('fixture-epoch','control','Tick',epoch=1,source_seq=2,**identity))
+                    asyncio.get_running_loop().call_later(.05, inject)
+                    return result
+            for repetition in range(3):
+                injected = [False]
+                adapter = FakeAdapter(prices=PRICES*10, candles=100000, submit_delay=.2 if fault=='cancel' else 0)
+                with patch('mininautilus.live_actor.Coordinator',Injected):
+                    session, final, notes, error, reconciled = run_session(adapter,seconds=.8)
+                self.assertIsNone(error, f'{fault}/{repetition}: {error}')
+                self.assertTrue(reconciled)
+                self.assertEqual(final['position'],adapter.position)
+                self.assertEqual(len(adapter.submits),len(set(adapter.submits)))
+                expected = {'gap': {'source_sequence_gap'}, 'overflow': {'input_overflow'},
+                            'cancel': {'executor_cancelled','executor_stopped'}, 'old_epoch': {'old_source_epoch'}}[fault]
+                self.assertTrue(expected.intersection(session.report()['gates']),fault)
+
+
 class LiveRetentionTests(unittest.TestCase):
     def test_rotation_bounds_hot_state_and_dedups_late_retired_fills(self):
         adapter = FakeAdapter(prices=PRICES*3, replay_retired=True)
@@ -167,6 +234,36 @@ class LiveRetentionTests(unittest.TestCase):
         self.assertTrue(any(name.endswith('.cold') for name in final['files']))
         self.assertTrue(any(name.startswith('rotation-events-') for name in final['files']))
         self.assertTrue(reconciled)
+
+    def test_quote_only_history_rotates_on_bytes_without_new_orders(self):
+        adapter = FakeAdapter(prices=(100,)*16, candles=100000)
+        session, final, notes, error, reconciled = run_session(
+            adapter, seconds=2.0, rotate_orders=1000, rotate_bytes=8192, reclaim_cold=True)
+        self.assertIsNone(error)
+        report = session.report()
+        self.assertEqual(report['submissions'], 0)
+        self.assertGreaterEqual(report['rotations'], 2)
+        self.assertTrue(reconciled)
+        self.assertEqual(final['position'], 0)
+        self.assertTrue(any(n['kind'] == 'rotation_complete' for n in notes))
+        self.assertIsNotNone(report['availability']['trade_enabled_ratio'])
+        for n in notes:
+            if n['kind'] == 'coordinator_accounting':
+                counts = n['counts']
+                self.assertEqual(counts['offered'], counts['admitted']+counts['rejected'])
+                self.assertEqual(counts['admitted'], counts['completed']+counts['pending'])
+
+    def test_disk_floor_blocks_risk_and_records_durable_stop(self):
+        from types import SimpleNamespace
+        from unittest.mock import patch
+        adapter = FakeAdapter(prices=PRICES*3, candles=100000)
+        with patch('mininautilus.live_actor.os.statvfs', return_value=SimpleNamespace(f_bavail=0, f_frsize=4096, f_blocks=1024**2)):
+            session, final, notes, error, reconciled = run_session(adapter, seconds=2.0, rotate_orders=100)
+        self.assertIsInstance(error, FailClosed)
+        self.assertEqual(session.report()['submissions'], 0)
+        self.assertFalse(reconciled)
+        self.assertTrue(any(n['kind'] == 'durable_stop' and n['reason'] == 'disk_headroom_exhausted' for n in notes))
+        self.assertTrue(any(name.startswith('stop-') for name in final['files']))
 
     def test_resume_locates_the_newest_segment(self):
         from mininautilus.bridge import current_journal

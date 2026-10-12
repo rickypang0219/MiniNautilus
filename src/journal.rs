@@ -652,6 +652,18 @@ pub fn rotate_retaining(old: &Path, new: &Path) -> io::Result<Core> {
     rotate_with(old, new, true)
 }
 
+/// Operator repair only: the validated predecessor must already be Closed to
+/// this exact successor. Never substitutes for a live reconciliation barrier.
+pub fn repair_retaining(old: &Path, new: &Path) -> io::Result<Core> {
+    let scanned = scan_all(&fs::read(old)?, None)?;
+    if scanned.closed.as_deref() != Some(new.display().to_string().as_str()) {
+        return Err(invalid(
+            "repair requires a Closed predecessor naming this successor",
+        ));
+    }
+    rotate_with(old, new, true)
+}
+
 fn rotate_with(old: &Path, new: &Path, retain: bool) -> io::Result<Core> {
     let mut file = OpenOptions::new().read(true).write(true).open(old)?;
     file.try_lock().map_err(io::Error::other)?;

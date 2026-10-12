@@ -7,6 +7,7 @@ use mininautilus::{
     model::*,
 };
 use serde_json::json;
+use std::os::unix::fs::MetadataExt;
 use std::{
     fs::{self, File},
     io::{self, BufWriter, Write},
@@ -127,41 +128,75 @@ fn main() -> io::Result<()> {
     engine.set_sync_policy(journal::SyncPolicy::Outbox);
     reconcile(&mut engine, 0)?;
     let mut at = 0;
-    for id in n + 1..=n + 200 {
-        at += 10;
-        engine.process(at, Event::Quote { bid: 99, ask: 100 })?;
-        let intent = Intent {
-            id,
-            side: Side::Buy,
-            qty: 1,
-            limit: 100,
-            based_on_seq: engine.core().seq,
-            valid_until: at + 1000,
+    let cycles: u64 = args.get(3).map_or(Ok(1), |s| s.parse()).unwrap();
+    assert!(n > 0 && (1..=20).contains(&cycles));
+    let reclaim = args.get(4).is_some_and(|s| s == "gc");
+    let pin = args.get(5).is_some_and(|s| s == "pin");
+    let mut readers = Vec::new();
+    let mut cold_peak_allocated = 0;
+    let mut rotations = Vec::new();
+    let mut logical_written = 0;
+    let mut latest = dir.join("events.jsonl");
+    for cycle in 0..cycles {
+        for id in n + 1 + cycle * 200..=n + (cycle + 1) * 200 {
+            at += 10;
+            engine.process(at, Event::Quote { bid: 99, ask: 100 })?;
+            let intent = Intent {
+                id,
+                side: Side::Buy,
+                qty: 1,
+                limit: 100,
+                based_on_seq: engine.core().seq,
+                valid_until: at + 1000,
+            };
+            let effects = engine.process(at, Event::Submit(intent))?;
+            assert!(effects.iter().any(|e| matches!(e, Effect::SendOrder(_))));
+            let epoch = engine.core().epoch;
+            engine.process(
+                at,
+                Event::Execution {
+                    epoch,
+                    venue_seq: engine.core().venue_seq + 1,
+                    report: Report::Fill(Fill {
+                        execution_id: id,
+                        order_id: id,
+                        qty: 1,
+                        price: 100,
+                    }),
+                },
+            )?;
+        }
+        reconcile(&mut engine, at)?;
+        if pin {
+            readers.push(ColdIndex::open(dir, engine.core().cold.as_ref().unwrap())?);
+        }
+        let started = Instant::now();
+        latest = if cycles == 1 {
+            dir.join("next.jsonl")
+        } else {
+            dir.join(format!("next-{cycle}.jsonl"))
         };
-        let effects = engine.process(at, Event::Submit(intent))?;
-        assert!(effects.iter().any(|e| matches!(e, Effect::SendOrder(_))));
-        let epoch = engine.core().epoch;
-        engine.process(
-            at,
-            Event::Execution {
-                epoch,
-                venue_seq: engine.core().venue_seq + 1,
-                report: Report::Fill(Fill {
-                    execution_id: id,
-                    order_id: id,
-                    qty: 1,
-                    price: 100,
-                }),
-            },
-        )?;
+        let mut next = if reclaim {
+            engine.rotate_into_retaining_with_gc(&latest)?
+        } else {
+            engine.rotate_into_retaining(&latest)?
+        };
+        rotations.push(started.elapsed().as_secs_f64() * 1000.);
+        logical_written += fs::metadata(dir.join(&next.core().cold.as_ref().unwrap().file))?.len();
+        reconcile(&mut next, at)?;
+        engine = next;
+        let allocated = fs::read_dir(dir)?
+            .filter_map(Result::ok)
+            .filter(|entry| entry.file_name().to_string_lossy().contains(".cold"))
+            .map(|entry| entry.metadata().map(|m| m.blocks() * 512))
+            .collect::<io::Result<Vec<_>>>()?
+            .into_iter()
+            .sum::<u64>();
+        cold_peak_allocated = cold_peak_allocated.max(allocated);
     }
-    reconcile(&mut engine, at)?;
-    let started = Instant::now();
-    let mut next = engine.rotate_into_retaining(&dir.join("next.jsonl"))?;
-    let rotation_ms = started.elapsed().as_secs_f64() * 1000.;
+    let rotation_ms = rotations[0];
     let rotation_resources = status();
-    reconcile(&mut next, at)?;
-    let cold = next.core().cold.clone().unwrap();
+    let cold = engine.core().cold.clone().unwrap();
     let started = Instant::now();
     let index = ColdIndex::open(dir, &cold)?;
     let found = index.fill(n)?;
@@ -173,14 +208,14 @@ fn main() -> io::Result<()> {
         assert!(index.fill(1 + i % n)?.is_some());
         durations.push(started.elapsed().as_secs_f64() * 1000.);
     }
-    drop(next);
+    drop(engine);
     let started = Instant::now();
-    let restored = DurableEngine::recover(&dir.join("next.jsonl"), None)?;
+    let restored = DurableEngine::recover(&latest, None)?;
     let replay_ms = started.elapsed().as_secs_f64() * 1000.;
-    assert_eq!(restored.core().position, 200);
+    assert_eq!(restored.core().position, (200 * cycles) as i64);
     println!(
         "{}",
-        json!({"schema":"lc_probe_v1","history":n,"rotation_ms":rotation_ms,"rotation_resources":rotation_resources,"first_lookup_ms":first_ms,"warm_lookup_ms":durations,"engine_replay_ms":replay_ms,"final_resources":status(),"cold_bytes":fs::metadata(dir.join(&cold.file))?.len(),"cold_logical_write_bytes":49*(n+200)+32,"first_lookup_logical_read_bytes":49*(n+200)+32,"correct":true})
+        json!({"schema":"lc_probe_v1","history":n,"rotation_ms":rotation_ms,"rotation_resources":rotation_resources,"first_lookup_ms":first_ms,"warm_lookup_ms":durations,"engine_replay_ms":replay_ms,"final_resources":status(),"cold_bytes":fs::metadata(dir.join(&cold.file))?.len(),"cold_logical_write_bytes":logical_written,"first_lookup_logical_read_bytes":49*(n+200*cycles)+32,"cycles":cycles,"rotation_durations_ms":rotations,"reclaimed":reclaim,"new_payload_bytes":49*200*cycles,"cold_peak_allocated_bytes":cold_peak_allocated,"pinned_generations":readers.len(),"correct":true})
     );
     Ok(())
 }

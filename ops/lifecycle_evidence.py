@@ -92,13 +92,16 @@ def host(previous=None):
         key, value = line.split()
         if key in ('pswpin', 'pswpout', 'oom_kill'):
             vm[key] = int(value)
-    return dict(steal_pct=steal, mem_available_bytes=mem.get('MemAvailable'),
+    return dict(steal_pct=steal, cpu_total_ticks=current[0], cpu_steal_ticks=current[1], mem_available_bytes=mem.get('MemAvailable'),
                 loadavg=list(os.getloadavg()), **vm), current
 
 
 def cgroup(pid, expected=None):
     try:
-        relative = Path(f'/proc/{pid}/cgroup').read_text().strip().split('0::', 1)[1]
+        source = Path(f'/proc/{pid}/cgroup')
+        if not source.exists():
+            source = Path('/proc/self/cgroup')  # recorder remains inside its dedicated unit
+        relative = source.read_text().strip().split('0::', 1)[1]
         path = Path('/sys/fs/cgroup')/relative.lstrip('/')
         if expected is None or path.resolve() != Path(expected).resolve():
             return dict(current_bytes=None, peak_bytes=None,
@@ -123,8 +126,13 @@ def analyse(directory):
     d = Path(directory)
     manifest = json.loads((d/'manifest.json').read_text())
     index = json.loads((d/'artifact-index.json').read_text())
+    indexed = set()
     for row in index['files']:
-        if sha(d/row['path']) != row['sha256']:
+        target = (d/row['path']).resolve()
+        if not target.is_relative_to(d.resolve()) or row['path'] in indexed:
+            raise ValueError('unsafe or duplicate artifact path')
+        indexed.add(row['path'])
+        if sha(target) != row['sha256']:
             raise ValueError('artifact hash mismatch: '+row['path'])
     rows = [json.loads(line) for line in (d/'resources.jsonl').read_text().splitlines()]
     if not rows:
@@ -135,6 +143,8 @@ def analyse(directory):
     duration = manifest['duration_seconds']
     interval = manifest['sample_interval_seconds']
     measured = sum(min(interval, (b-a)/1e9) for a, b in zip(times, times[1:]))
+    if times:
+        measured += min(interval, max(0, (manifest['end_monotonic_ns']-times[-1])/1e9))
     coverage = min(1., measured/duration) if duration > 0 else None
     gaps = [(b-a)/1e9 for a, b in zip(times, times[1:])]
     gaps += [max(0, (times[0]-manifest['start_monotonic_ns'])/1e9),
@@ -142,7 +152,18 @@ def analyse(directory):
     rss = [r['rss_bytes'] for r in rows if r['rss_bytes'] is not None]
     peaks = [r['cgroup']['peak_bytes'] for r in rows if r['cgroup']['peak_bytes'] is not None]
     avail = [r['host']['mem_available_bytes'] for r in rows if r['host']['mem_available_bytes'] is not None]
-    steals = [r['host']['steal_pct'] for r in rows if r['host']['steal_pct'] is not None]
+    # Host gate uses complete >=1-second intervals, not 100ms microbursts.
+    steals = []
+    anchor = rows[0]
+    for row in rows[1:]:
+        if row['monotonic_ns']-anchor['monotonic_ns'] < 10**9:
+            continue
+        if 'cpu_total_ticks' in row['host'] and 'cpu_total_ticks' in anchor['host']:
+            total = row['host']['cpu_total_ticks']-anchor['host']['cpu_total_ticks']
+            stolen = row['host']['cpu_steal_ticks']-anchor['host']['cpu_steal_ticks']
+            if total > 0:
+                steals.append(100*stolen/total)
+        anchor = row
     checks = [ac('LC1-2', 'process_group_rss_peak', max(rss) if rss else None, 384*2**20, 'bytes', ['resources.jsonl']),
               ac('LC1-2', 'cgroup_memory_peak', max(peaks) if peaks else None, 640*2**20, 'bytes', ['resources.jsonl']),
               ac('LC1-2', 'host_mem_available_min', min(avail) if avail else None, 192*2**20, 'bytes', ['resources.jsonl'], comparator='>='),
@@ -189,18 +210,23 @@ def run(args):
         process = subprocess.Popen(command, cwd=ROOT, stdout=out, stderr=err, start_new_session=True)
         stop = threading.Event()
         def sample():
-            previous = None
+            previous = host()[1]
+            deadline = time.monotonic()
+            final_sample = False
             while True:
+                sample_ns = time.monotonic_ns()
                 ps = descendants(process.pid)
                 h, previous = host(previous)
                 vfs = os.statvfs(d)
-                record = dict(timestamp=utc(), monotonic_ns=time.monotonic_ns(), phase=args.profile,
+                record = dict(timestamp=utc(), monotonic_ns=sample_ns, phase=args.profile,
                               processes=ps, rss_bytes=sum(p['rss_bytes'] or 0 for p in ps) if ps else None,
                               cgroup=cgroup(process.pid, args.cgroup), host=h,
                               disk_free_bytes=vfs.f_bavail*vfs.f_frsize)
                 log.write(json.dumps(record, allow_nan=False)+'\n'); log.flush()
-                if stop.wait(args.interval):
+                if final_sample:
                     break
+                deadline += args.interval
+                final_sample = stop.wait(max(0, deadline-time.monotonic()))
         thread = threading.Thread(target=sample, daemon=True)
         thread.start()
         code = process.wait()

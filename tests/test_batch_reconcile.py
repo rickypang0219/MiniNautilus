@@ -48,3 +48,22 @@ class BatchReconcileTests(unittest.TestCase):
         v.request=Mock(side_effect=[remote,trades,trades])
         with self.assertRaisesRegex(VenueError,'overlap'):v.collect_many(intents)
         with self.assertRaisesRegex(VenueError,'cap'):v.collect_many(intents+[intents[0]])
+
+    def test_reconciliation_snapshot_matches_legacy_with_fewer_queries(self):
+        snapshots=[]; counts=[]
+        for batch in (False,True):
+            v,intents,remote,trades=self.setup_venue(100)
+            v.open_orders=Mock(return_value=[])
+            v.base_balance=Mock(return_value=Decimal('100'))
+            by_cid={r['clientOrderId']:r for r in remote}
+            def request(method,path,params,signed):
+                if path.endswith('allOrders'):return remote
+                if path.endswith('myTrades'):
+                    return [t for t in trades if 'orderId' not in params or t['orderId']==params['orderId']]
+                if path.endswith('/order'):return by_cid[params['origClientOrderId']]
+                raise AssertionError(path)
+            v.request=Mock(side_effect=request)
+            state=dict(epoch=1,venue_seq=20,orders={str(i['id']):dict(intent=i,filled=1,lifecycle='Filled',uncertain=False) for i in intents},fills={})
+            snapshots.append(v.reconcile(state,'0',batch=batch));counts.append(v.request.call_count)
+        self.assertEqual(snapshots[0],snapshots[1])
+        self.assertEqual(counts,[300,2])

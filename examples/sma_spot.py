@@ -97,7 +97,7 @@ def run_actor(args, engine, venue, strategy, ledger_audit, now, note, metadata, 
                            now=now, note=note, audit=ledger_audit, order_ttl_ms=args.order_ttl * 1000,
                            max_orders=args.max_orders, paper=args.mode == 'paper', lots=lots,
                            drills=args.recovery_drill, rotate_orders=args.rotate_orders,
-                           max_rotation_delay=args.max_rotation_delay, reclaim_cold=args.reclaim_cold)
+                           max_rotation_delay=args.max_rotation_delay, reclaim_cold=args.reclaim_cold, rotate_bytes=args.rotate_bytes)
     completed = reconciled = False
     try:
         if args.resume:
@@ -109,8 +109,9 @@ def run_actor(args, engine, venue, strategy, ledger_audit, now, note, metadata, 
         try:
             reconciled = session.close(reconcile=args.mode == 'testnet')
         finally:
-            summary = dict(session.report(), runtime='actor', invocation=invocation,
-                           total_session_orders=len(engine.state['orders']), completed=completed,
+            from mininautilus.lifecycle import history_counts
+            summary = dict(session.report(), **history_counts(engine.state), runtime='actor', invocation=invocation,
+                           completed=completed,
                            shutdown_reconciled=reconciled, fail_closed=session.fail_closed,
                            position_lots=engine.state['position'], fills=len(engine.state['fills']),
                            elapsed_seconds=round(time.monotonic() - started, 2), mode=args.mode,
@@ -405,6 +406,8 @@ if __name__ == '__main__':
     p.add_argument('--runtime', choices=['serial', 'actor'], default='serial', help='actor is opt-in and requires --receipt')
     p.add_argument('--recovery-drill', type=float, action='append', default=[],
                    help='actor only: seconds after start to latch, reconcile and restart (repeatable)')
+    p.add_argument('--rotate-bytes', type=int, default=8*1024*1024, help='with --rotate-orders: also rotate a quiet segment at this byte limit')
+    p.add_argument('--rotation-trust-contract', choices=['current-segment-v1'], help='explicit operator choice; requires approved ADR before live rotation')
     p.add_argument('--reclaim-cold', action='store_true', help='rotation only: reclaim superseded unpinned cold files')
     p.add_argument('--batch-reconcile', action='store_true', help='actor Testnet only: bounded REST bulk reconciliation')
     p.add_argument('--rotate-orders', type=int, help='actor + testnet only: live rotation soft trigger (hot orders)')
@@ -416,6 +419,10 @@ if __name__ == '__main__':
         p.error('--runtime actor requires --receipt for a verified release binary')
     if a.runtime == 'actor' and a.faults:
         p.error('--faults injects into the serial loop only; actor faults are tested offline (tests/test_live_actor.py)')
+    if a.rotate_bytes < 1:
+        p.error('--rotate-bytes must be positive')
+    if a.rotate_orders is not None and a.mode == 'testnet' and a.rotation_trust_contract != 'current-segment-v1':
+        p.error('live rotation requires an approved ADR and --rotation-trust-contract current-segment-v1')
     if a.reclaim_cold and a.rotate_orders is None:
         p.error('--reclaim-cold requires --rotate-orders')
     if a.batch_reconcile and (a.runtime != 'actor' or a.mode != 'testnet'):

@@ -8,7 +8,31 @@
 Status words: PASS, FAIL, INCONCLUSIVE, DEFERRED (conditional item with a reason), BLOCKED (an
 external precondition is missing), TODO (not done). One section per outcome goal, then the ledger.
 
-## Summary
+## LC review correction (2026-10-12)
+
+The summaries below record the prior phase at `b0223f3`; their numbers are retained.
+The lifecycle review supersedes several interpretations:
+
+- G3 is **partial**, not full long-run-resource acceptance. The old cold merge
+  materialised all retired records and a full output buffer, and each rotation
+  rewrote complete history. New LC measurements include rotation peaks and disk.
+- The serial-slow tick-to-effect A/A was unstable. Its −84.9% is an observation,
+  not adoption evidence, even though the original table said improved.
+- gp3 sync measurements show this configuration missed 0.5ms; they do not prove
+  every durability-preserving implementation is incapable of reaching it.
+- Batching and coalescing are different. Ordered batching need not discard inputs
+  or weaken the durable barrier; no candidate has yet established its benefit.
+- Warm cold lookup is O(log n), but its first open performs an O(history) checksum.
+  The original NP2-AC5 PASS did not cover that first-use cost.
+- 8ms measured current-segment engine replay, not full runner/venue resume.
+  Archive-independent adoption is **BLOCKED** pending an explicit trust decision.
+- Tests used process crashes and a limited cold-write fault matrix; this does not
+  establish hardware power-loss safety or complete new-runner soak coverage.
+
+See [LC results](runtime-v2-lifecycle-results.md) for the current itemised verdicts.
+No old run, raw data, numerical result or original commit is deleted.
+
+## Historical next-phase summary (interpretations superseded above)
 
 | Goal | Result |
 |---|---|

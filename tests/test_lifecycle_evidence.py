@@ -53,3 +53,12 @@ class LifecycleEvidenceTests(unittest.TestCase):
             (d/'artifact-index.json').write_text(json.dumps(index))
             with self.assertRaisesRegex(ValueError, 'unordered'):
                 lc.analyse(d)
+
+    def test_index_cannot_read_outside_the_run_directory(self):
+        with tempfile.TemporaryDirectory() as directory:
+            d = self.fixture(directory)
+            index = json.loads((d/'artifact-index.json').read_text())
+            index['files'].append(dict(path='../outside',sha256='ignored'))
+            (d/'artifact-index.json').write_text(json.dumps(index))
+            with self.assertRaisesRegex(ValueError,'unsafe'):
+                lc.analyse(d)

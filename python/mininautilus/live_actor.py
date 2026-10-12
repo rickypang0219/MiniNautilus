@@ -39,7 +39,7 @@ import threading
 import time
 
 from . import metrics
-from .lifecycle import AdmissionClock
+from .lifecycle import AdmissionClock, publish_sidecar
 from .offline import Input
 from .retry import ReconnectBudget
 from .runtime import BlockingExecutor, Coordinator
@@ -60,7 +60,7 @@ class ActorSession:
                  execution_timeout=10.0, quiescence_seconds=60.0, poll_seconds=1.0,
                  market_errors=MARKET_ERRORS, reconcile_attempts=3, reconcile_retry=None,
                  coordinator_options=None, drills=(), rotate_orders=None, max_rotation_delay=60.0,
-                 heartbeat_seconds=5.0, reclaim_cold=False):
+                 heartbeat_seconds=5.0, reclaim_cold=False, rotate_bytes=8*1024*1024, disk_headroom_guard=True):
         self.engine, self.adapter, self.strategy = engine, adapter, strategy
         self.availability = AdmissionClock(note)
         self.rotation_started_ns = None
@@ -79,6 +79,11 @@ class ActorSession:
         if rotate_orders is not None and (rotate_orders < 1 or paper):
             raise ValueError('live rotation needs a positive order count and a live venue')
         self.rotate_orders, self.max_rotation_delay = rotate_orders, max_rotation_delay
+        if rotate_bytes < 1:
+            raise ValueError('positive rotation byte cap required')
+        self.rotate_bytes = rotate_bytes
+        self.disk_headroom_guard = disk_headroom_guard
+        self.last_disk_check = float('-inf')
         self.reclaim_cold = reclaim_cold
         self.rotation_pending_since = None
         self.rotation_requested = False
@@ -184,6 +189,11 @@ class ActorSession:
         self.counters['closed_bars'] += 1
         if self.coordinator is not None and self.coordinator.gated:
             return effects  # never create new intent behind a latch
+        if self.rotate_orders is not None and (len(self.engine.state['orders']) >= self.rotate_orders
+                                               or Path(self.engine.journal).stat().st_size >= self.rotate_bytes):
+            # Enforce the count on the writer at intent admission, not only on
+            # the 50ms supervisor poll (which could otherwise overshoot N).
+            self._mark_rotation_pending()
         if self.rotation_pending_since is not None:
             self.counters['rotation_blocked_signals'] += 1
             return effects  # retention trigger reached: no new risk until rotated
@@ -433,6 +443,22 @@ class ActorSession:
                 raise FailClosed('venue call unresolved; reconcile manually before restarting')
             await asyncio.sleep(0.05)
 
+    def _stop_marker(self, reason):
+        import uuid
+        path = Path(self.engine.journal).parent / f'stop-{uuid.uuid4().hex}.json'
+        publish_sidecar(path, dict(reason=reason, observed_seq=self.engine.state['seq'],
+                                   epoch=self.engine.state['epoch'], killed=self.engine.state['killed']))
+        self.note('durable_stop', reason=reason, file=path.name, monotonic_ns=time.perf_counter_ns())
+
+    def _disk_guard(self, required_bytes=0):
+        if not self.disk_headroom_guard or self.rotate_orders is None:
+            return
+        values = os.statvfs(Path(self.engine.journal).parent)
+        available = values.f_bavail*values.f_frsize
+        floor = max(2*1024**3, values.f_blocks*values.f_frsize//5)
+        if available-required_bytes < floor:
+            raise FailClosed('disk_headroom_exhausted')
+
     async def _segment(self, deadline):
         self.sequences = {}
         self.last_heartbeat = float('-inf')
@@ -449,6 +475,15 @@ class ActorSession:
             while not coordinator.gated and not coordinator.closed and self.fatal is None:
                 if time.monotonic() >= deadline:
                     break
+                if time.monotonic()-self.last_disk_check >= 0.5:
+                    self.last_disk_check = time.monotonic()
+                    try:
+                        self._disk_guard()
+                    except FailClosed:
+                        coordinator.gate('disk_headroom_exhausted')
+                        self.fatal = 'disk_headroom_exhausted'
+                        self._stop_marker(self.fatal)
+                        break
                 if self._retention_due(coordinator):
                     break
                 if self.drills and time.monotonic() - self.started >= self.drills[0]:
@@ -473,9 +508,11 @@ class ActorSession:
                     await asyncio.wait_for(coordinator.finish(), timeout=self.execution_timeout + 5)
                 except Exception:
                     await coordinator.abort()
-            await self._quiesce()
-            self.note('coordinator_accounting', epoch=self.engine.state['epoch'],
-                      counts=dict(coordinator.counts), gate_reason=coordinator.gate_reason)
+            try:
+                await self._quiesce()
+            finally:
+                self.note('coordinator_accounting', epoch=self.engine.state['epoch'],
+                          counts=dict(coordinator.counts), gate_reason=coordinator.gate_reason)
         if self.fatal is not None:
             raise FailClosed(self.fatal)
         if writer_failure is not None:
@@ -495,18 +532,23 @@ class ActorSession:
             self.hot_max[key] = max(self.hot_max[key], value)
         return sizes
 
+    def _mark_rotation_pending(self):
+        if self.rotation_pending_since is None:
+            self.rotation_pending_since = time.monotonic()
+            self.rotation_started_ns = time.perf_counter_ns()
+            self.availability.update(False, 'rotation_pending')
+            self.note('rotation_pending', hot_orders=len(self.engine.state['orders']),
+                      monotonic_ns=self.rotation_started_ns)
+
     def _retention_due(self, coordinator):
         """Soft trigger blocks new risk; rotate once nothing is open or after the delay."""
         if self.rotate_orders is None:
             return False
         orders = self._hot()['core_orders']
         if self.rotation_pending_since is None:
-            if orders < self.rotate_orders:
+            if orders < self.rotate_orders and Path(self.engine.journal).stat().st_size < self.rotate_bytes:
                 return False
-            self.rotation_pending_since = time.monotonic()
-            self.rotation_started_ns = time.perf_counter_ns()
-            self.availability.update(False, 'rotation_pending')
-            self.note('rotation_pending', hot_orders=orders, monotonic_ns=self.rotation_started_ns)
+            self._mark_rotation_pending()
         quiet = not self.engine.state.open_orders
         overdue = time.monotonic() - self.rotation_pending_since >= self.max_rotation_delay
         if quiet or overdue or orders >= 2 * self.rotate_orders:
@@ -524,18 +566,13 @@ class ActorSession:
     def _rotate(self):
         """Writer thread, after the rotation reconciliation (ADR §1-§2)."""
         successor = self._successor()
+        cold = self.engine.state.get('cold') or {}
+        planned = 32 + 17*(cold.get('orders', 0)+len(self.engine.state['orders'])) + 32*(cold.get('fills', 0)+len(self.engine.state['fills']))
+        self._disk_guard(required_bytes=planned)
         venue_state = self.adapter.rotation_state() if hasattr(self.adapter, 'rotation_state') else {}
         sidecar = successor.with_name(f'rotation-{successor.name}.json')
-        with sidecar.open('x') as handle:
-            json.dump(dict(successor=successor.name, venue=venue_state,
-                           position=self.engine.state['position']), handle)
-            handle.flush()
-            os.fsync(handle.fileno())
-        directory = os.open(sidecar.parent, os.O_RDONLY)
-        try:
-            os.fsync(directory)
-        finally:
-            os.close(directory)
+        publish_sidecar(sidecar, dict(successor=successor.name, venue=venue_state,
+                                      position=self.engine.state['position']))
         retired = self.engine.state.get('id_floor', 0), len(self.engine.state['orders'])
         self.engine.rotate(successor, reclaim_cold=self.reclaim_cold)
         if self.audit is not None:
@@ -570,6 +607,12 @@ class ActorSession:
                             raise RuntimeError('retention_rotation_failed') from None
         except FailClosed:
             self.fail_closed = True
+            if self.fatal != 'disk_headroom_exhausted':
+                self._stop_marker('quiescence_unproven')
+            raise
+        except Exception:
+            self.fail_closed = True
+            self._stop_marker('runtime_failed')
             raise
 
     def close(self, *, reconcile):
@@ -582,6 +625,10 @@ class ActorSession:
         self.writer.shutdown(wait=True)
         self.poller.shutdown(wait=True)
         reconciled = False
+        if self.engine.process.poll() is not None:
+            self.fail_closed = True
+            self.note('shutdown_without_writer', reason='recover_journal_before_restart')
+            return False
         try:
             self._send('MarketUnavailable')
             if self.fail_closed:
