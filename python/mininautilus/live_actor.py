@@ -39,6 +39,7 @@ import threading
 import time
 
 from . import metrics
+from .lifecycle import AdmissionClock
 from .offline import Input
 from .retry import ReconnectBudget
 from .runtime import BlockingExecutor, Coordinator
@@ -59,8 +60,12 @@ class ActorSession:
                  execution_timeout=10.0, quiescence_seconds=60.0, poll_seconds=1.0,
                  market_errors=MARKET_ERRORS, reconcile_attempts=3, reconcile_retry=None,
                  coordinator_options=None, drills=(), rotate_orders=None, max_rotation_delay=60.0,
-                 heartbeat_seconds=5.0):
+                 heartbeat_seconds=5.0, reclaim_cold=False):
         self.engine, self.adapter, self.strategy = engine, adapter, strategy
+        self.availability = AdmissionClock(note)
+        self.rotation_started_ns = None
+        self.rotation_pause_max_ms = 0.0
+        self.rotation_pause_total_ns = 0
         self.identity, self.now, self.note, self.audit = tuple(identity), now, note, audit
         self.order_ttl_ms, self.max_orders, self.paper, self.lots = order_ttl_ms, max_orders, paper, lots
         self.execution_timeout, self.quiescence_seconds = execution_timeout, quiescence_seconds
@@ -74,6 +79,7 @@ class ActorSession:
         if rotate_orders is not None and (rotate_orders < 1 or paper):
             raise ValueError('live rotation needs a positive order count and a live venue')
         self.rotate_orders, self.max_rotation_delay = rotate_orders, max_rotation_delay
+        self.reclaim_cold = reclaim_cold
         self.rotation_pending_since = None
         self.rotation_requested = False
         self.hot_max = dict(core_orders=0, core_fills=0, audit_orders=0, sent_at=0)
@@ -106,7 +112,27 @@ class ActorSession:
         for key, fill in change.get('fills', {}).items():
             self.fills_by_order.setdefault(str(fill['order_id']), set()).add(key)
             self.counters['fills_applied'] += 1
+        self._admission_update('writer_state')
         return effects
+
+    def _admission_update(self, reason):
+        state = self.engine.state
+        quote = state.get('quote')
+        config = state['config']
+        fresh = (quote is not None and 0 <= state['now']-quote[2] <= config['market_stale_ms']
+                 and 0 <= state['now']-state['last_private_at'] <= config['private_stale_ms'])
+        enabled = (state['health'] == 'Healthy' and not state.get('killed', False)
+                   and fresh and self.strategy.ready
+                   and self.rotation_pending_since is None
+                   and (self.coordinator is None or not self.coordinator.gated))
+        changed = self.availability.update(enabled, reason)
+        if changed and enabled and self.rotation_started_ns is not None:
+            duration = time.perf_counter_ns()-self.rotation_started_ns
+            self.rotation_pause_total_ns += duration
+            self.rotation_pause_max_ms = max(self.rotation_pause_max_ms, duration/1e6)
+            self.note('rotation_complete', rotation_id=self.counters['rotations'],
+                      monotonic_ns=time.perf_counter_ns(), pause_ns=duration)
+            self.rotation_started_ns = None
 
     def _add(self, payload):
         candle = Candle(**payload)
@@ -280,6 +306,7 @@ class ActorSession:
             if self.executing_since is not None and record['started_ns'] >= self.executing_since:
                 self.counters['market_during_execution'] += 1
         elif kind == 'gate':
+            self.availability.update(False, record['reason'])
             gates = self.counters['gates']
             gates[record['reason']] = gates.get(record['reason'], 0) + 1
 
@@ -399,6 +426,8 @@ class ActorSession:
             return
         self.counters['late_results'] += 1
         deadline = time.monotonic() + self.quiescence_seconds
+        if self.rotation_pending_since is not None:
+            deadline = min(deadline, self.rotation_pending_since + self.max_rotation_delay)
         while self.blocking.busy:
             if time.monotonic() >= deadline:
                 raise FailClosed('venue call unresolved; reconcile manually before restarting')
@@ -445,6 +474,8 @@ class ActorSession:
                 except Exception:
                     await coordinator.abort()
             await self._quiesce()
+            self.note('coordinator_accounting', epoch=self.engine.state['epoch'],
+                      counts=dict(coordinator.counts), gate_reason=coordinator.gate_reason)
         if self.fatal is not None:
             raise FailClosed(self.fatal)
         if writer_failure is not None:
@@ -473,7 +504,9 @@ class ActorSession:
             if orders < self.rotate_orders:
                 return False
             self.rotation_pending_since = time.monotonic()
-            self.note('rotation_pending', hot_orders=orders)
+            self.rotation_started_ns = time.perf_counter_ns()
+            self.availability.update(False, 'rotation_pending')
+            self.note('rotation_pending', hot_orders=orders, monotonic_ns=self.rotation_started_ns)
         quiet = not self.engine.state.open_orders
         overdue = time.monotonic() - self.rotation_pending_since >= self.max_rotation_delay
         if quiet or overdue or orders >= 2 * self.rotate_orders:
@@ -504,7 +537,7 @@ class ActorSession:
         finally:
             os.close(directory)
         retired = self.engine.state.get('id_floor', 0), len(self.engine.state['orders'])
-        self.engine.rotate(successor)
+        self.engine.rotate(successor, reclaim_cold=self.reclaim_cold)
         if self.audit is not None:
             self.audit.reset(self.engine.state)
         self.sent_at.clear()
@@ -545,6 +578,7 @@ class ActorSession:
         Mirrors the serial runner's shutdown: MarketUnavailable, then reconcile
         (live) or cancel open orders (paper), then Disconnect. A fail-closed
         session skips reconciliation: an unresolved call could still mutate."""
+        self.availability.finish()
         self.writer.shutdown(wait=True)
         self.poller.shutdown(wait=True)
         reconciled = False
@@ -567,7 +601,10 @@ class ActorSession:
         def pct(q):
             return round(ordered[int((len(ordered) - 1) * q)], 3) if ordered else None
         hot_now = self._hot()
-        return dict(self.counters, queue_high_water=self.high_water, hot_max=self.hot_max,
+        return dict(self.counters, availability=self.availability.report(),
+                    rotation_pause_max_ms=self.rotation_pause_max_ms,
+                    rotation_pause_total_ns=self.rotation_pause_total_ns,
+                    queue_high_water=self.high_water, hot_max=self.hot_max,
                     hot_now=hot_now,
                     tick_to_submit_ms=dict(samples=len(ordered), p50=pct(.5), p99=pct(.99),
                                            retention='last 10000 orders'))

@@ -31,10 +31,11 @@ def closed_candle(message, tick, symbol, interval):
 
 
 class BinanceActorAdapter:
-    def __init__(self, venue, interval, baseline_base, *, validate, silent_seconds=15, max_lag_ms=5000):
+    def __init__(self, venue, interval, baseline_base, *, validate, silent_seconds=15, max_lag_ms=5000, batch_reconcile=False):
         self.venue, self.interval, self.baseline_base = venue, interval, baseline_base
         self.interval_ms = INTERVALS[interval]
         self.validate = validate
+        self.batch_reconcile = batch_reconcile
         self.silent_seconds, self.max_lag_ms = silent_seconds, max_lag_ms
         self.free_lots = None
 
@@ -102,7 +103,7 @@ class BinanceActorAdapter:
         self.free_lots = int(free.to_integral_value(rounding=ROUND_FLOOR)) if free >= 0 else 0
 
     def reconcile(self, state):
-        return self.venue.reconcile(state, Decimal(str(self.baseline_base)))
+        return self.venue.reconcile(state, Decimal(str(self.baseline_base)), batch=self.batch_reconcile)
 
     def timing(self, event):
         return self.venue.timing(event)

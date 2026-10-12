@@ -215,6 +215,15 @@ class BinanceSpot:
     def collect(self, intent):
         remote = self.query(intent)
         raw_trades = self.trades(remote["orderId"])
+        return self._collected(intent, remote, raw_trades)
+
+    def _collected(self, intent, remote, raw_trades, *, verify_identity=False):
+        cid = self.client_id(intent['id'])
+        if verify_identity and (remote['clientOrderId'] not in (cid, cid + 'c')
+                or remote['side'] != intent['side'].upper()
+                or units(remote['origQty'], self.lot) != intent['qty']
+                or units(remote['price'], self.tick) != intent['limit']):
+            raise VenueError('venue order identity/terms disagree with durable intent')
         fills = [{"execution_id": trade["id"] + 1, "order_id": intent["id"],
                   "qty": units(trade["qty"], self.lot), "price": units(trade["price"], self.tick)}
                  for trade in raw_trades]
@@ -231,6 +240,67 @@ class BinanceSpot:
         if lifecycle is None:
             raise VenueError("unsupported venue order status")
         return {"intent": intent, "filled": filled, "lifecycle": lifecycle}, fills, raw_trades
+
+    def collect_many(self, intents):
+        """Bounded REST batching; preserves per-order quantity and identity proofs.
+
+        Last 1000 orders is a discovery optimisation, not absence evidence.
+        Missing orders still use exact client-ID queries. Trade pages start at
+        the earliest returned order and are bounded; no history is TTL-retired.
+        """
+        if not intents:
+            return {}
+        if len(intents) > 1000:
+            raise VenueError('batch reconciliation hot-order cap exceeded')
+        aliases = {self.client_id(i['id']) + suffix: i for i in intents for suffix in ('', 'c')}
+        remote = {}
+        for row in self.request('GET', '/api/v3/allOrders', {'symbol': self.symbol, 'limit': 1000}, signed=True):
+            intent = aliases.get(row['clientOrderId'])
+            if intent is None:
+                continue
+            oid = intent['id']
+            if oid in remote:
+                raise VenueError('duplicate remote client identity')
+            remote[oid] = row
+        for intent in intents:
+            if intent['id'] not in remote:
+                remote[intent['id']] = self.query(intent)
+        if any(row['status'] not in TERMINAL for row in remote.values()):
+            raise VenueError('recovery requires every owned order to be terminal')
+        by_remote = {row['orderId']: oid for oid, row in remote.items()}
+        if len(by_remote) != len(remote):
+            raise VenueError('remote order IDs are not unique')
+        trades = {oid: [] for oid in remote}
+        earliest = min(int(row['time']) for row in remote.values())
+        end = int(time.time()*1000)+self.offset_ms
+        # Binance's time-bounded trade endpoint permits a maximum 24h window.
+        # Older segments use the original per-order protocol, not an unsafe cutoff.
+        if end-earliest > 24*60*60*1000:
+            return {i['id']: self.collect(i) for i in intents}
+        params = {'symbol': self.symbol, 'startTime': earliest, 'endTime': end, 'limit': 1000}
+        cursor, seen, count = None, set(), 0
+        for _ in range(32):
+            page = self.request('GET', '/api/v3/myTrades', params, signed=True)
+            if len(page) > 1000:
+                raise VenueError('oversized trade page')
+            for trade in page:
+                tid = int(trade['id'])
+                if tid in seen or (cursor is not None and tid < cursor):
+                    raise VenueError('trade pagination overlap or regression')
+                seen.add(tid)
+                count += 1
+                if count > 10000:
+                    raise VenueError('batch reconciliation fill cap exceeded')
+                oid = by_remote.get(trade['orderId'])
+                if oid is not None:
+                    trades[oid].append(trade)
+            if len(page) < 1000:
+                break
+            cursor = max(int(t['id']) for t in page)+1
+            params = {'symbol': self.symbol, 'fromId': cursor, 'limit': 1000}
+        else:
+            raise VenueError('trade pagination budget exhausted')
+        return {i['id']: self._collected(i, remote[i['id']], trades[i['id']], verify_identity=True) for i in intents}
 
     def timing(self, event):
         """Preserve venue trade times separately from receipt and engine clocks."""
@@ -262,11 +332,12 @@ class BinanceSpot:
                 reports.append({"Rejected": {"id": oid}})
         return reports
 
-    def reconcile(self, state, baseline_base):
+    def reconcile(self, state, baseline_base, *, batch=False):
         # Quiescent barrier: after every owned order is terminal, its cumulative
         # fill count is stable. REST history may lag; mismatches remain blocked.
         known = {self.client_id(int(oid)) + suffix for oid in state["orders"] for suffix in ("", "c")}
-        if any(order["clientOrderId"] not in known for order in self.open_orders()):
+        remote_open = self.open_orders()
+        if any(order["clientOrderId"] not in known for order in remote_open):
             raise VenueError("unknown open order; manual investigation required")
         # Persisted-but-unacknowledged orders may never have reached the venue.
         # Absence is proof only once every request that could create them expired:
@@ -287,16 +358,24 @@ class BinanceSpot:
             if int(oid) not in absent:
                 absent.append(int(oid))
 
+        open_clients = {row['clientOrderId'] for row in remote_open}
         for oid, order in state["orders"].items():
+            if batch and order.get('lifecycle') in ('Filled', 'Canceled', 'Rejected') and not order.get('uncertain'):
+                cid = self.client_id(int(oid))
+                if cid not in open_clients and cid+'c' not in open_clients:
+                    continue
             try:
                 self.cancel(order["intent"])
             except OrderAbsent as error:
                 resolve(oid, error)
         orders, fills, raw = [], [], []
+        collected = self.collect_many([order['intent'] for oid, order in state['orders'].items()
+                                       if int(oid) not in absent]) if batch else None
         for oid, order in state["orders"].items():
             if int(oid) in absent:
                 continue
-            remote, trades, raw_trades = self.collect(order["intent"])
+            remote, trades, raw_trades = (collected[int(oid)] if collected is not None
+                                          else self.collect(order["intent"]))
             if remote["lifecycle"] not in ("Filled", "Canceled", "Rejected"):
                 raise VenueError("recovery requires every owned order to be terminal")
             orders.append(remote); fills.extend(trades); raw.extend(raw_trades)

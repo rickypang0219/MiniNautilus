@@ -24,6 +24,8 @@ struct Request {
     #[serde(default)]
     rotate_to: Option<std::path::PathBuf>,
     #[serde(default)]
+    reclaim_superseded_cold: bool,
+    #[serde(default)]
     event: Option<Event>,
     #[serde(default)]
     events: Vec<Event>,
@@ -329,6 +331,9 @@ fn serve(mut engine: Backend, simulate: bool) -> Result<(), Box<dyn std::error::
         let started = std::time::Instant::now();
         let mut request: Request = serde_json::from_str(&line)?;
         let rotated = request.rotate_to.is_some();
+        if request.reclaim_superseded_cold && (!rotated || simulate) {
+            return Err("cold reclamation requires an isolated live rotation".into());
+        }
         if let Some(successor) = request.rotate_to.take() {
             if !matches!(engine, Backend::Durable(_)) {
                 return Err("automatic rotation requires a durable journal".into());
@@ -358,6 +363,8 @@ fn serve(mut engine: Backend, simulate: bool) -> Result<(), Box<dyn std::error::
             };
             engine = Backend::Durable(if simulate {
                 writer.rotate_into(&successor)?
+            } else if request.reclaim_superseded_cold {
+                writer.rotate_into_retaining_with_gc(&successor)?
             } else {
                 writer.rotate_into_retaining(&successor)?
             });

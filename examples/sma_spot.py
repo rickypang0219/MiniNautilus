@@ -91,12 +91,13 @@ def run_actor(args, engine, venue, strategy, ledger_audit, now, note, metadata, 
     from mininautilus.binance_live import BinanceActorAdapter
     from mininautilus.live_actor import ActorSession
     adapter = BinanceActorAdapter(venue, args.interval, metadata['baseline_base'],
-                                  validate=lambda intent: validate(venue, intent, args.max_notional))
+                                  validate=lambda intent: validate(venue, intent, args.max_notional),
+                                  batch_reconcile=args.batch_reconcile)
     session = ActorSession(engine, adapter, strategy, identity=('binance-spot-testnet', metadata['session'], args.symbol),
                            now=now, note=note, audit=ledger_audit, order_ttl_ms=args.order_ttl * 1000,
                            max_orders=args.max_orders, paper=args.mode == 'paper', lots=lots,
                            drills=args.recovery_drill, rotate_orders=args.rotate_orders,
-                           max_rotation_delay=args.max_rotation_delay)
+                           max_rotation_delay=args.max_rotation_delay, reclaim_cold=args.reclaim_cold)
     completed = reconciled = False
     try:
         if args.resume:
@@ -404,6 +405,8 @@ if __name__ == '__main__':
     p.add_argument('--runtime', choices=['serial', 'actor'], default='serial', help='actor is opt-in and requires --receipt')
     p.add_argument('--recovery-drill', type=float, action='append', default=[],
                    help='actor only: seconds after start to latch, reconcile and restart (repeatable)')
+    p.add_argument('--reclaim-cold', action='store_true', help='rotation only: reclaim superseded unpinned cold files')
+    p.add_argument('--batch-reconcile', action='store_true', help='actor Testnet only: bounded REST bulk reconciliation')
     p.add_argument('--rotate-orders', type=int, help='actor + testnet only: live rotation soft trigger (hot orders)')
     p.add_argument('--max-rotation-delay', type=float, default=60.0, help='seconds to wait for open orders before forcing')
     p.add_argument('--binary', type=Path, default=ROOT / 'target/debug/mininautilus')
@@ -413,6 +416,10 @@ if __name__ == '__main__':
         p.error('--runtime actor requires --receipt for a verified release binary')
     if a.runtime == 'actor' and a.faults:
         p.error('--faults injects into the serial loop only; actor faults are tested offline (tests/test_live_actor.py)')
+    if a.reclaim_cold and a.rotate_orders is None:
+        p.error('--reclaim-cold requires --rotate-orders')
+    if a.batch_reconcile and (a.runtime != 'actor' or a.mode != 'testnet'):
+        p.error('--batch-reconcile requires --runtime actor --mode testnet')
     if a.rotate_orders is not None and (a.runtime != 'actor' or a.mode != 'testnet' or a.rotate_orders < 1):
         p.error('--rotate-orders requires --runtime actor --mode testnet and a positive count')
     if a.faults and a.mode != 'paper':
