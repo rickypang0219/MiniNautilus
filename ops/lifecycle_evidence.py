@@ -11,6 +11,8 @@ import hashlib
 import json
 import math
 import os
+import resource
+import sys
 from pathlib import Path
 import subprocess
 import threading
@@ -125,6 +127,12 @@ def ac(identifier, metric, observed, limit, unit, paths, scope='local', comparat
 def analyse(directory):
     d = Path(directory)
     manifest = json.loads((d/'manifest.json').read_text())
+    if manifest.get('schema') == 'lc_evidence_v2_fast':
+        identity=manifest.get('engine_identity')
+        if not identity or identity.get('dirty') or identity['build']['binary_sha256']!=identity['binary_sha256']:
+            raise ValueError('invalid fast engine provenance')
+        if manifest.get('threshold_version') != 'LC-v2-fast' or not manifest.get('engine_receipt_sha256') or not manifest.get('harness_sha256'):
+            raise ValueError('incomplete fast provenance')
     index = json.loads((d/'artifact-index.json').read_text())
     indexed = set()
     for row in index['files']:
@@ -179,7 +187,14 @@ def analyse(directory):
             old = generations.setdefault(key, dict(cpu_seconds=0, hwm_bytes=0))
             old['cpu_seconds'] = max(old['cpu_seconds'], p['cpu_seconds'])
             old['hwm_bytes'] = max(old['hwm_bytes'], p['hwm_bytes'] or 0)
-    return dict(schema=SCHEMA, run_id=manifest['run_id'], exit_code=manifest['exit_code'],
+    if manifest.get('schema')=='lc_evidence_v2_fast':
+        from statistics import median
+        window=lambda a,b:[r['rss_bytes'] for r in rows if a<= (r['monotonic_ns']-manifest['start_monotonic_ns'])/1e9 <b and r['rss_bytes'] is not None]
+        early,late=window(120,300),window(720,900)
+        growth=median(late)-median(early) if early and late and duration>=900 else None
+        check=ac('AC-R','short_window_rss_growth',growth,8*1048576,'bytes',['resources.jsonl'],scope='15min window; no long-term leak claim')
+        check['threshold_version']='LC-v2-fast';checks.append(check)
+    return dict(schema=manifest.get('schema',SCHEMA), run_id=manifest['run_id'], exit_code=manifest['exit_code'],
                 counts=dict(samples=len(rows), generations=len(generations)),
                 process_generations=generations, checks=checks,
                 unexpected=[] if manifest['exit_code'] == 0 else ['command_failed'],
@@ -194,7 +209,18 @@ def run(args):
     if not command:
         raise ValueError('command required')
     git = lambda *a: subprocess.check_output(['git', *a], cwd=ROOT, text=True).strip()
-    threshold = ROOT/'docs/runtime-v2-lifecycle-acceptance-proposal.md'
+    threshold = getattr(args, 'threshold_manifest', None) or ROOT/'docs/runtime-v2-lifecycle-acceptance-proposal.md'
+    fast = getattr(args, 'threshold_manifest', None) is not None
+    identity = None
+    if fast:
+        sys.path.insert(0,str(ROOT/'python'))
+        from mininautilus.evidence import verified_identity
+        if args.engine_binary is None or args.engine_receipt is None:
+            raise ValueError('fast evidence requires exact engine binary and release receipt')
+        identity = verified_identity(ROOT,args.engine_binary,args.engine_receipt)
+        frozen = json.loads(Path(threshold).read_text())
+        if frozen['threshold_version'] != 'LC-v2-fast':
+            raise ValueError('wrong frozen threshold version')
     start = time.monotonic_ns()
     manifest = dict(schema=SCHEMA, run_id=d.name, source_commit=git('rev-parse', 'HEAD'),
                     harness_commit=git('rev-parse', 'HEAD'), dirty=bool(git('status', '--porcelain')),
@@ -204,9 +230,12 @@ def run(args):
                     trust_contract_id='legacy-full-cold-checksum', instance_id=args.instance_id)
     if manifest['dirty'] and not args.allow_dirty:
         raise ValueError('clean tree required for evidence')
+    if fast:
+        manifest.update(schema='lc_evidence_v2_fast',threshold_version='LC-v2-fast',engine_identity=identity,engine_receipt_sha256=sha(args.engine_receipt),harness_sha256=sha(Path(__file__)),trust_contract_id=args.trust_contract)
     binary = Path(command[0])
     manifest['command_binary_sha256'] = sha(binary) if binary.is_file() else None
     with (d/'stdout.log').open('x') as out, (d/'stderr.log').open('x') as err, (d/'resources.jsonl').open('x') as log:
+        usage_before = resource.getrusage(resource.RUSAGE_CHILDREN)
         process = subprocess.Popen(command, cwd=ROOT, stdout=out, stderr=err, start_new_session=True)
         stop = threading.Event()
         def sample():
@@ -232,6 +261,9 @@ def run(args):
         code = process.wait()
         stop.set(); thread.join()
     end = time.monotonic_ns()
+    usage_after = resource.getrusage(resource.RUSAGE_CHILDREN)
+    manifest['waited_process_tree_cpu_seconds'] = usage_after.ru_utime+usage_after.ru_stime-usage_before.ru_utime-usage_before.ru_stime
+    manifest['cpu_scope_note'] = 'wait4 aggregate includes descendants waited by the command; orphan/unwaited helpers remain a limitation'
     manifest.update(end=utc(), end_monotonic_ns=end, duration_seconds=(end-start)/1e9, exit_code=code)
     dump(d/'manifest.json', manifest)
     files = [dict(path=p.name, bytes=p.stat().st_size, sha256=sha(p)) for p in sorted(d.iterdir()) if p.is_file()]
@@ -251,6 +283,10 @@ def main():
     r.add_argument('--seed', type=int, default=7)
     r.add_argument('--scope', default='local')
     r.add_argument('--instance-id')
+    r.add_argument('--threshold-manifest',type=Path)
+    r.add_argument('--engine-binary',type=Path)
+    r.add_argument('--engine-receipt',type=Path)
+    r.add_argument('--trust-contract',default='full-cold-verification')
     r.add_argument('--interval', type=float, default=.1)
     r.add_argument('--cgroup')
     r.add_argument('--allow-dirty', action='store_true')
