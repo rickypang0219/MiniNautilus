@@ -33,14 +33,24 @@ def kib(status, key):
     return int(value.split()[0]) if value else None
 
 
-def slope_mib_per_hour(points):
-    if len(points) < 2:
-        return None
-    n = len(points)
-    mx = sum(t for t, _ in points)/n
-    my = sum(v for _, v in points)/n
-    var = sum((t-mx)**2 for t, _ in points)
-    return (sum((t-mx)*(v-my) for t, v in points)/var)*3600/1024 if var else None
+class Trend:
+    """Online least-squares slope and per-minute maxima; the probe itself must not
+    grow with run length (a retained sample list would show up in Python RSS)."""
+    def __init__(self, warmup=60):
+        self.warmup, self.n, self.st, self.sv, self.stt, self.stv = warmup, 0, 0.0, 0.0, 0.0, 0.0
+        self.minutes = {}
+
+    def add(self, t, value, **maxima):
+        slot = self.minutes.setdefault(int(t // 60), {})
+        for key, item in dict(maxima, rss=value).items():
+            if item is not None:
+                slot[key] = max(slot.get(key, item), item)
+        if t >= self.warmup and value is not None:
+            self.n += 1; self.st += t; self.sv += value; self.stt += t*t; self.stv += t*value
+
+    def slope_mib_per_hour(self):
+        var = self.n*self.stt - self.st*self.st
+        return (self.n*self.stv - self.st*self.sv)/var*3600/1024 if self.n > 1 and var else None
 
 
 def run(case_dir, minutes, rotate_orders, binary, pace):
@@ -50,8 +60,9 @@ def run(case_dir, minutes, rotate_orders, binary, pace):
                                       request_timeout_ms=30000, market_stale_ms=3000,
                                       private_stale_ms=30000, max_signal_lag=10)))
     adapter = FakeLiveAdapter(pace=pace, prices=PRICES, candles=10**9, forget_retired=True, record_submits=False)
-    samples = []
-    with (case_dir/'notes.jsonl').open('x') as log, \
+    python_trend, rust_trend, peaks = Trend(), Trend(), dict(python_hwm_kib=0, rust_hwm_kib=0, core_orders=0,
+                                                             core_fills=0, audit_orders=0)
+    with (case_dir/'samples.jsonl').open('x') as sample_log, (case_dir/'notes.jsonl').open('x') as log, \
             Engine(case_dir/'events.jsonl', config=config, binary=binary) as engine:
         origin, initial = time.monotonic(), engine.state['now']
         def now():
@@ -71,12 +82,18 @@ def run(case_dir, minutes, rotate_orders, binary, pace):
             while not stop.wait(1):
                 python, rust = process(__import__('os').getpid()), process(engine.process.pid)
                 state = engine.state
-                samples.append(dict(t=round(time.monotonic()-started, 1),
+                sample = dict(t=round(time.monotonic()-started, 1),
                     python_rss_kib=kib(python['status'], 'VmRSS'), python_hwm_kib=kib(python['status'], 'VmHWM'),
                     rust_rss_kib=kib(rust['status'], 'VmRSS'), rust_hwm_kib=kib(rust['status'], 'VmHWM'),
                     core_orders=len(state['orders']), core_fills=len(state['fills']),
                     audit_orders=len(audit.orders), submissions=session.counters['submissions'],
-                    rotations=session.counters['rotations']))
+                    rotations=session.counters['rotations'])
+                sample_log.write(json.dumps(sample)+'\n')
+                python_trend.add(sample['t'], sample['python_rss_kib'], core_orders=sample['core_orders'],
+                                 submissions=sample['submissions'])
+                rust_trend.add(sample['t'], sample['rust_rss_kib'])
+                for key in peaks:
+                    peaks[key] = max(peaks[key], sample[key] or 0)
         thread = threading.Thread(target=sampler, daemon=True)
         thread.start()
         error = None
@@ -91,26 +108,17 @@ def run(case_dir, minutes, rotate_orders, binary, pace):
     started = time.perf_counter()
     with Engine(journal, recover=True, binary=binary):
         recovery_ms = (time.perf_counter()-started)*1000
-    warm = [s for s in samples if s['t'] >= 60]
-    slices = {}
-    for s in samples:
-        slices.setdefault(int(s['t']//60), []).append(s)
     result = dict(rotate_orders=rotate_orders, error=error, submissions=report['submissions'],
                   rotations=report['rotations'],
-                  hot_max=dict(core_orders=max((s['core_orders'] for s in samples), default=None),
-                               core_fills=max((s['core_fills'] for s in samples), default=None),
-                               audit_orders=max((s['audit_orders'] for s in samples), default=None)),
+                  hot_max={key: peaks[key] for key in ('core_orders', 'core_fills', 'audit_orders')},
                   journal=journal.name, journal_bytes=journal.stat().st_size, recovery_ms=round(recovery_ms, 1),
-                  slope_mib_per_hour=dict(python=slope_mib_per_hour([(s['t'], s['python_rss_kib']) for s in warm]),
-                                          rust=slope_mib_per_hour([(s['t'], s['rust_rss_kib']) for s in warm])),
-                  minute_slices=[dict(minute=m, python_rss_max_kib=max(x['python_rss_kib'] for x in v),
-                                      rust_rss_max_kib=max(x['rust_rss_kib'] for x in v),
-                                      core_orders_max=max(x['core_orders'] for x in v),
-                                      submissions=v[-1]['submissions']) for m, v in sorted(slices.items())],
-                  lifetime_hwm_kib=dict(python=max((s['python_hwm_kib'] or 0) for s in samples) if samples else None,
-                                        rust=max((s['rust_hwm_kib'] or 0) for s in samples) if samples else None))
-    with (case_dir/'samples.jsonl').open('x') as handle:
-        handle.writelines(json.dumps(s)+'\n' for s in samples)
+                  slope_mib_per_hour=dict(python=python_trend.slope_mib_per_hour(),
+                                          rust=rust_trend.slope_mib_per_hour()),
+                  minute_slices=[dict(minute=m, python_rss_max_kib=v.get('rss'),
+                                      rust_rss_max_kib=rust_trend.minutes.get(m, {}).get('rss'),
+                                      core_orders_max=v.get('core_orders'), submissions=v.get('submissions'))
+                                 for m, v in sorted(python_trend.minutes.items())],
+                  lifetime_hwm_kib=dict(python=peaks['python_hwm_kib'], rust=peaks['rust_hwm_kib']))
     with (case_dir/'report.json').open('x') as handle:
         json.dump(result, handle, indent=2)
     return result
