@@ -58,6 +58,42 @@ def credits_check(directory, path):
                  comparator='>=', n=len(selected))
 
 
+def native_checks(directory):
+    raw=read(directory/'stdout.log')
+    if not isinstance(raw,dict) or raw.get('schema') not in ('lc_probe_v2','lc_pages_component_probe_v2'):
+        return []
+    h,cycles=raw['history'],raw['cycles']
+    if h<=0 or cycles<=0:raise ValueError('invalid native workload denominator')
+    rotations=raw['rotation_durations_ms']
+    if len(rotations)!=cycles:raise ValueError('native rotation count mismatch')
+    payload=49*200*cycles
+    if raw['new_payload_bytes']!=payload:raise ValueError('native payload denominator mismatch')
+    logical=49*h+32  # conservative initial-L budget, smaller than every later L
+    paths=[directory/'stdout.log'];run=directory.name
+    writes=raw['cold_logical_write_bytes']+raw.get('post_measure_cleanup_write_bytes',0)
+    scope='EC2 component; not A/B adoption'
+    out=[check(run,'rotation_cycles',cycles,20,'count',paths,ac_id='AC-S',comparator='>=',scope=scope),
+         check(run,'all_maintenance_logical_writes',writes,10*payload+32*2**20,'bytes',paths,ac_id='AC-S',scope=scope),
+         check(run,'durable_rotation_max' if raw['schema']=='lc_probe_v2' else 'component_publication_max',
+               max(rotations),250,'ms',paths,ac_id='AC-L',n=cycles,scope=scope)]
+    component=raw['schema']=='lc_pages_component_probe_v2'
+    steady=raw['cold_steady_allocated_bytes'] if component else raw['cold_peak_allocated_bytes']
+    out.append(check(run,'allocated_steady_max',steady,4*logical+16*2**20,'bytes',paths,ac_id='AC-S',scope=scope))
+    out.append(check(run,'publication_allocated_peak',raw['cold_peak_allocated_bytes'] if component else None,
+                     6*logical+32*2**20,'bytes',paths,ac_id='AC-S',scope=scope))
+    first=raw['path_first_lookup_ms'] if component else raw['first_lookup_ms']
+    out.append(check(run,'first_verified_lookup',first,100,'ms',paths,ac_id='AC-L',scope=scope))
+    warm=raw['warm_lookup_ms']
+    out.append(check(run,'warm_lookup_p99',percentile(warm) if len(warm)>=1000 else None,
+                     5,'ms',paths,ac_id='AC-L',n=len(warm),scope=scope,statistic='p99'))
+    if component:
+        out.append(check(run,'post_reader_release_reclamation',raw.get('post_pin_release_cleanup_ms'),
+                         5000,'ms',paths,ac_id='AC-P',scope=scope))
+        out.append(check(run,'aggregate_rotation_buffer_peak',None,16*2**20,'bytes',paths,
+                         scope='largest single allocation is not aggregate working buffer'))
+    return out
+
+
 def report(directory, session=None, credits=None):
     directory = Path(directory)
     base = analyse(directory)  # verifies hashes, ordering and process generations
@@ -74,6 +110,15 @@ def report(directory, session=None, credits=None):
                          if len(values)>1 else None, 0, 'count',
                          [directory/'resources.jsonl'], n=len(values)))
     if credits: out.append(credits_check(directory, Path(credits)))
+    if m['exit_code']==0:
+        out.extend(native_checks(directory))
+    if (directory/'full-resume.json').exists():
+        resumes=read(directory/'full-resume.json')['rows']
+        for metric,limit in (('engine_startup_ms',100),('full_resume_ms',1000)):
+            values=[r[metric] for r in resumes if r[metric] is not None]
+            out.append(check(directory.name,metric,max(values) if len(values)>=5 else None,
+                             limit,'ms',[directory/'full-resume.json'],ac_id='AC-L',n=len(values),
+                             scope='provided-current-journal fake runner; no Testnet claim'))
     if session:
         session = Path(session)
         if (session/'durations.jsonl').exists():

@@ -23,6 +23,7 @@ class FastReportTests(unittest.TestCase):
                    pswpin=10,pswpout=20,oom_kill=0,cpu_total_ticks=n*100,cpu_steal_ticks=0))
               for n in (0,1,2)]
         (collector/'resources.jsonl').write_text(''.join(json.dumps(r)+'\n' for r in rows))
+        (collector/'stdout.log').write_text('{}')
         (collector/'artifact-index.json').write_text(json.dumps(dict(files=[
             dict(path=p.name,sha256=report.sha(p)) for p in collector.iterdir()])))
         return collector,session
@@ -59,3 +60,20 @@ class FastReportTests(unittest.TestCase):
             result=report.report(collector)
             swap=next(c for c in result['checks'] if c['metric']=='pswpout_delta')
             self.assertEqual((swap['observed'],swap['status']),(0,'PASS'))
+
+    def test_storage_denominator_and_cleanup_writes_are_not_omitted(self):
+        with tempfile.TemporaryDirectory() as d:
+            path=Path(d)
+            raw=dict(schema='lc_pages_component_probe_v2',history=1000,cycles=20,
+                     rotation_durations_ms=[1]*20,new_payload_bytes=196000,
+                     cold_logical_write_bytes=35514432,post_measure_cleanup_write_bytes=1,
+                     cold_steady_allocated_bytes=1000,cold_peak_allocated_bytes=1000,
+                     path_first_lookup_ms=1,warm_lookup_ms=[1]*1000)
+            (path/'stdout.log').write_text(json.dumps(raw))
+            result=report.native_checks(path)
+            c=next(c for c in result if c['metric']=='all_maintenance_logical_writes')
+            self.assertEqual(c['status'],'FAIL')
+            raw['new_payload_bytes']=0
+            (path/'stdout.log').write_text(json.dumps(raw))
+            with self.assertRaisesRegex(ValueError,'payload denominator mismatch'):
+                report.native_checks(path)
