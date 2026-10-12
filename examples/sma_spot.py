@@ -13,9 +13,11 @@ from pathlib import Path
 import sys
 import time
 import uuid
+import asyncio
 from collections import deque
 
-sys.path.insert(0, str(Path(__file__).resolve().parents[1] / 'python'))
+ROOT = Path(__file__).resolve().parents[1]
+sys.path.insert(0, str(ROOT / 'python'))
 from websockets.sync.client import connect
 from websockets.exceptions import ConnectionClosed
 from mininautilus import metrics
@@ -23,6 +25,8 @@ from mininautilus.bridge import Engine
 from mininautilus.audit import IncrementalAudit, full_audit
 from mininautilus.binance import BinanceSpot, VenueError, units
 from mininautilus.market import missing_candles
+from mininautilus.binance_live import closed_candle  # noqa: F401 (shared parser)
+from mininautilus.evidence import verified_identity
 from mininautilus.retry import ReconnectBudget
 from mininautilus.targets import target_event, target_order
 from mininautilus.sma import Candle, CandleGap, SmaStrategy, INTERVALS
@@ -43,17 +47,6 @@ def load_env(path):
             raise ValueError('unsupported env assignment; use Spot Testnet variable names')
         if value.strip():
             os.environ[key.strip()] = value.strip().strip('\"\'')
-
-
-def closed_candle(message, tick, symbol, interval):
-    if message.get('e') != 'kline' or message.get('s') != symbol:
-        raise ValueError('unexpected market stream')
-    bar = message['k']
-    if bar['i'] != interval:
-        raise ValueError('unexpected candle interval')
-    if not bar['x']:
-        return None
-    return Candle(int(bar['t']), int(bar['T']), units(bar['c'], tick))
 
 
 def audit(state, limit):
@@ -93,6 +86,36 @@ def write_summary(path, invocation, summary):
     finally: os.close(fd)
 
 
+def run_actor(args, engine, venue, strategy, ledger_audit, now, note, metadata, lots, invocation, started, path, provenance):
+    """Opt-in bounded actor runner (docs/runtime-v2-next-phase-proposal.md G2)."""
+    from mininautilus.binance_live import BinanceActorAdapter
+    from mininautilus.live_actor import ActorSession
+    adapter = BinanceActorAdapter(venue, args.interval, metadata['baseline_base'],
+                                  validate=lambda intent: validate(venue, intent, args.max_notional))
+    session = ActorSession(engine, adapter, strategy, identity=('binance-spot-testnet', metadata['session'], args.symbol),
+                           now=now, note=note, audit=ledger_audit, order_ttl_ms=args.order_ttl * 1000,
+                           max_orders=args.max_orders, paper=args.mode == 'paper', lots=lots)
+    completed = reconciled = False
+    try:
+        if args.resume:
+            session._reconcile()
+        if not args.reconcile_only:
+            asyncio.run(session.run(args.seconds))
+        completed = True
+    finally:
+        try:
+            reconciled = session.close(reconcile=args.mode == 'testnet')
+        finally:
+            summary = dict(session.report(), runtime='actor', invocation=invocation,
+                           total_session_orders=len(engine.state['orders']), completed=completed,
+                           shutdown_reconciled=reconciled, fail_closed=session.fail_closed,
+                           position_lots=engine.state['position'], fills=len(engine.state['fills']),
+                           elapsed_seconds=round(time.monotonic() - started, 2), mode=args.mode,
+                           binary_sha256=provenance['binary_sha256'] if provenance else None)
+            write_summary(path, invocation, summary)
+            note('summary', **summary)
+
+
 def run(args):
     load_env(args.env_file)
     engine_env = {}
@@ -102,6 +125,12 @@ def run(args):
             raise RuntimeError('--metrics-port needs prometheus_client (pip install prometheus_client)')
         engine_env['MINI_METRICS_ADDR'] = f'127.0.0.1:{args.metrics_port - 1}'
 
+    provenance = None
+    if args.receipt:
+        # Release provenance: binary hash must match a release receipt for these Rust inputs.
+        provenance = verified_identity(ROOT, args.binary, args.receipt)
+        if args.mode == 'testnet' and provenance['dirty']:
+            raise ValueError('Testnet evidence requires a clean checkout')
     venue = BinanceSpot(args.symbol, execute=args.mode == 'testnet')
     venue.initialize()
     lots = units(str(args.quantity), venue.lot)
@@ -133,13 +162,16 @@ def run(args):
     venue.session = metadata['session']
     counters = dict(closed_bars=0, signals=0, submissions=0, reconnects=0, invariant_checks=0, backfilled_bars=0, duplicates=0)
     invocation = uuid.uuid4().hex
+    if provenance is not None:
+        with (path / f'provenance-{invocation}.json').open('x') as handle:
+            json.dump(provenance, handle, indent=2)
     latencies = deque(maxlen=10000)
     fired_faults = set()
     retry_budget = ReconnectBudget()
     started = time.monotonic()
     with (path / 'observations.jsonl').open('a') as log, Engine(path / 'events.jsonl', paper=args.mode == 'paper',
             recover=args.resume, config=path / 'config.json', env=engine_env,
-            extra_args=['--sync', args.sync]) as engine:
+            extra_args=['--sync', args.sync], binary=args.binary) as engine:
         origin, initial = time.monotonic(), engine.state['now']
         sent_at = {}
         ledger_audit = IncrementalAudit(lots, long_only=True)
@@ -204,6 +236,9 @@ def run(args):
                     raise VenueError('engine requested recovery')
                 elif 'Refused' in e or 'Alert' in e:
                     note('engine_effect', effect=e)
+        if args.runtime == 'actor':
+            return run_actor(args, engine, venue, strategy, ledger_audit, now, note, metadata, lots,
+                             invocation, started, path, provenance)
         candle_received = [None]
         def add_bar(candle):
             with metrics.timer('strategy'):
@@ -356,7 +391,14 @@ if __name__ == '__main__':
     p.add_argument('--reconcile-only', action='store_true', help='resume, reconcile, then exit without new signals')
     p.add_argument('--metrics-port', type=int, help='expose Python metrics here and Rust metrics on PORT-1')
     p.add_argument('--sync', choices=['every', 'outbox'], default='every', help='journal sync policy (acceptance L3)')
+    p.add_argument('--runtime', choices=['serial', 'actor'], default='serial', help='actor is opt-in and requires --receipt')
+    p.add_argument('--binary', type=Path, default=ROOT / 'target/debug/mininautilus')
+    p.add_argument('--receipt', type=Path, help='release receipt (ops/runtime_bench.py --build); refuses a mismatched binary')
     a = p.parse_args()
+    if a.runtime == 'actor' and a.receipt is None:
+        p.error('--runtime actor requires --receipt for a verified release binary')
+    if a.runtime == 'actor' and a.faults:
+        p.error('--faults injects into the serial loop only; actor faults are tested offline (tests/test_live_actor.py)')
     if a.faults and a.mode != 'paper':
         p.error('--faults is restricted to paper mode')
     if a.reconcile_only and (not a.resume or a.mode != 'testnet'):

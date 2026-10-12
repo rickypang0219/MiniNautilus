@@ -10,6 +10,7 @@ import hmac
 import json
 import os
 import re
+import threading
 import time
 import urllib.error
 import urllib.parse
@@ -63,8 +64,14 @@ class BinanceSpot:
         # predecessor's requests were signed before it. See `reconcile`.
         self.created = time.monotonic()
         self.sent_at = {}
+        # The actor runner calls from a venue worker and a poll worker; pacing is shared.
+        self.lock = threading.RLock()
 
     def request(self, method, path, params=None, *, signed=False):
+        with self.lock:
+            return self._request(method, path, params, signed=signed)
+
+    def _request(self, method, path, params=None, *, signed=False):
         if method != "GET" and not self.execute:
             raise VenueError("testnet execution is disabled")
         if signed and (not self.key or not self.secret):

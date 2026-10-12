@@ -102,6 +102,18 @@ def main():
     (run / "command.json").write_text(json.dumps(command))
     provenance = {"commit": subprocess.check_output(["git", "rev-parse", "HEAD"], cwd=ROOT, text=True).strip(),
                   "dirty": bool(subprocess.check_output(["git", "status", "--porcelain"], cwd=ROOT, text=True).strip())}
+    # Binary provenance (G1): without a verified release receipt the run's Rust
+    # numbers are provenance-incomplete and cannot support a performance claim.
+    if "--receipt" in session:
+        sys.path.insert(0, str(ROOT / "python"))
+        from mininautilus.evidence import verified_identity
+        receipt = Path(session[session.index("--receipt") + 1])
+        binary = Path(session[session.index("--binary") + 1]) if "--binary" in session else ROOT / "target/debug/mininautilus"
+        identity = verified_identity(ROOT, binary, receipt)
+        provenance.update(binary_path=identity["binary_path"], binary_sha256=identity["binary_sha256"],
+                          build_profile=identity["build"]["profile"], provenance_complete=True)
+    else:
+        provenance.update(binary_path=None, binary_sha256=None, build_profile=None, provenance_complete=False)
     started = time.time()
     log = open(run / "session.log", "w")
     proc = subprocess.Popen(command, cwd=ROOT, stdout=log, stderr=subprocess.STDOUT,
@@ -153,7 +165,7 @@ def main():
         # Remove only the candidate sync policy from the workload fingerprint.
         workload = list(session)
         candidates = {}
-        for option in ("--sync", "--rotate-orders"):
+        for option in ("--sync", "--rotate-orders", "--runtime"):
             if option in workload:
                 i = workload.index(option)
                 candidates[option] = workload[i+1]
