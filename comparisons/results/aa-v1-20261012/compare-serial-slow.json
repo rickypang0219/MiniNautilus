@@ -1,0 +1,429 @@
+{
+  "compatible": true,
+  "before_reps": 5,
+  "after_reps": 5,
+  "aa": true,
+  "rows": [
+    {
+      "metric": "internal_tick_to_effect_p99_ms",
+      "verdict": "inconclusive",
+      "guardrail": "PASS",
+      "before_median": 28.323748749999996,
+      "after_median": 27.407675399999995,
+      "before_range": [
+        28.12592978,
+        29.210770999999998
+      ],
+      "after_range": [
+        26.84656917,
+        28.020092999999996
+      ],
+      "change_pct": -3.2342941539474057,
+      "aa_stability": "INCONCLUSIVE"
+    },
+    {
+      "metric": "input_queue_age_p99_ms",
+      "verdict": "inconclusive",
+      "guardrail": "PASS",
+      "before_median": 50.93904932000001,
+      "after_median": 50.90201614,
+      "before_range": [
+        50.70144786000003,
+        51.439446420000024
+      ],
+      "after_range": [
+        50.44577272,
+        51.14085082
+      ],
+      "change_pct": -0.0727009641804771,
+      "aa_stability": "PASS"
+    },
+    {
+      "metric": "rust_full_request_histogram_p99_ms",
+      "verdict": "inconclusive",
+      "guardrail": "PASS",
+      "before_median": 4.676257267441862,
+      "after_median": 4.6818155825589685,
+      "before_range": [
+        4.667972972972972,
+        4.69248956884562
+      ],
+      "after_range": [
+        4.664845516201959,
+        4.690680851063828
+      ],
+      "change_pct": 0.1188624748216008,
+      "aa_stability": "PASS"
+    },
+    {
+      "metric": "rust_before_response_p99_ms",
+      "verdict": "inconclusive",
+      "guardrail": "PASS",
+      "before_median": 2.12727381,
+      "after_median": 2.12793512,
+      "before_range": [
+        2.11095603,
+        2.1350671200000004
+      ],
+      "after_range": [
+        2.11554914,
+        2.1338881
+      ],
+      "change_pct": 0.031087206399627275,
+      "aa_stability": "PASS"
+    },
+    {
+      "metric": "ipc_roundtrip_p99_ms",
+      "verdict": "inconclusive",
+      "guardrail": "PASS",
+      "before_median": 2.3049650900000005,
+      "after_median": 2.3113907,
+      "before_range": [
+        2.27963928,
+        2.32576772
+      ],
+      "after_range": [
+        2.2792151900000004,
+        2.31582264
+      ],
+      "change_pct": 0.27877255182201155,
+      "aa_stability": "PASS"
+    },
+    {
+      "metric": "executor_queue_age_p99_ms",
+      "verdict": "inconclusive",
+      "guardrail": "PASS",
+      "before_median": 0.2718097799999996,
+      "after_median": 0.26290431999999975,
+      "before_range": [
+        0.26114935,
+        0.2815492999999999
+      ],
+      "after_range": [
+        0.25798190000000015,
+        0.27078353
+      ],
+      "change_pct": -3.2763574585137736,
+      "aa_stability": "PASS"
+    },
+    {
+      "metric": "completed_per_second",
+      "verdict": "inconclusive",
+      "guardrail": "PASS",
+      "before_median": 141.90119892931122,
+      "after_median": 141.81766661504236,
+      "before_range": [
+        141.89964113580757,
+        141.9014775349447
+      ],
+      "after_range": [
+        141.8153966576104,
+        141.90234647287517
+      ],
+      "change_pct": -0.05886653171301049,
+      "aa_stability": "PASS"
+    },
+    {
+      "metric": "python_cpu_ns_per_event",
+      "verdict": "inconclusive",
+      "guardrail": "PASS",
+      "before_median": 651982.4797140844,
+      "after_median": 659769.0850206508,
+      "before_range": [
+        642018.7717708648,
+        679953.9937581798
+      ],
+      "after_range": [
+        646869.1041603707,
+        668238.065136414
+      ],
+      "change_pct": 1.1942967102399782,
+      "aa_stability": "PASS"
+    },
+    {
+      "metric": "rust_cpu_ns_per_event",
+      "verdict": "inconclusive",
+      "guardrail": "PASS",
+      "before_median": 79532.87023054465,
+      "after_median": 80539.61542333635,
+      "before_range": [
+        77519.37984496124,
+        82553.10580891976
+      ],
+      "after_range": [
+        78573.58718646117,
+        81546.36061612806
+      ],
+      "change_pct": 1.2658227848101198,
+      "aa_stability": "PASS"
+    },
+    {
+      "metric": "total_cpu_ns_per_event",
+      "verdict": "inconclusive",
+      "guardrail": "PASS",
+      "before_median": 731515.349944629,
+      "after_median": 740357.3795708673,
+      "before_range": [
+        719538.1516158261,
+        762507.0995670996
+      ],
+      "after_range": [
+        725442.6913468319,
+        749367.5934762912
+      ],
+      "change_pct": 1.2087278314675913,
+      "aa_stability": "PASS"
+    },
+    {
+      "metric": "python_sampled_peak_rss_kib",
+      "verdict": "inconclusive",
+      "guardrail": "PASS",
+      "before_median": 33784,
+      "after_median": 33796,
+      "before_range": [
+        33756,
+        33832
+      ],
+      "after_range": [
+        33676,
+        33820
+      ],
+      "change_pct": 0.035519772673454894,
+      "aa_stability": "PASS"
+    },
+    {
+      "metric": "rust_sampled_peak_rss_kib",
+      "verdict": "inconclusive",
+      "guardrail": "PASS",
+      "before_median": 2944,
+      "after_median": 2964,
+      "before_range": [
+        2892,
+        3000
+      ],
+      "after_range": [
+        2904,
+        2988
+      ],
+      "change_pct": 0.6793478260869565,
+      "aa_stability": "PASS"
+    }
+  ],
+  "outcomes": [
+    [
+      {
+        "session_exit": 0,
+        "counts": {
+          "offered": 9933,
+          "admitted": 9933,
+          "completed": 9933,
+          "rejected": 0,
+          "coalesced": 0,
+          "pending": 0
+        },
+        "queue_high_water": 12,
+        "missed_deadlines": 0,
+        "gate_reason": null,
+        "effects_abandoned": 0,
+        "host": {
+          "steal_pct": 0.07378984651711924,
+          "loadavg_start": 0.12,
+          "loadavg_end": 0.13
+        },
+        "unusable": false
+      },
+      {
+        "session_exit": 0,
+        "counts": {
+          "offered": 9933,
+          "admitted": 9933,
+          "completed": 9933,
+          "rejected": 0,
+          "coalesced": 0,
+          "pending": 0
+        },
+        "queue_high_water": 13,
+        "missed_deadlines": 4,
+        "gate_reason": null,
+        "effects_abandoned": 0,
+        "host": {
+          "steal_pct": 0.16556291390728478,
+          "loadavg_start": 0.06,
+          "loadavg_end": 0.1
+        },
+        "unusable": false
+      },
+      {
+        "session_exit": 0,
+        "counts": {
+          "offered": 9933,
+          "admitted": 9933,
+          "completed": 9933,
+          "rejected": 0,
+          "coalesced": 0,
+          "pending": 0
+        },
+        "queue_high_water": 12,
+        "missed_deadlines": 0,
+        "gate_reason": null,
+        "effects_abandoned": 0,
+        "host": {
+          "steal_pct": 0.1169505153132081,
+          "loadavg_start": 0.01,
+          "loadavg_end": 0.0
+        },
+        "unusable": false
+      },
+      {
+        "session_exit": 0,
+        "counts": {
+          "offered": 9933,
+          "admitted": 9933,
+          "completed": 9933,
+          "rejected": 0,
+          "coalesced": 0,
+          "pending": 0
+        },
+        "queue_high_water": 12,
+        "missed_deadlines": 0,
+        "gate_reason": null,
+        "effects_abandoned": 0,
+        "host": {
+          "steal_pct": 0.1320228839665542,
+          "loadavg_start": 0.27,
+          "loadavg_end": 0.2
+        },
+        "unusable": false
+      },
+      {
+        "session_exit": 0,
+        "counts": {
+          "offered": 9933,
+          "admitted": 9933,
+          "completed": 9933,
+          "rejected": 0,
+          "coalesced": 0,
+          "pending": 0
+        },
+        "queue_high_water": 12,
+        "missed_deadlines": 0,
+        "gate_reason": null,
+        "effects_abandoned": 0,
+        "host": {
+          "steal_pct": 0.07850974234530012,
+          "loadavg_start": 0.05,
+          "loadavg_end": 0.13
+        },
+        "unusable": false
+      }
+    ],
+    [
+      {
+        "session_exit": 0,
+        "counts": {
+          "offered": 9927,
+          "admitted": 9927,
+          "completed": 9927,
+          "rejected": 0,
+          "coalesced": 0,
+          "pending": 0
+        },
+        "queue_high_water": 12,
+        "missed_deadlines": 0,
+        "gate_reason": null,
+        "effects_abandoned": 0,
+        "host": {
+          "steal_pct": 0.10241404535479151,
+          "loadavg_start": 0.13,
+          "loadavg_end": 0.07
+        },
+        "unusable": false
+      },
+      {
+        "session_exit": 0,
+        "counts": {
+          "offered": 9927,
+          "admitted": 9927,
+          "completed": 9927,
+          "rejected": 0,
+          "coalesced": 0,
+          "pending": 0
+        },
+        "queue_high_water": 12,
+        "missed_deadlines": 0,
+        "gate_reason": null,
+        "effects_abandoned": 0,
+        "host": {
+          "steal_pct": 0.05162622612287042,
+          "loadavg_start": 0.1,
+          "loadavg_end": 0.11
+        },
+        "unusable": false
+      },
+      {
+        "session_exit": 0,
+        "counts": {
+          "offered": 9933,
+          "admitted": 9933,
+          "completed": 9933,
+          "rejected": 0,
+          "coalesced": 0,
+          "pending": 0
+        },
+        "queue_high_water": 12,
+        "missed_deadlines": 0,
+        "gate_reason": null,
+        "effects_abandoned": 0,
+        "host": {
+          "steal_pct": 0.0794453271703019,
+          "loadavg_start": 0.0,
+          "loadavg_end": 0.16
+        },
+        "unusable": false
+      },
+      {
+        "session_exit": 0,
+        "counts": {
+          "offered": 9933,
+          "admitted": 9933,
+          "completed": 9933,
+          "rejected": 0,
+          "coalesced": 0,
+          "pending": 0
+        },
+        "queue_high_water": 12,
+        "missed_deadlines": 0,
+        "gate_reason": null,
+        "effects_abandoned": 0,
+        "host": {
+          "steal_pct": 0.10170722847802398,
+          "loadavg_start": 0.2,
+          "loadavg_end": 0.1
+        },
+        "unusable": false
+      },
+      {
+        "session_exit": 0,
+        "counts": {
+          "offered": 9927,
+          "admitted": 9927,
+          "completed": 9927,
+          "rejected": 0,
+          "coalesced": 0,
+          "pending": 0
+        },
+        "queue_high_water": 12,
+        "missed_deadlines": 0,
+        "gate_reason": null,
+        "effects_abandoned": 0,
+        "host": {
+          "steal_pct": 0.10989816103743864,
+          "loadavg_start": 0.13,
+          "loadavg_end": 0.12
+        },
+        "unusable": false
+      }
+    ]
+  ],
+  "resource_scope": "Sampled VmRSS peaks from system.jsonl; missing samples remain unknown, not zero. Correctness/session errors have zero tolerance."
+}

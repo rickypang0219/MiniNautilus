@@ -117,7 +117,11 @@ on a failed check. Predecessor journals are kept on disk for audit and are not r
 ## Consequences
 
 - Startup and reconciliation cost become O(current segment) for Binance; journal and cold files
-  still grow on disk (bounded by disk, not RAM).
+  still grow on disk (bounded by disk, not RAM). Each rotation rewrites the whole cold index, so
+  rotation cost is O(retired history) and the superseded `.cold` files sum to O(rotations ×
+  history) bytes. Only the newest is referenced by a writable journal and it contains every
+  record; replay of older segments never reads cold files (verdicts are journaled). Operators may
+  delete superseded `.cold` files; nothing does so automatically.
 - Rotation cancels resting orders (step 3). With the SMA runner's 10 s TTL this is a small cost.
 - Retired lookups do file I/O on the writer thread. They are rare (late duplicates); their latency
   is reported separately.
