@@ -69,7 +69,7 @@ async def execute(args,identity):
                 pending.update(recovered_ns=row['monotonic_ns'],recovery='quiescent reconciliation and eligible quote');faultlog.write(json.dumps(pending)+'\n');faultlog.flush();pending=None
     while time.monotonic()<deadline:
         launch=time.monotonic_ns();generation+=1
-        with Engine(journal,config=config,recover=generation>1,binary=args.binary,extra_args=['--sync','outbox','--cold-verify','pages'],env={'MINI_ORDER_TRACE':str(args.run_dir/'requests.jsonl')}) as engine:
+        with Engine(journal,config=config,recover=generation>1,binary=args.binary,extra_args=['--sync','outbox','--cold-verify','pages'],env={'MINI_ORDER_TRACE':str(args.run_dir/f'requests-{generation}.jsonl')}) as engine:
             initial,origin=engine.state['now'],time.monotonic()
             now=lambda:initial+int((time.monotonic()-origin)*1000)
             audit=IncrementalAudit(1,long_only=True);audit.check(engine.state,None)
@@ -124,11 +124,12 @@ async def execute(args,identity):
         final_journal=engine.journal
     log.close();faultlog.close();external.close()
     durable={}
-    for line in (args.run_dir/'requests.jsonl').read_text().splitlines():
-        row=json.loads(line)
-        if row['effect']=='SendOrder':
-            if not row['stages']['synced'] or row['durable_seq']!=row['seq']:errors.append('durability_trace_violation')
-            durable[row['order_id']]=row
+    for trace_file in sorted(args.run_dir.glob('requests-*.jsonl')):
+        for line in trace_file.read_text().splitlines():
+            row=json.loads(line)
+            if row['effect']=='SendOrder':
+                if not row['stages']['synced'] or row['durable_seq']!=row['seq']:errors.append('durability_trace_violation')
+                durable[row['order_id']]=row
     unproved=[oid for oid in adapter.submits if oid not in durable]
     allowed_gates={'rotation','delivery_uncertain','source_sequence_gap','input_overflow','writer_failed','executor_cancelled','executor_stopped','old_source_epoch','hard_stop'}
     unexpected_gates=sorted({g for phase in phases for g in phase['gates']} - allowed_gates)
