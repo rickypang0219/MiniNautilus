@@ -1,0 +1,47 @@
+{
+  "source": "e16496d",
+  "started_sessions": 0,
+  "error": "release build inputs changed; rebuild and issue a new receipt",
+  "reason": "Existing soak checkout still had its source4789 release receipt; current verified release binary and receipt copied before the single retry.",
+  "logs": [
+    {
+      "path": "/tmp/runtime-v2-fixed-long-17-bootstrap-receipt-error.log",
+      "sha256": "ed97b43f36f1be87c7ee055ed9f71f42cc25d1327ce59fce543a52d686fbefa5",
+      "tail": [
+        "             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^",
+        "  File \"/workspace/MiniNautilus-runtime-v2-soak/python/mininautilus/evidence.py\", line 67, in verified_identity",
+        "    raise ValueError('release build inputs changed; rebuild and issue a new receipt')",
+        "ValueError: release build inputs changed; rebuild and issue a new receipt"
+      ]
+    },
+    {
+      "path": "/tmp/runtime-v2-fixed-long-29-bootstrap-receipt-error.log",
+      "sha256": "ed97b43f36f1be87c7ee055ed9f71f42cc25d1327ce59fce543a52d686fbefa5",
+      "tail": [
+        "             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^",
+        "  File \"/workspace/MiniNautilus-runtime-v2-soak/python/mininautilus/evidence.py\", line 67, in verified_identity",
+        "    raise ValueError('release build inputs changed; rebuild and issue a new receipt')",
+        "ValueError: release build inputs changed; rebuild and issue a new receipt"
+      ]
+    },
+    {
+      "path": "/tmp/runtime-v2-fixed-long-7-bootstrap-receipt-error.log",
+      "sha256": "ed97b43f36f1be87c7ee055ed9f71f42cc25d1327ce59fce543a52d686fbefa5",
+      "tail": [
+        "             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^",
+        "  File \"/workspace/MiniNautilus-runtime-v2-soak/python/mininautilus/evidence.py\", line 67, in verified_identity",
+        "    raise ValueError('release build inputs changed; rebuild and issue a new receipt')",
+        "ValueError: release build inputs changed; rebuild and issue a new receipt"
+      ]
+    },
+    {
+      "path": "/tmp/runtime-v2-fixed-long-supervisor-bootstrap-receipt-error.log",
+      "sha256": "53c177c0fa5b8c8f5b0d57ddb3a6568d5824ae81c83acf37e178082e004c158d",
+      "tail": [
+        "{\"seed\": 29, \"exit\": 1, \"log\": \"/tmp/runtime-v2-fixed-long-29.log\"}",
+        "{\"seed\": 17, \"exit\": 1, \"log\": \"/tmp/runtime-v2-fixed-long-17.log\"}",
+        "{\"seed\": 7, \"exit\": 1, \"log\": \"/tmp/runtime-v2-fixed-long-7.log\"}"
+      ]
+    }
+  ]
+}

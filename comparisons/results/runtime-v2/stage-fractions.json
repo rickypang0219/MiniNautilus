@@ -1,0 +1,7 @@
+{
+  "samples": 555,
+  "python_codec_apply_fraction_median": 0.05559504383198684,
+  "journal_encode_fraction_median": 0.0028459690649168035,
+  "sync_fraction_median": 0.984668464104556,
+  "scope": "Same-request durations; fractions are not sums/subtractions of p99 and do not include queueing or strategy time. Source 4789ebc. No binary/journal candidate adopted from these observations."
+}

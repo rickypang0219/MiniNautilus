@@ -1,0 +1,335 @@
+{
+  "compatible": true,
+  "before_reps": 5,
+  "after_reps": 5,
+  "aa": true,
+  "rows": [
+    {
+      "metric": "internal_tick_to_effect_p99_ms",
+      "verdict": "inconclusive",
+      "guardrail": "INCONCLUSIVE",
+      "before_median": 2.982037139999991,
+      "after_median": 3.1791623999999814,
+      "before_range": [
+        2.7028745599999966,
+        3.5785964999999935
+      ],
+      "after_range": [
+        2.378167559999993,
+        4.7428418599999995
+      ],
+      "change_pct": 6.6104226991616475,
+      "aa_stability": "PASS"
+    },
+    {
+      "metric": "input_queue_age_p99_ms",
+      "verdict": "inconclusive",
+      "guardrail": "INCONCLUSIVE",
+      "before_median": 0.7836661799999957,
+      "after_median": 0.7496020499999996,
+      "before_range": [
+        0.6866180099999994,
+        0.8348882299999999
+      ],
+      "after_range": [
+        0.6755098899999991,
+        0.9213065599999999
+      ],
+      "change_pct": -4.346765353584134,
+      "aa_stability": "PASS"
+    },
+    {
+      "metric": "rust_full_request_histogram_p99_ms",
+      "verdict": "inconclusive",
+      "guardrail": "INCONCLUSIVE",
+      "before_median": 1.4534482758620721,
+      "after_median": 1.6514705882352967,
+      "before_range": [
+        1.1852941176470642,
+        1.6537500000000023
+      ],
+      "after_range": [
+        1.4288461538461572,
+        1.867241379310348
+      ],
+      "change_pct": 13.624310934338077,
+      "aa_stability": "INCONCLUSIVE"
+    },
+    {
+      "metric": "rust_before_response_p99_ms",
+      "verdict": "inconclusive",
+      "guardrail": "INCONCLUSIVE",
+      "before_median": 1.01724692,
+      "after_median": 1.0536256000000004,
+      "before_range": [
+        0.9045267200000039,
+        1.1113872800000004
+      ],
+      "after_range": [
+        0.9034757600000008,
+        1.731897880000008
+      ],
+      "change_pct": 3.5761897416214667,
+      "aa_stability": "PASS"
+    },
+    {
+      "metric": "ipc_roundtrip_p99_ms",
+      "verdict": "inconclusive",
+      "guardrail": "INCONCLUSIVE",
+      "before_median": 1.1601926000000014,
+      "after_median": 1.2155090000000057,
+      "before_range": [
+        1.0769417200000009,
+        1.2889428000000023
+      ],
+      "after_range": [
+        0.9939584400000003,
+        1.9675841600000095
+      ],
+      "change_pct": 4.767863542656996,
+      "aa_stability": "PASS"
+    },
+    {
+      "metric": "executor_queue_age_p99_ms",
+      "verdict": "inconclusive",
+      "guardrail": "INCONCLUSIVE",
+      "before_median": 0.26054039999999884,
+      "after_median": 0.30414197999999615,
+      "before_range": [
+        0.2548413599999996,
+        0.33317847999999994
+      ],
+      "after_range": [
+        0.23858370999999903,
+        1.6139503999999971
+      ],
+      "change_pct": 16.735055292767456,
+      "aa_stability": "INCONCLUSIVE"
+    },
+    {
+      "metric": "completed_per_second",
+      "verdict": "inconclusive",
+      "guardrail": "PASS",
+      "before_median": 133.62311963803904,
+      "after_median": 133.62174227972235,
+      "before_range": [
+        133.5839603283687,
+        133.63991398275934
+      ],
+      "after_range": [
+        133.58138243453965,
+        133.64264002532568
+      ],
+      "change_pct": -0.0010307784464388165,
+      "aa_stability": "PASS"
+    },
+    {
+      "metric": "python_cpu_ns_per_event",
+      "verdict": "inconclusive",
+      "guardrail": "INCONCLUSIVE",
+      "before_median": 463947.15274314216,
+      "after_median": 447108.7319201995,
+      "before_range": [
+        379516.45573566086,
+        523928.61159601
+      ],
+      "after_range": [
+        432052.61221945134,
+        586151.6072319202
+      ],
+      "change_pct": -3.6293833733828267,
+      "aa_stability": "PASS"
+    },
+    {
+      "metric": "python_sampled_peak_rss_kib",
+      "verdict": "inconclusive",
+      "guardrail": "PASS",
+      "before_median": 31432,
+      "after_median": 31436,
+      "before_range": [
+        31424,
+        31448
+      ],
+      "after_range": [
+        31428,
+        31448
+      ],
+      "change_pct": 0.012725884448969204,
+      "aa_stability": "PASS"
+    },
+    {
+      "metric": "rust_sampled_peak_rss_kib",
+      "verdict": "inconclusive",
+      "guardrail": "PASS",
+      "before_median": 2548,
+      "after_median": 2480,
+      "before_range": [
+        2480,
+        2612
+      ],
+      "after_range": [
+        2440,
+        2608
+      ],
+      "change_pct": -2.6687598116169546,
+      "aa_stability": "PASS"
+    }
+  ],
+  "outcomes": [
+    [
+      {
+        "session_exit": 0,
+        "counts": {
+          "offered": 1604,
+          "admitted": 1604,
+          "completed": 1604,
+          "rejected": 0,
+          "coalesced": 0,
+          "pending": 0
+        },
+        "queue_high_water": 4,
+        "missed_deadlines": 1,
+        "gate_reason": null,
+        "effects_abandoned": 0
+      },
+      {
+        "session_exit": 0,
+        "counts": {
+          "offered": 1604,
+          "admitted": 1604,
+          "completed": 1604,
+          "rejected": 0,
+          "coalesced": 0,
+          "pending": 0
+        },
+        "queue_high_water": 3,
+        "missed_deadlines": 0,
+        "gate_reason": null,
+        "effects_abandoned": 0
+      },
+      {
+        "session_exit": 0,
+        "counts": {
+          "offered": 1604,
+          "admitted": 1604,
+          "completed": 1604,
+          "rejected": 0,
+          "coalesced": 0,
+          "pending": 0
+        },
+        "queue_high_water": 3,
+        "missed_deadlines": 0,
+        "gate_reason": null,
+        "effects_abandoned": 0
+      },
+      {
+        "session_exit": 0,
+        "counts": {
+          "offered": 1604,
+          "admitted": 1604,
+          "completed": 1604,
+          "rejected": 0,
+          "coalesced": 0,
+          "pending": 0
+        },
+        "queue_high_water": 3,
+        "missed_deadlines": 0,
+        "gate_reason": null,
+        "effects_abandoned": 0
+      },
+      {
+        "session_exit": 0,
+        "counts": {
+          "offered": 1604,
+          "admitted": 1604,
+          "completed": 1604,
+          "rejected": 0,
+          "coalesced": 0,
+          "pending": 0
+        },
+        "queue_high_water": 3,
+        "missed_deadlines": 0,
+        "gate_reason": null,
+        "effects_abandoned": 0
+      }
+    ],
+    [
+      {
+        "session_exit": 0,
+        "counts": {
+          "offered": 1604,
+          "admitted": 1604,
+          "completed": 1604,
+          "rejected": 0,
+          "coalesced": 0,
+          "pending": 0
+        },
+        "queue_high_water": 3,
+        "missed_deadlines": 0,
+        "gate_reason": null,
+        "effects_abandoned": 0
+      },
+      {
+        "session_exit": 0,
+        "counts": {
+          "offered": 1604,
+          "admitted": 1604,
+          "completed": 1604,
+          "rejected": 0,
+          "coalesced": 0,
+          "pending": 0
+        },
+        "queue_high_water": 3,
+        "missed_deadlines": 0,
+        "gate_reason": null,
+        "effects_abandoned": 0
+      },
+      {
+        "session_exit": 0,
+        "counts": {
+          "offered": 1604,
+          "admitted": 1604,
+          "completed": 1604,
+          "rejected": 0,
+          "coalesced": 0,
+          "pending": 0
+        },
+        "queue_high_water": 3,
+        "missed_deadlines": 0,
+        "gate_reason": null,
+        "effects_abandoned": 0
+      },
+      {
+        "session_exit": 0,
+        "counts": {
+          "offered": 1604,
+          "admitted": 1604,
+          "completed": 1604,
+          "rejected": 0,
+          "coalesced": 0,
+          "pending": 0
+        },
+        "queue_high_water": 3,
+        "missed_deadlines": 0,
+        "gate_reason": null,
+        "effects_abandoned": 0
+      },
+      {
+        "session_exit": 0,
+        "counts": {
+          "offered": 1604,
+          "admitted": 1604,
+          "completed": 1604,
+          "rejected": 0,
+          "coalesced": 0,
+          "pending": 0
+        },
+        "queue_high_water": 3,
+        "missed_deadlines": 0,
+        "gate_reason": null,
+        "effects_abandoned": 0
+      }
+    ]
+  ],
+  "resource_scope": "Sampled VmRSS peaks from system.jsonl; missing samples remain unknown, not zero. Correctness/session errors have zero tolerance."
+}

@@ -1,0 +1,335 @@
+{
+  "compatible": true,
+  "before_reps": 5,
+  "after_reps": 5,
+  "aa": true,
+  "rows": [
+    {
+      "metric": "internal_tick_to_effect_p99_ms",
+      "verdict": "inconclusive",
+      "guardrail": "PASS",
+      "before_median": 23.8973632,
+      "after_median": 24.435421400000003,
+      "before_range": [
+        23.8236378,
+        24.224649000000003
+      ],
+      "after_range": [
+        23.340666520000003,
+        24.522111199999998
+      ],
+      "change_pct": 2.2515379437343186,
+      "aa_stability": "PASS"
+    },
+    {
+      "metric": "input_queue_age_p99_ms",
+      "verdict": "inconclusive",
+      "guardrail": "PASS",
+      "before_median": 46.03784494000001,
+      "after_median": 46.47253298,
+      "before_range": [
+        45.80600372000001,
+        46.616494700000004
+      ],
+      "after_range": [
+        45.64355404,
+        46.98425826000003
+      ],
+      "change_pct": 0.9441971937793975,
+      "aa_stability": "PASS"
+    },
+    {
+      "metric": "rust_full_request_histogram_p99_ms",
+      "verdict": "inconclusive",
+      "guardrail": "INCONCLUSIVE",
+      "before_median": 1.5043243243243205,
+      "after_median": 1.4955882352941148,
+      "before_range": [
+        1.3705405405405415,
+        1.5597297297297308
+      ],
+      "after_range": [
+        1.4319512195121962,
+        1.6043103448275895
+      ],
+      "change_pct": -0.5807317537147194,
+      "aa_stability": "PASS"
+    },
+    {
+      "metric": "rust_before_response_p99_ms",
+      "verdict": "inconclusive",
+      "guardrail": "INCONCLUSIVE",
+      "before_median": 1.0278801400000002,
+      "after_median": 0.9975962799999969,
+      "before_range": [
+        0.9529319999999987,
+        1.0613817999999988
+      ],
+      "after_range": [
+        0.9765932600000001,
+        1.1028953899999998
+      ],
+      "change_pct": -2.946244296538628,
+      "aa_stability": "PASS"
+    },
+    {
+      "metric": "ipc_roundtrip_p99_ms",
+      "verdict": "inconclusive",
+      "guardrail": "INCONCLUSIVE",
+      "before_median": 1.1609694800000008,
+      "after_median": 1.188153259999998,
+      "before_range": [
+        1.0202826399999991,
+        1.214526759999987
+      ],
+      "after_range": [
+        1.0725716000000016,
+        1.2244789899999995
+      ],
+      "change_pct": 2.341472404597337,
+      "aa_stability": "PASS"
+    },
+    {
+      "metric": "executor_queue_age_p99_ms",
+      "verdict": "inconclusive",
+      "guardrail": "INCONCLUSIVE",
+      "before_median": 0.3694588699999998,
+      "after_median": 0.3068920800000002,
+      "before_range": [
+        0.3222728599999999,
+        0.39727783999999966
+      ],
+      "after_range": [
+        0.26829704999999965,
+        0.42713432999999984
+      ],
+      "change_pct": -16.934710486176616,
+      "aa_stability": "INCONCLUSIVE"
+    },
+    {
+      "metric": "completed_per_second",
+      "verdict": "inconclusive",
+      "guardrail": "PASS",
+      "before_median": 144.9644054761205,
+      "after_median": 144.95299737196035,
+      "before_range": [
+        144.95157158329965,
+        144.98220649086144
+      ],
+      "after_range": [
+        143.96425817357857,
+        144.9734085183271
+      ],
+      "change_pct": -0.0078695898642739,
+      "aa_stability": "PASS"
+    },
+    {
+      "metric": "python_cpu_ns_per_event",
+      "verdict": "inconclusive",
+      "guardrail": "INCONCLUSIVE",
+      "before_median": 459510.674137931,
+      "after_median": 460650.2275862069,
+      "before_range": [
+        445503.9068965517,
+        500539.2471264368
+      ],
+      "after_range": [
+        450920.291810842,
+        502429.7890804598
+      ],
+      "change_pct": 0.2479928133146776,
+      "aa_stability": "PASS"
+    },
+    {
+      "metric": "python_sampled_peak_rss_kib",
+      "verdict": "inconclusive",
+      "guardrail": "PASS",
+      "before_median": 31724,
+      "after_median": 31748,
+      "before_range": [
+        31700,
+        32128
+      ],
+      "after_range": [
+        31708,
+        31772
+      ],
+      "change_pct": 0.07565250283696885,
+      "aa_stability": "PASS"
+    },
+    {
+      "metric": "rust_sampled_peak_rss_kib",
+      "verdict": "inconclusive",
+      "guardrail": "PASS",
+      "before_median": 2608,
+      "after_median": 2540,
+      "before_range": [
+        2480,
+        2612
+      ],
+      "after_range": [
+        2412,
+        2612
+      ],
+      "change_pct": -2.607361963190184,
+      "aa_stability": "PASS"
+    }
+  ],
+  "outcomes": [
+    [
+      {
+        "session_exit": 0,
+        "counts": {
+          "offered": 1740,
+          "admitted": 1740,
+          "completed": 1740,
+          "rejected": 0,
+          "coalesced": 0,
+          "pending": 0
+        },
+        "queue_high_water": 11,
+        "missed_deadlines": 0,
+        "gate_reason": null,
+        "effects_abandoned": 0
+      },
+      {
+        "session_exit": 0,
+        "counts": {
+          "offered": 1740,
+          "admitted": 1740,
+          "completed": 1740,
+          "rejected": 0,
+          "coalesced": 0,
+          "pending": 0
+        },
+        "queue_high_water": 11,
+        "missed_deadlines": 1,
+        "gate_reason": null,
+        "effects_abandoned": 0
+      },
+      {
+        "session_exit": 0,
+        "counts": {
+          "offered": 1740,
+          "admitted": 1740,
+          "completed": 1740,
+          "rejected": 0,
+          "coalesced": 0,
+          "pending": 0
+        },
+        "queue_high_water": 11,
+        "missed_deadlines": 0,
+        "gate_reason": null,
+        "effects_abandoned": 0
+      },
+      {
+        "session_exit": 0,
+        "counts": {
+          "offered": 1740,
+          "admitted": 1740,
+          "completed": 1740,
+          "rejected": 0,
+          "coalesced": 0,
+          "pending": 0
+        },
+        "queue_high_water": 11,
+        "missed_deadlines": 0,
+        "gate_reason": null,
+        "effects_abandoned": 0
+      },
+      {
+        "session_exit": 0,
+        "counts": {
+          "offered": 1740,
+          "admitted": 1740,
+          "completed": 1740,
+          "rejected": 0,
+          "coalesced": 0,
+          "pending": 0
+        },
+        "queue_high_water": 11,
+        "missed_deadlines": 0,
+        "gate_reason": null,
+        "effects_abandoned": 0
+      }
+    ],
+    [
+      {
+        "session_exit": 0,
+        "counts": {
+          "offered": 1740,
+          "admitted": 1740,
+          "completed": 1740,
+          "rejected": 0,
+          "coalesced": 0,
+          "pending": 0
+        },
+        "queue_high_water": 11,
+        "missed_deadlines": 1,
+        "gate_reason": null,
+        "effects_abandoned": 0
+      },
+      {
+        "session_exit": 0,
+        "counts": {
+          "offered": 1740,
+          "admitted": 1740,
+          "completed": 1740,
+          "rejected": 0,
+          "coalesced": 0,
+          "pending": 0
+        },
+        "queue_high_water": 13,
+        "missed_deadlines": 0,
+        "gate_reason": null,
+        "effects_abandoned": 0
+      },
+      {
+        "session_exit": 0,
+        "counts": {
+          "offered": 1740,
+          "admitted": 1740,
+          "completed": 1740,
+          "rejected": 0,
+          "coalesced": 0,
+          "pending": 0
+        },
+        "queue_high_water": 11,
+        "missed_deadlines": 0,
+        "gate_reason": null,
+        "effects_abandoned": 0
+      },
+      {
+        "session_exit": 0,
+        "counts": {
+          "offered": 1734,
+          "admitted": 1734,
+          "completed": 1734,
+          "rejected": 0,
+          "coalesced": 0,
+          "pending": 0
+        },
+        "queue_high_water": 11,
+        "missed_deadlines": 0,
+        "gate_reason": null,
+        "effects_abandoned": 0
+      },
+      {
+        "session_exit": 0,
+        "counts": {
+          "offered": 1728,
+          "admitted": 1728,
+          "completed": 1728,
+          "rejected": 0,
+          "coalesced": 0,
+          "pending": 0
+        },
+        "queue_high_water": 12,
+        "missed_deadlines": 0,
+        "gate_reason": null,
+        "effects_abandoned": 0
+      }
+    ]
+  ],
+  "resource_scope": "Sampled VmRSS peaks from system.jsonl; missing samples remain unknown, not zero. Correctness/session errors have zero tolerance."
+}

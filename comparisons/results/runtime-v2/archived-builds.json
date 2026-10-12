@@ -1,0 +1,15 @@
+{
+  "scope": "Original long-soak binary/receipt preserved before updating the existing checkout; old raw provenance paths were not rewritten.",
+  "files": [
+    {
+      "path": "/workspace/MiniNautilus-runtime-v2-soak/target/release/mininautilus-source4789",
+      "bytes": 3772840,
+      "sha256": "fbc6e154f48fbb626b40f7e06e1f8e071d8c7d1b5e6e83a059a034c94e309e84"
+    },
+    {
+      "path": "/workspace/MiniNautilus-runtime-v2-soak/target/runtime-v2-build-source4789.json",
+      "bytes": 2096,
+      "sha256": "3e118da95a85a49c1b3537fb65015cbdb35af098cfdce86aad75841eb6a7c170"
+    }
+  ]
+}

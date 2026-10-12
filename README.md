@@ -178,3 +178,7 @@ Core 與 Journal 的每事件 full clone 已改為 prepare／commit；見
 最新驗證：[架構改動後的跨平台結果、adapter 修正及剩餘性能瓶頸](docs/post-refactor-audit.md)。
 
 驗收條件、現狀及量度工具：[docs/acceptance.md](docs/acceptance.md)（`cargo run --release --example acceptance`）。
+
+Runtime v2：[設計與介面](docs/runtime-v2-design.md)、[離線運行方法](docs/runtime-v2-operations.md)、
+[47 項驗收與三個 90 分鐘故障 soak 結果](docs/runtime-v2-results.md)。
+Bounded actor 與增量 audit 已實作；可靠性 soak 通過，性能 guardrails 仍未全通過。

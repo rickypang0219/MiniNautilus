@@ -1,0 +1,44 @@
+{
+  "command": "scripts/verify.sh",
+  "source": "e16496d",
+  "result": "VERIFY OK",
+  "rust_tests": 66,
+  "python_tests": 107,
+  "node_tests": 4,
+  "independent_parity_seeds": 20,
+  "verify_log_sha256": "b7b8cf9c683a9b2874cffdc044497ad0b51156326092b2f593a86e1619ee8203",
+  "tail": [
+    "lost ack \u2192 timeout \u2192 disconnect \u2192 partial fill \u2192 reconciliation \u2192 duplicate fill",
+    "position=2, unique_fills=1, reserved_buy=3, venue_orders=1, health=Healthy",
+    "VERIFY OK"
+  ],
+  "fresh_replay": {
+    "position": 0,
+    "cash_tick_lots": 12,
+    "gross_marked_pnl_tick_lots": 12,
+    "orders": 2,
+    "unique_fills": 3
+  },
+  "long_soaks": {
+    "source": "e16496d",
+    "result": "THREE FIXED LONG SOAKS VERIFIED",
+    "seeds": [
+      7,
+      17,
+      29
+    ],
+    "minutes_each": 90,
+    "validation_log_sha256": "97b7e02506c8843cab0aaac21c3f1098de78478f4d7d86d50027606b9b4ab23c",
+    "tail": [
+      "7 PASS 5400.648580343 {'position': 0, 'cash': -3206, 'orders': 7839, 'fills': 7838, 'killed': True, 'health': 'Healthy'} pending at hard-stop 2",
+      "17 PASS 5400.681863545 {'position': 0, 'cash': -8964, 'orders': 7815, 'fills': 7814, 'killed': True, 'health': 'Healthy'} pending at hard-stop 2",
+      "29 PASS 5400.655313154 {'position': 0, 'cash': -1180, 'orders': 7847, 'fills': 7846, 'killed': True, 'health': 'Healthy'} pending at hard-stop 2",
+      "THREE FIXED LONG SOAKS VERIFIED"
+    ],
+    "reports": {
+      "7": "a172d2f92fefcb70030034ea9f4174e8adf982a03233fbc243ef250af4a2c668",
+      "17": "12f864d9625ac199cfec8ebc758f4739ac3381f1e326147ec17ba75a9dfeedd2",
+      "29": "3d051990374e05b3f7d36a37f449941b73906e5fcb362a2b2996070071978c68"
+    }
+  }
+}

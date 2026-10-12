@@ -1,0 +1,56 @@
+[
+  {
+    "seed": 7,
+    "command": "target/release/mininautilus inspect JOURNAL (read-only full replay)",
+    "binary_sha256": "fbc6e154f48fbb626b40f7e06e1f8e071d8c7d1b5e6e83a059a034c94e309e84",
+    "seq": 96348,
+    "epoch": 10,
+    "position": 0,
+    "killed": true,
+    "health": "Healthy",
+    "orders": 7839,
+    "fills": 7838,
+    "uncertain_orders": 0,
+    "nonterminal_orders": 0,
+    "rejected_ids": [
+      4404
+    ],
+    "replayed_state_sha256": "904153a2ad2383ee66bc0663902e2e2d48398aebad89b843a15498a47fbf2cda"
+  },
+  {
+    "seed": 17,
+    "command": "target/release/mininautilus inspect JOURNAL (read-only full replay)",
+    "binary_sha256": "fbc6e154f48fbb626b40f7e06e1f8e071d8c7d1b5e6e83a059a034c94e309e84",
+    "seq": 96244,
+    "epoch": 10,
+    "position": 0,
+    "killed": true,
+    "health": "Healthy",
+    "orders": 7815,
+    "fills": 7814,
+    "uncertain_orders": 0,
+    "nonterminal_orders": 0,
+    "rejected_ids": [
+      4313
+    ],
+    "replayed_state_sha256": "70b7b2cc6f2b6dfdfc5da6cdfe55db03841fd85fee62f70d8f6b501a0eff09b3"
+  },
+  {
+    "seed": 29,
+    "command": "target/release/mininautilus inspect JOURNAL (read-only full replay)",
+    "binary_sha256": "fbc6e154f48fbb626b40f7e06e1f8e071d8c7d1b5e6e83a059a034c94e309e84",
+    "seq": 96375,
+    "epoch": 10,
+    "position": 0,
+    "killed": true,
+    "health": "Healthy",
+    "orders": 7847,
+    "fills": 7846,
+    "uncertain_orders": 0,
+    "nonterminal_orders": 0,
+    "rejected_ids": [
+      4322
+    ],
+    "replayed_state_sha256": "e5636c705b3eee6993993dbc389ddb62b4f4094adc4bb5220d9602780a6e5d2e"
+  }
+]

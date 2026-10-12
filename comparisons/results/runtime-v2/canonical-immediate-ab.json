@@ -1,0 +1,325 @@
+{
+  "compatible": true,
+  "before_reps": 5,
+  "after_reps": 5,
+  "aa": false,
+  "rows": [
+    {
+      "metric": "internal_tick_to_effect_p99_ms",
+      "verdict": "inconclusive",
+      "guardrail": "INCONCLUSIVE",
+      "before_median": 3.5248902399999977,
+      "after_median": 4.029638859999994,
+      "before_range": [
+        2.939909959999992,
+        5.510231599999987
+      ],
+      "after_range": [
+        3.406080619999999,
+        82.09799249999988
+      ],
+      "change_pct": 14.319555663667893
+    },
+    {
+      "metric": "input_queue_age_p99_ms",
+      "verdict": "inconclusive",
+      "guardrail": "INCONCLUSIVE",
+      "before_median": 0.763273699999997,
+      "after_median": 0.7673819999999983,
+      "before_range": [
+        0.7111448599999999,
+        0.7845011599999998
+      ],
+      "after_range": [
+        0.7407298199999997,
+        37.943963299999744
+      ],
+      "change_pct": 0.5382472892753167
+    },
+    {
+      "metric": "rust_full_request_histogram_p99_ms",
+      "verdict": "inconclusive",
+      "guardrail": "INCONCLUSIVE",
+      "before_median": 1.647142857142853,
+      "after_median": 1.670512820512823,
+      "before_range": [
+        1.3716666666666697,
+        1.8756410256410279
+      ],
+      "after_range": [
+        0.9870134228187916,
+        1.886857142857142
+      ],
+      "change_pct": 1.4188182444908097
+    },
+    {
+      "metric": "rust_before_response_p99_ms",
+      "verdict": "inconclusive",
+      "guardrail": "INCONCLUSIVE",
+      "before_median": 1.0023906599999937,
+      "after_median": 1.0315163600000015,
+      "before_range": [
+        0.9294507600000012,
+        1.5056114000000025
+      ],
+      "after_range": [
+        0.8330882999999996,
+        1.3803255999999975
+      ],
+      "change_pct": 2.9056236417853283
+    },
+    {
+      "metric": "ipc_roundtrip_p99_ms",
+      "verdict": "inconclusive",
+      "guardrail": "INCONCLUSIVE",
+      "before_median": 1.1152903600000024,
+      "after_median": 1.1841090000000085,
+      "before_range": [
+        1.027794840000001,
+        1.8845430400000094
+      ],
+      "after_range": [
+        0.9494549199999992,
+        1.6207625
+      ],
+      "change_pct": 6.170468468857384
+    },
+    {
+      "metric": "executor_queue_age_p99_ms",
+      "verdict": "regressed",
+      "guardrail": "FAIL",
+      "before_median": 0.3232048899999998,
+      "after_median": 0.6766313299999998,
+      "before_range": [
+        0.23114296999999998,
+        0.39728567999999953
+      ],
+      "after_range": [
+        0.5217274799999988,
+        2.883342819999998
+      ],
+      "change_pct": 109.35058563006277
+    },
+    {
+      "metric": "completed_per_second",
+      "verdict": "inconclusive",
+      "guardrail": "PASS",
+      "before_median": 133.64716815738203,
+      "after_median": 133.6226657250134,
+      "before_range": [
+        133.62617104395702,
+        133.705768961702
+      ],
+      "after_range": [
+        133.61161674320002,
+        133.63444264738547
+      ],
+      "change_pct": -0.01833367119291823
+    },
+    {
+      "metric": "python_cpu_ns_per_event",
+      "verdict": "inconclusive",
+      "guardrail": "INCONCLUSIVE",
+      "before_median": 453166.11408977554,
+      "after_median": 503228.42206982546,
+      "before_range": [
+        444552.9152647975,
+        477050.52680798003
+      ],
+      "after_range": [
+        466139.1097256858,
+        567076.7063591023
+      ],
+      "change_pct": 11.047231119785849
+    },
+    {
+      "metric": "python_sampled_peak_rss_kib",
+      "verdict": "inconclusive",
+      "guardrail": "PASS",
+      "before_median": 31436,
+      "after_median": 31512,
+      "before_range": [
+        31416,
+        31460
+      ],
+      "after_range": [
+        31496,
+        31516
+      ],
+      "change_pct": 0.24176103830003814
+    },
+    {
+      "metric": "rust_sampled_peak_rss_kib",
+      "verdict": "inconclusive",
+      "guardrail": "PASS",
+      "before_median": 2540,
+      "after_median": 2484,
+      "before_range": [
+        2480,
+        2576
+      ],
+      "after_range": [
+        2480,
+        2608
+      ],
+      "change_pct": -2.204724409448819
+    }
+  ],
+  "outcomes": [
+    [
+      {
+        "session_exit": 0,
+        "counts": {
+          "offered": 1605,
+          "admitted": 1605,
+          "completed": 1605,
+          "rejected": 0,
+          "coalesced": 0,
+          "pending": 0
+        },
+        "queue_high_water": 3,
+        "missed_deadlines": 0,
+        "gate_reason": null,
+        "effects_abandoned": 0
+      },
+      {
+        "session_exit": 0,
+        "counts": {
+          "offered": 1604,
+          "admitted": 1604,
+          "completed": 1604,
+          "rejected": 0,
+          "coalesced": 0,
+          "pending": 0
+        },
+        "queue_high_water": 3,
+        "missed_deadlines": 0,
+        "gate_reason": null,
+        "effects_abandoned": 0
+      },
+      {
+        "session_exit": 0,
+        "counts": {
+          "offered": 1604,
+          "admitted": 1604,
+          "completed": 1604,
+          "rejected": 0,
+          "coalesced": 0,
+          "pending": 0
+        },
+        "queue_high_water": 3,
+        "missed_deadlines": 0,
+        "gate_reason": null,
+        "effects_abandoned": 0
+      },
+      {
+        "session_exit": 0,
+        "counts": {
+          "offered": 1604,
+          "admitted": 1604,
+          "completed": 1604,
+          "rejected": 0,
+          "coalesced": 0,
+          "pending": 0
+        },
+        "queue_high_water": 3,
+        "missed_deadlines": 0,
+        "gate_reason": null,
+        "effects_abandoned": 0
+      },
+      {
+        "session_exit": 0,
+        "counts": {
+          "offered": 1604,
+          "admitted": 1604,
+          "completed": 1604,
+          "rejected": 0,
+          "coalesced": 0,
+          "pending": 0
+        },
+        "queue_high_water": 3,
+        "missed_deadlines": 0,
+        "gate_reason": null,
+        "effects_abandoned": 0
+      }
+    ],
+    [
+      {
+        "session_exit": 0,
+        "counts": {
+          "offered": 1604,
+          "admitted": 1604,
+          "completed": 1604,
+          "rejected": 0,
+          "coalesced": 0,
+          "pending": 0
+        },
+        "queue_high_water": 4,
+        "missed_deadlines": 1,
+        "gate_reason": null,
+        "effects_abandoned": 0
+      },
+      {
+        "session_exit": 0,
+        "counts": {
+          "offered": 1604,
+          "admitted": 1604,
+          "completed": 1604,
+          "rejected": 0,
+          "coalesced": 0,
+          "pending": 0
+        },
+        "queue_high_water": 3,
+        "missed_deadlines": 0,
+        "gate_reason": null,
+        "effects_abandoned": 0
+      },
+      {
+        "session_exit": 0,
+        "counts": {
+          "offered": 1604,
+          "admitted": 1604,
+          "completed": 1604,
+          "rejected": 0,
+          "coalesced": 0,
+          "pending": 0
+        },
+        "queue_high_water": 16,
+        "missed_deadlines": 1,
+        "gate_reason": null,
+        "effects_abandoned": 0
+      },
+      {
+        "session_exit": 0,
+        "counts": {
+          "offered": 1604,
+          "admitted": 1604,
+          "completed": 1604,
+          "rejected": 0,
+          "coalesced": 0,
+          "pending": 0
+        },
+        "queue_high_water": 3,
+        "missed_deadlines": 0,
+        "gate_reason": null,
+        "effects_abandoned": 0
+      },
+      {
+        "session_exit": 0,
+        "counts": {
+          "offered": 1604,
+          "admitted": 1604,
+          "completed": 1604,
+          "rejected": 0,
+          "coalesced": 0,
+          "pending": 0
+        },
+        "queue_high_water": 3,
+        "missed_deadlines": 0,
+        "gate_reason": null,
+        "effects_abandoned": 0
+      }
+    ]
+  ],
+  "resource_scope": "Sampled VmRSS peaks from system.jsonl; missing samples remain unknown, not zero. Correctness/session errors have zero tolerance."
+}

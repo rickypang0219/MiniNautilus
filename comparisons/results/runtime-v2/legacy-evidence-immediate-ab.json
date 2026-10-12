@@ -1,0 +1,325 @@
+{
+  "compatible": true,
+  "before_reps": 5,
+  "after_reps": 5,
+  "aa": false,
+  "rows": [
+    {
+      "metric": "internal_tick_to_effect_p99_ms",
+      "verdict": "inconclusive",
+      "guardrail": "INCONCLUSIVE",
+      "before_median": 2.826563919999997,
+      "after_median": 2.317963379999993,
+      "before_range": [
+        2.2659491799999993,
+        4.910474019999982
+      ],
+      "after_range": [
+        1.8427594199999986,
+        4.626070359999992
+      ],
+      "change_pct": -17.99359768237629
+    },
+    {
+      "metric": "input_queue_age_p99_ms",
+      "verdict": "inconclusive",
+      "guardrail": "INCONCLUSIVE",
+      "before_median": 0.8801515299999999,
+      "after_median": 0.9105435999999937,
+      "before_range": [
+        0.7295991299999992,
+        1.065109679999991
+      ],
+      "after_range": [
+        0.7619618099999995,
+        1.0147747999999976
+      ],
+      "change_pct": 3.453049726561718
+    },
+    {
+      "metric": "rust_full_request_histogram_p99_ms",
+      "verdict": "inconclusive",
+      "guardrail": "INCONCLUSIVE",
+      "before_median": 1.2145833333333371,
+      "after_median": 1.2075000000000047,
+      "before_range": [
+        0.9374736842105258,
+        1.3614285714285677
+      ],
+      "after_range": [
+        0.964146341463414,
+        1.6808823529411792
+      ],
+      "change_pct": -0.5831903945110741
+    },
+    {
+      "metric": "rust_before_response_p99_ms",
+      "verdict": "inconclusive",
+      "guardrail": "INCONCLUSIVE",
+      "before_median": 0.9106143200000001,
+      "after_median": 0.9335398400000006,
+      "before_range": [
+        0.6901352,
+        1.0535417699999994
+      ],
+      "after_range": [
+        0.7773136699999988,
+        1.0885248800000025
+      ],
+      "change_pct": 2.517588346293574
+    },
+    {
+      "metric": "ipc_roundtrip_p99_ms",
+      "verdict": "inconclusive",
+      "guardrail": "INCONCLUSIVE",
+      "before_median": 0.9992974000000017,
+      "after_median": 1.0825621600000013,
+      "before_range": [
+        0.8382335999999965,
+        1.6844338699999812
+      ],
+      "after_range": [
+        0.9256561299999976,
+        1.3021557200000042
+      ],
+      "change_pct": 8.3323302952654
+    },
+    {
+      "metric": "executor_queue_age_p99_ms",
+      "verdict": "regressed",
+      "guardrail": "FAIL",
+      "before_median": 0.27943210999999935,
+      "after_median": 0.6233877699999988,
+      "before_range": [
+        0.23314708999999967,
+        0.3642642999999986
+      ],
+      "after_range": [
+        0.5387566899999995,
+        1.1344895599999987
+      ],
+      "change_pct": 123.0909575853685
+    },
+    {
+      "metric": "completed_per_second",
+      "verdict": "inconclusive",
+      "guardrail": "PASS",
+      "before_median": 133.6498822383783,
+      "after_median": 133.63124965273528,
+      "before_range": [
+        133.6315366283532,
+        133.71286541901418
+      ],
+      "after_range": [
+        133.59844409792748,
+        133.64182748431676
+      ],
+      "change_pct": -0.013941340860881267
+    },
+    {
+      "metric": "python_cpu_ns_per_event",
+      "verdict": "inconclusive",
+      "guardrail": "INCONCLUSIVE",
+      "before_median": 456314.1458852868,
+      "after_median": 494034.3591022444,
+      "before_range": [
+        420681.40062305296,
+        472470.3632398754
+      ],
+      "after_range": [
+        476327.37967581046,
+        574237.828553616
+      ],
+      "change_pct": 8.266281805438505
+    },
+    {
+      "metric": "python_sampled_peak_rss_kib",
+      "verdict": "inconclusive",
+      "guardrail": "PASS",
+      "before_median": 31268,
+      "after_median": 31360,
+      "before_range": [
+        31260,
+        31288
+      ],
+      "after_range": [
+        31340,
+        31364
+      ],
+      "change_pct": 0.2942305232186261
+    },
+    {
+      "metric": "rust_sampled_peak_rss_kib",
+      "verdict": "inconclusive",
+      "guardrail": "PASS",
+      "before_median": 2484,
+      "after_median": 2612,
+      "before_range": [
+        2480,
+        2608
+      ],
+      "after_range": [
+        2480,
+        2672
+      ],
+      "change_pct": 5.152979066022544
+    }
+  ],
+  "outcomes": [
+    [
+      {
+        "session_exit": 0,
+        "counts": {
+          "offered": 1605,
+          "admitted": 1605,
+          "completed": 1605,
+          "rejected": 0,
+          "coalesced": 0,
+          "pending": 0
+        },
+        "queue_high_water": 4,
+        "missed_deadlines": 1,
+        "gate_reason": null,
+        "effects_abandoned": 0
+      },
+      {
+        "session_exit": 0,
+        "counts": {
+          "offered": 1605,
+          "admitted": 1605,
+          "completed": 1605,
+          "rejected": 0,
+          "coalesced": 0,
+          "pending": 0
+        },
+        "queue_high_water": 3,
+        "missed_deadlines": 0,
+        "gate_reason": null,
+        "effects_abandoned": 0
+      },
+      {
+        "session_exit": 0,
+        "counts": {
+          "offered": 1604,
+          "admitted": 1604,
+          "completed": 1604,
+          "rejected": 0,
+          "coalesced": 0,
+          "pending": 0
+        },
+        "queue_high_water": 3,
+        "missed_deadlines": 0,
+        "gate_reason": null,
+        "effects_abandoned": 0
+      },
+      {
+        "session_exit": 0,
+        "counts": {
+          "offered": 1605,
+          "admitted": 1605,
+          "completed": 1605,
+          "rejected": 0,
+          "coalesced": 0,
+          "pending": 0
+        },
+        "queue_high_water": 3,
+        "missed_deadlines": 0,
+        "gate_reason": null,
+        "effects_abandoned": 0
+      },
+      {
+        "session_exit": 0,
+        "counts": {
+          "offered": 1604,
+          "admitted": 1604,
+          "completed": 1604,
+          "rejected": 0,
+          "coalesced": 0,
+          "pending": 0
+        },
+        "queue_high_water": 3,
+        "missed_deadlines": 0,
+        "gate_reason": null,
+        "effects_abandoned": 0
+      }
+    ],
+    [
+      {
+        "session_exit": 0,
+        "counts": {
+          "offered": 1604,
+          "admitted": 1604,
+          "completed": 1604,
+          "rejected": 0,
+          "coalesced": 0,
+          "pending": 0
+        },
+        "queue_high_water": 3,
+        "missed_deadlines": 0,
+        "gate_reason": null,
+        "effects_abandoned": 0
+      },
+      {
+        "session_exit": 0,
+        "counts": {
+          "offered": 1604,
+          "admitted": 1604,
+          "completed": 1604,
+          "rejected": 0,
+          "coalesced": 0,
+          "pending": 0
+        },
+        "queue_high_water": 3,
+        "missed_deadlines": 0,
+        "gate_reason": null,
+        "effects_abandoned": 0
+      },
+      {
+        "session_exit": 0,
+        "counts": {
+          "offered": 1604,
+          "admitted": 1604,
+          "completed": 1604,
+          "rejected": 0,
+          "coalesced": 0,
+          "pending": 0
+        },
+        "queue_high_water": 3,
+        "missed_deadlines": 0,
+        "gate_reason": null,
+        "effects_abandoned": 0
+      },
+      {
+        "session_exit": 0,
+        "counts": {
+          "offered": 1604,
+          "admitted": 1604,
+          "completed": 1604,
+          "rejected": 0,
+          "coalesced": 0,
+          "pending": 0
+        },
+        "queue_high_water": 3,
+        "missed_deadlines": 0,
+        "gate_reason": null,
+        "effects_abandoned": 0
+      },
+      {
+        "session_exit": 0,
+        "counts": {
+          "offered": 1604,
+          "admitted": 1604,
+          "completed": 1604,
+          "rejected": 0,
+          "coalesced": 0,
+          "pending": 0
+        },
+        "queue_high_water": 3,
+        "missed_deadlines": 0,
+        "gate_reason": null,
+        "effects_abandoned": 0
+      }
+    ]
+  ],
+  "resource_scope": "Sampled VmRSS peaks from system.jsonl; missing samples remain unknown, not zero. Correctness/session errors have zero tolerance."
+}
