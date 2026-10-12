@@ -150,6 +150,7 @@ pub struct DurableEngine {
     pending_bytes: u64,
     /// Verified lazily on the first report about a retired order; never read by Core.
     cold: Option<ColdIndex>,
+    cold_verification: crate::cold_pages::Verification,
 }
 
 impl DurableEngine {
@@ -171,6 +172,7 @@ impl DurableEngine {
             unsynced: false,
             pending_bytes: 0,
             cold: None,
+            cold_verification: crate::cold_pages::Verification::Full,
         };
         engine.append(&Payload::Genesis {
             schema: 1,
@@ -212,10 +214,40 @@ impl DurableEngine {
             unsynced: false,
             pending_bytes: 0,
             cold: None,
+            cold_verification: crate::cold_pages::Verification::Full,
         };
         // A recovered local state is not proof of current venue state.
         engine.process(engine.core.now, Event::Disconnect)?;
         Ok(engine)
+    }
+
+    pub fn set_cold_verification(
+        &mut self,
+        verification: crate::cold_pages::Verification,
+    ) -> io::Result<()> {
+        self.cold_verification = verification;
+        self.cold = None;
+        if verification == crate::cold_pages::Verification::PathVerified
+            && let Some(reference) = self.core.cold.as_ref()
+        {
+            self.cold = Some(ColdIndex::open_with(
+                self.journal_path.parent().unwrap(),
+                reference,
+                verification,
+            )?);
+        }
+        Ok(())
+    }
+
+    pub fn retry_cold_reclamation(&self) -> io::Result<crate::cold_gc::Report> {
+        match &self.core.cold {
+            Some(r) => crate::cold_gc::retry_with(
+                self.journal_path.parent().unwrap(),
+                r,
+                self.cold_verification,
+            ),
+            None => Ok(crate::cold_gc::Report::default()),
+        }
     }
 
     pub fn core(&self) -> &Core {
@@ -391,7 +423,7 @@ impl DurableEngine {
         if self.cold.is_none() {
             let reference = self.core.cold.as_ref()?;
             let directory = self.journal_path.parent()?;
-            self.cold = ColdIndex::open(directory, reference).ok();
+            self.cold = ColdIndex::open_with(directory, reference, self.cold_verification).ok();
         }
         self.cold.as_ref()
     }
@@ -408,19 +440,28 @@ impl DurableEngine {
     /// Consumes this writer before the existing crash-safe offline rotation.
     /// The successor remains gated until the caller reconciles its venue.
     pub fn rotate_into(self, successor: &Path) -> io::Result<Self> {
-        self.rotate_into_with(successor, false, false)
+        self.rotate_into_with(successor, false, false, false)
     }
 
     /// Live rotation: also writes the cold index that keeps exact dedup evidence
     /// for every retired order and fill (docs/adr-live-rotation.md).
     pub fn rotate_into_retaining(self, successor: &Path) -> io::Result<Self> {
-        self.rotate_into_with(successor, true, false)
+        self.rotate_into_with(successor, true, false, false)
     }
 
     /// Opt-in reclamation of only this writer's superseded cold generation.
     /// Pinned readers retain their generation; old journals are never removed.
     pub fn rotate_into_retaining_with_gc(self, successor: &Path) -> io::Result<Self> {
-        self.rotate_into_with(successor, true, true)
+        self.rotate_into_with(successor, true, true, false)
+    }
+
+    /// Opt-in immutable pages. Complete first-use verification remains mandatory.
+    pub fn rotate_into_retaining_paged(self, successor: &Path) -> io::Result<Self> {
+        self.rotate_into_with(successor, true, false, true)
+    }
+
+    pub fn rotate_into_retaining_paged_with_gc(self, successor: &Path) -> io::Result<Self> {
+        self.rotate_into_with(successor, true, true, true)
     }
 
     fn rotate_into_with(
@@ -428,6 +469,7 @@ impl DurableEngine {
         successor: &Path,
         retain: bool,
         reclaim: bool,
+        paged: bool,
     ) -> io::Result<Self> {
         self.core.rotation_ready().map_err(invalid)?;
         self.sync()?;
@@ -441,14 +483,30 @@ impl DurableEngine {
                 "cold reclamation requires the same journal directory",
             ));
         }
+        if reclaim {
+            crate::cold_gc::preflight(
+                old.parent().unwrap(),
+                previous_cold.as_ref(),
+                self.core.orders.len(),
+                self.core.fills.len(),
+                paged || self.cold.as_ref().is_some_and(|p| p.is_paged()),
+            )?;
+        }
         let policy = self.sync;
+        let verification = self.cold_verification;
         drop(self);
-        rotate_with(&old, successor, retain)?;
+        rotate_with_format(&old, successor, retain, paged, verification)?;
         let mut next = Self::recover(successor, None)?;
         next.set_sync_policy(policy);
+        next.set_cold_verification(verification)?;
         if reclaim && let (Some(previous), Some(current)) = (previous_cold, next.core.cold.as_ref())
         {
-            cold::remove_superseded(old.parent().unwrap(), &previous, current)?;
+            crate::cold_gc::register_and_sweep_with(
+                old.parent().unwrap(),
+                &previous,
+                current,
+                verification,
+            )?;
         }
         Ok(next)
     }
@@ -665,6 +723,22 @@ pub fn repair_retaining(old: &Path, new: &Path) -> io::Result<Core> {
 }
 
 fn rotate_with(old: &Path, new: &Path, retain: bool) -> io::Result<Core> {
+    rotate_with_format(
+        old,
+        new,
+        retain,
+        false,
+        crate::cold_pages::Verification::Full,
+    )
+}
+
+fn rotate_with_format(
+    old: &Path,
+    new: &Path,
+    retain: bool,
+    paged: bool,
+    verification: crate::cold_pages::Verification,
+) -> io::Result<Core> {
     let mut file = OpenOptions::new().read(true).write(true).open(old)?;
     file.try_lock().map_err(io::Error::other)?;
     let mut bytes = Vec::new();
@@ -684,7 +758,7 @@ fn rotate_with(old: &Path, new: &Path, retain: bool) -> io::Result<Core> {
     }
     // Retired evidence first (ADR §2): previous cold index plus this segment.
     let cold = if retain {
-        Some(write_cold(old, new, &scanned.core)?)
+        Some(write_cold(old, new, &scanned.core, paged, verification)?)
     } else {
         scanned.core.cold.clone()
     };
@@ -734,7 +808,13 @@ fn rotate_with(old: &Path, new: &Path, retain: bool) -> io::Result<Core> {
 
 /// `<successor>.cold`: the predecessor's cold index (verified) extended by every
 /// order and fill of the closing segment. Deterministic, so a rerun is idempotent.
-fn write_cold(old: &Path, new: &Path, core: &Core) -> io::Result<cold::ColdRef> {
+fn write_cold(
+    old: &Path,
+    new: &Path,
+    core: &Core,
+    paged: bool,
+    verification: crate::cold_pages::Verification,
+) -> io::Result<cold::ColdRef> {
     let directory = old
         .parent()
         .filter(|p| !p.as_os_str().is_empty())
@@ -742,7 +822,7 @@ fn write_cold(old: &Path, new: &Path, core: &Core) -> io::Result<cold::ColdRef> 
     let previous = core
         .cold
         .as_ref()
-        .map(|reference| ColdIndex::open(directory, reference))
+        .map(|reference| ColdIndex::open_with(directory, reference, verification))
         .transpose()?;
     let mut orders = Vec::with_capacity(core.orders.len());
     let mut fills = Vec::with_capacity(core.fills.len());
@@ -765,6 +845,21 @@ fn write_cold(old: &Path, new: &Path, core: &Core) -> io::Result<cold::ColdRef> 
         .file_name()
         .and_then(|n| n.to_str())
         .ok_or_else(|| invalid("successor needs a UTF-8 file name"))?;
+    if paged && previous.as_ref().is_some_and(|p| !p.is_paged()) {
+        return Err(invalid(
+            "legacy cold archive requires explicit offline migration",
+        ));
+    }
+    if paged && previous.is_none() {
+        return crate::cold_pages::extend(
+            &new.with_file_name(format!("{name}.cold")),
+            None,
+            &orders,
+            &fills,
+        )
+        .map(|r| r.0);
+    }
+
     cold::extend(
         &new.with_file_name(format!("{name}.cold")),
         previous.as_ref(),

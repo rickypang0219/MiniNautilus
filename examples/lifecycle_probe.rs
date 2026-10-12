@@ -99,12 +99,83 @@ fn status() -> serde_json::Value {
     };
     json!({"rss_kib":value("VmRSS:"),"hwm_kib":value("VmHWM:")})
 }
+fn app_writes() -> u64 {
+    fs::read_to_string("/proc/self/io")
+        .unwrap()
+        .lines()
+        .find_map(|l| l.strip_prefix("wchar: ").and_then(|n| n.parse().ok()))
+        .unwrap()
+}
+fn app_reads() -> u64 {
+    fs::read_to_string("/proc/self/io")
+        .unwrap()
+        .lines()
+        .find_map(|l| l.strip_prefix("rchar: ").and_then(|n| n.parse().ok()))
+        .unwrap()
+}
 fn main() -> io::Result<()> {
     let args: Vec<_> = std::env::args().collect();
     let dir = Path::new(args.get(1).expect("directory"));
     let n: u64 = args.get(2).expect("history").parse().unwrap();
     fs::create_dir(dir)?;
-    let reference = fixture(&dir.join("history.cold"), n)?;
+    let paged = args.get(6).is_some_and(|s| s == "pages");
+    let verification = if args.get(7).is_some_and(|s| s == "path") {
+        mininautilus::cold_pages::Verification::PathVerified
+    } else {
+        mininautilus::cold_pages::Verification::Full
+    };
+    let reference = if paged {
+        let mut reference = None;
+        for start in (1..=n).step_by(10000) {
+            let count = (n + 1 - start).min(10000);
+            let orders: Vec<_> = (start..start + count)
+                .map(|id| mininautilus::cold::RetiredOrder {
+                    id,
+                    filled: 1,
+                    lifecycle: Lifecycle::Filled,
+                })
+                .collect();
+            let fills: Vec<_> = (start..start + count)
+                .map(|id| Fill {
+                    execution_id: id,
+                    order_id: id,
+                    qty: 1,
+                    price: 100,
+                })
+                .collect();
+            let old = reference
+                .as_ref()
+                .map(|r| {
+                    mininautilus::cold_pages::Index::open(
+                        dir,
+                        r,
+                        mininautilus::cold_pages::Verification::PathVerified,
+                    )
+                })
+                .transpose()?;
+            let (r, _) = mininautilus::cold_pages::extend(
+                &dir.join(format!("fixture-{start}.cold")),
+                old.as_ref(),
+                &orders,
+                &fills,
+            )?;
+            drop(old);
+            if let Some(previous) = reference.as_ref() {
+                mininautilus::cold_gc::register_and_sweep_with(
+                    dir,
+                    previous,
+                    &r,
+                    mininautilus::cold_pages::Verification::PathVerified,
+                )?;
+            }
+            reference = Some(r);
+        }
+        let reference = reference.unwrap();
+        ColdIndex::open(dir, &reference)?;
+        reference
+    } else {
+        fixture(&dir.join("history.cold"), n)?
+    };
     let config = Config {
         max_abs_position: 1_000_000_000,
         max_order_notional: 1_000_000_000,
@@ -126,6 +197,7 @@ fn main() -> io::Result<()> {
     frame(&path, &config, &carry)?;
     let mut engine = DurableEngine::recover(&path, None)?;
     engine.set_sync_policy(journal::SyncPolicy::Outbox);
+    engine.set_cold_verification(verification)?;
     reconcile(&mut engine, 0)?;
     let mut at = 0;
     let cycles: u64 = args.get(3).map_or(Ok(1), |s| s.parse()).unwrap();
@@ -168,7 +240,11 @@ fn main() -> io::Result<()> {
         }
         reconcile(&mut engine, at)?;
         if pin {
-            readers.push(ColdIndex::open(dir, engine.core().cold.as_ref().unwrap())?);
+            readers.push(ColdIndex::open_with(
+                dir,
+                engine.core().cold.as_ref().unwrap(),
+                verification,
+            )?);
         }
         let started = Instant::now();
         latest = if cycles == 1 {
@@ -176,13 +252,22 @@ fn main() -> io::Result<()> {
         } else {
             dir.join(format!("next-{cycle}.jsonl"))
         };
-        let mut next = if reclaim {
+        let io_before = app_writes();
+        let mut next = if paged && reclaim {
+            engine.rotate_into_retaining_paged_with_gc(&latest)?
+        } else if paged {
+            engine.rotate_into_retaining_paged(&latest)?
+        } else if reclaim {
             engine.rotate_into_retaining_with_gc(&latest)?
         } else {
             engine.rotate_into_retaining(&latest)?
         };
         rotations.push(started.elapsed().as_secs_f64() * 1000.);
-        logical_written += fs::metadata(dir.join(&next.core().cold.as_ref().unwrap().file))?.len();
+        logical_written += if paged {
+            app_writes().saturating_sub(io_before)
+        } else {
+            fs::metadata(dir.join(&next.core().cold.as_ref().unwrap().file))?.len()
+        };
         reconcile(&mut next, at)?;
         engine = next;
         let allocated = fs::read_dir(dir)?
@@ -192,21 +277,35 @@ fn main() -> io::Result<()> {
             .collect::<io::Result<Vec<_>>>()?
             .into_iter()
             .sum::<u64>();
-        cold_peak_allocated = cold_peak_allocated.max(allocated);
+        let pages = dir.join(".cold-pages-v2");
+        let pages_allocated = if pages.exists() {
+            fs::read_dir(pages)?
+                .map(|e| e.and_then(|e| e.metadata()).map(|m| m.blocks() * 512))
+                .sum::<io::Result<u64>>()?
+        } else {
+            0
+        };
+        cold_peak_allocated = cold_peak_allocated.max(allocated + pages_allocated);
     }
     let rotation_ms = rotations[0];
     let rotation_resources = status();
     let cold = engine.core().cold.clone().unwrap();
     let started = Instant::now();
-    let index = ColdIndex::open(dir, &cold)?;
+    let read_before = app_reads();
+    let index = ColdIndex::open_with(dir, &cold, verification)?;
     let found = index.fill(n)?;
     assert!(found.is_some());
     let first_ms = started.elapsed().as_secs_f64() * 1000.;
+    let first_read = app_reads().saturating_sub(read_before);
     let mut durations = Vec::with_capacity(1000);
     for i in 0..1000 {
         let started = Instant::now();
         assert!(index.fill(1 + i % n)?.is_some());
         durations.push(started.elapsed().as_secs_f64() * 1000.);
+    }
+    // Same current hot state and exactly 200 explicit tail Tick inputs per H.
+    for _ in 0..200 {
+        engine.process(at, Event::Tick)?;
     }
     drop(engine);
     let started = Instant::now();
@@ -215,7 +314,7 @@ fn main() -> io::Result<()> {
     assert_eq!(restored.core().position, (200 * cycles) as i64);
     println!(
         "{}",
-        json!({"schema":"lc_probe_v1","history":n,"rotation_ms":rotation_ms,"rotation_resources":rotation_resources,"first_lookup_ms":first_ms,"warm_lookup_ms":durations,"engine_replay_ms":replay_ms,"final_resources":status(),"cold_bytes":fs::metadata(dir.join(&cold.file))?.len(),"cold_logical_write_bytes":logical_written,"first_lookup_logical_read_bytes":49*(n+200*cycles)+32,"cycles":cycles,"rotation_durations_ms":rotations,"reclaimed":reclaim,"new_payload_bytes":49*200*cycles,"cold_peak_allocated_bytes":cold_peak_allocated,"pinned_generations":readers.len(),"correct":true})
+        json!({"schema":"lc_probe_v2","cold_format":if paged {"pages"}else{"legacy"},"verification":format!("{verification:?}"),"tail_inputs":200,"write_counter_scope":if paged {"procfs wchar: cold plus rotation journal writes upper bound"}else{"published cold bytes plus catalogue reported separately"},"history":n,"rotation_ms":rotation_ms,"rotation_resources":rotation_resources,"first_lookup_ms":first_ms,"warm_lookup_ms":durations,"engine_replay_ms":replay_ms,"final_resources":status(),"cold_bytes":fs::metadata(dir.join(&cold.file))?.len(),"cold_logical_write_bytes":logical_written,"first_lookup_logical_read_bytes":first_read,"cycles":cycles,"rotation_durations_ms":rotations,"reclaimed":reclaim,"new_payload_bytes":49*200*cycles,"cold_peak_allocated_bytes":cold_peak_allocated,"pinned_generations":readers.len(),"correct":true})
     );
     Ok(())
 }

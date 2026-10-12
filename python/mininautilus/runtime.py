@@ -50,6 +50,8 @@ class Coordinator:
         self.pending_private={}
         self.admission_times={}
         self.counts=dict(offered=0,admitted=0,completed=0,rejected=0,coalesced=0,pending=0)
+        self.source_counts = {}
+        self.accounting_overflow = 0
         self.high_water,self.effect_high_water=0,0
         self.effects_started,self.effects_abandoned,self.execution_failures=0,0,0
         self.mutations_refused=0
@@ -59,6 +61,22 @@ class Coordinator:
         self.fault_pending=None
         self.task,self.effect_task=None,None
         self.critical_burst,self.market_burst,self.cursor=0,0,0
+
+    def _account(self, item, field):
+        source = item.source if isinstance(item.source, str) and len(item.source) <= 128 else '<invalid-source>'
+        epoch = item.epoch if type(item.epoch) is int and 0 <= item.epoch <= 2**64-1 else -1
+        key = (source, epoch)
+        if key not in self.source_counts and len(self.source_counts) >= 64:
+            key = ('<accounting-overflow>', -1)
+            if field == 'offered':
+                self.accounting_overflow += 1
+        row = self.source_counts.setdefault(key, dict(offered=0, admitted=0, completed=0, rejected=0, pending=0))
+        row[field] += 1
+        if field == 'admitted': row['pending'] += 1
+        elif field == 'completed': row['pending'] -= 1
+
+    def accounting(self):
+        return [dict(source=s, epoch=e, **counts) for (s,e),counts in sorted(self.source_counts.items())]
 
     def start(self):
         if self.task is not None: raise RuntimeError('coordinator already started')
@@ -79,6 +97,7 @@ class Coordinator:
                                      venue=self.identity[0],account=self.identity[1],instrument=self.identity[2])
             self.admission_times[id(self.fault_pending)]=now
             self.counts['offered']+=1;self.counts['admitted']+=1;self.counts['pending']+=1
+            self._account(self.fault_pending, 'offered'); self._account(self.fault_pending, 'admitted')
             self.high_water=max(self.high_water,self.queued+1)
             self._observe('gate',reason=reason)
             self._observe('admission',item=self.fault_pending,admitted_ns=now)
@@ -88,15 +107,19 @@ class Coordinator:
 
     def offer(self,item):
         self.counts['offered']+=1
+        self._account(item, 'offered')
         critical=item.lane in ('control','private','timer')
         def refuse(reason):
             self.counts['rejected']+=1
+            self._account(item, 'rejected')
             if critical: self.gate(reason)
             return False
+        if self.accounting_overflow:
+            self.gate('accounting_capacity'); return refuse('accounting_capacity')
         if self.closed or (self.finishing and not critical): return refuse('closed_admission')
         if (item.venue,item.account,item.instrument)!=self.identity:
             return refuse('identity_mismatch')
-        if not isinstance(item.source,str) or not item.source or type(item.epoch) is not int or item.epoch<0:
+        if not isinstance(item.source,str) or not item.source or len(item.source)>128 or type(item.epoch) is not int or not 0<=item.epoch<=2**64-1:
             return refuse('invalid_source')
         if item.source_seq is not None and type(item.source_seq) is not int:
             return refuse('invalid_sequence')
@@ -120,13 +143,13 @@ class Coordinator:
         previous=self.last_sequence.get(item.source)
         if previous and item.epoch<previous[0]: return refuse('old_source_epoch')
         if previous and item.epoch!=previous[0]:
-            self.counts['rejected']+=1;self.gate('source_epoch_changed');return False
+            self.counts['rejected']+=1;self._account(item,'rejected');self.gate('source_epoch_changed');return False
         if item.source_seq is not None:
             if item.source_seq<0: return refuse('invalid_sequence')
             if previous and previous[1] is not None:
                 if item.source_seq<=previous[1]: return refuse('duplicate_source_sequence')
                 if item.source_seq!=previous[1]+1:
-                    self.counts['rejected']+=1;self.gate('source_sequence_gap');return False
+                    self.counts['rejected']+=1;self._account(item,'rejected');self.gate('source_sequence_gap');return False
         # Snapshot mutable payloads at admission so producers cannot alter replay.
         item=Input(**json.loads(encoded))
         if item.lane=='private':
@@ -136,6 +159,7 @@ class Coordinator:
         self.last_sequence[item.source]=(item.epoch,item.source_seq)
         self.queued+=1;self.bytes+=size
         self.counts['admitted']+=1;self.counts['pending']+=1
+        self._account(item, 'admitted')
         self.high_water=max(self.high_water,self.queued+(self.fault_pending is not None))
         admitted=time.perf_counter_ns()
         self.admission_times[id(item)]=admitted
@@ -197,6 +221,7 @@ class Coordinator:
                     effects=await self.apply(item)
                 self._enqueue_effects(effects)
                 self.counts['pending']-=1;self.counts['completed']+=1
+                self._account(item, 'completed')
                 if self.pending_private.pop(id(item),None) is not None:
                     self.private_wake.set()
                 self._observe('input',item=item,admitted_ns=admitted,started_ns=began,finished_ns=time.perf_counter_ns())

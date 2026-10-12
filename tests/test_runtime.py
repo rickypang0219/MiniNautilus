@@ -315,3 +315,20 @@ class CoordinatorTests(unittest.IsolatedAsyncioTestCase):
         fill_commit.set();await actor.finish()
         self.assertEqual(actor.effects_skipped_terminal,1)
         self.assertEqual(actor.pending_private,{})
+
+class SourceAccountingTests(unittest.IsolatedAsyncioTestCase):
+    async def test_old_epoch_rejection_and_hard_stop_pending_are_accounted(self):
+        release=asyncio.Event(); entered=asyncio.Event()
+        async def apply(item): entered.set(); await release.wait(); return []
+        async def execute(effect): pass
+        actor=Coordinator(apply,execute).start()
+        self.assertTrue(actor.offer(Input('private','private','Tick',epoch=2,source_seq=1)))
+        await asyncio.wait_for(entered.wait(),1)
+        self.assertFalse(actor.offer(Input('private','private','Tick',epoch=1,source_seq=1)))
+        await actor.abort()
+        for row in actor.accounting():
+            self.assertEqual(row['offered'],row['admitted']+row['rejected'])
+            self.assertEqual(row['admitted'],row['completed']+row['pending'])
+        self.assertGreater(actor.counts['pending'],0)
+        self.assertEqual(sum(r['pending'] for r in actor.accounting()),actor.counts['pending'])
+        self.assertEqual(actor.accounting_overflow,0)

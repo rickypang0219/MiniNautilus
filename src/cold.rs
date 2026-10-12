@@ -105,6 +105,9 @@ pub fn extend(
     orders: &[RetiredOrder],
     fills: &[Fill],
 ) -> io::Result<ColdRef> {
+    if let Some(index) = previous.and_then(|p| p.paged.as_ref()) {
+        return crate::cold_pages::extend(path, Some(index), orders, fills).map(|r| r.0);
+    }
     if orders.windows(2).any(|w| w[0].id >= w[1].id)
         || fills
             .windows(2)
@@ -254,19 +257,42 @@ pub struct ColdIndex {
     file: File,
     orders: u64,
     fills: u64,
+    paged: Option<Box<crate::cold_pages::Index>>,
 }
 
 impl ColdIndex {
     /// Opens and fully verifies size, header and checksum against `reference`.
     pub fn open(directory: &Path, reference: &ColdRef) -> io::Result<Self> {
+        Self::open_with(directory, reference, crate::cold_pages::Verification::Full)
+    }
+
+    pub fn open_with(
+        directory: &Path,
+        reference: &ColdRef,
+        verification: crate::cold_pages::Verification,
+    ) -> io::Result<Self> {
         if reference.file.contains('/') || reference.file.starts_with('.') {
             return Err(invalid(
                 "cold index must be a plain file next to its journal",
             ));
         }
+        let registration = crate::cold_gc::registration(directory)?;
         let mut file = File::open(directory.join(&reference.file))?;
         file.try_lock_shared().map_err(io::Error::other)?;
+        drop(registration);
         let length = file.metadata()?.len();
+        let mut magic = [0; 8];
+        file.read_exact(&mut magic)?;
+        file.seek(SeekFrom::Start(0))?;
+        if &magic != MAGIC {
+            let paged = crate::cold_pages::Index::open(directory, reference, verification)?;
+            return Ok(Self {
+                file,
+                orders: reference.orders,
+                fills: reference.fills,
+                paged: Some(Box::new(paged)),
+            });
+        }
         if length != HEADER + ORDER * reference.orders + FILL * reference.fills + 8 {
             return Err(invalid("cold index size mismatch"));
         }
@@ -298,6 +324,7 @@ impl ColdIndex {
             file,
             orders: reference.orders,
             fills: reference.fills,
+            paged: None,
         })
     }
 
@@ -312,6 +339,9 @@ impl ColdIndex {
     }
 
     pub fn order(&self, id: OrderId) -> io::Result<Option<RetiredOrder>> {
+        if let Some(index) = &self.paged {
+            return index.order(id);
+        }
         let (mut low, mut high) = (0, self.orders);
         while low < high {
             let middle = (low + high) / 2;
@@ -333,6 +363,9 @@ impl ColdIndex {
     }
 
     pub fn fill(&self, execution_id: u64) -> io::Result<Option<Fill>> {
+        if let Some(index) = &self.paged {
+            return index.fill(execution_id);
+        }
         let base = HEADER + ORDER * self.orders;
         let (mut low, mut high) = (0, self.fills);
         while low < high {
@@ -355,12 +388,32 @@ impl ColdIndex {
         Ok(None)
     }
 
-    fn order_at(&self, index: u64) -> io::Result<RetiredOrder> {
+    pub(crate) fn order_at(&self, index: u64) -> io::Result<RetiredOrder> {
+        if self.paged.is_some() || index >= self.orders {
+            return Err(invalid("legacy row index unavailable"));
+        }
         let record: [u8; 17] = self.read(HEADER + index * ORDER)?;
         Ok(RetiredOrder {
             id: Self::word(&record, 0),
             filled: Self::word(&record, 8) as i64,
             lifecycle: lifecycle_from(record[16])?,
+        })
+    }
+
+    pub(crate) fn is_paged(&self) -> bool {
+        self.paged.is_some()
+    }
+
+    pub(crate) fn fill_at(&self, index: u64) -> io::Result<Fill> {
+        if self.paged.is_some() || index >= self.fills {
+            return Err(invalid("legacy row index unavailable"));
+        }
+        let record: [u8; 32] = self.read(HEADER + self.orders * ORDER + index * FILL)?;
+        Ok(Fill {
+            execution_id: Self::word(&record, 0),
+            order_id: Self::word(&record, 8),
+            qty: Self::word(&record, 16) as i64,
+            price: Self::word(&record, 24) as i64,
         })
     }
 
@@ -405,29 +458,7 @@ pub fn remove_superseded(
     previous: &ColdRef,
     current: &ColdRef,
 ) -> io::Result<bool> {
-    if previous.file == current.file {
-        return Err(invalid("cannot reclaim current cold index"));
-    }
-    // Verify the durable successor before disposing of any evidence.
-    let _current = ColdIndex::open(directory, current)?;
-    if previous.file.contains('/') || previous.file.starts_with('.') {
-        return Err(invalid(
-            "cold index must be a plain file next to its journal",
-        ));
-    }
-    let path = directory.join(&previous.file);
-    let file = match File::open(&path) {
-        Ok(file) => file,
-        Err(e) if e.kind() == io::ErrorKind::NotFound => return Ok(false),
-        Err(e) => return Err(e),
-    };
-    if file.try_lock().is_err() {
-        return Ok(false);
-    }
-    fault_point("gc_before")?;
-    fs::remove_file(&path)?;
-    fault_point("gc_after_unlink")?;
-    File::open(directory)?.sync_all()?;
-    fault_point("gc_after")?;
-    Ok(true)
+    let existed = directory.join(&previous.file).exists();
+    crate::cold_gc::register_and_sweep(directory, previous, current)?;
+    Ok(existed && !directory.join(&previous.file).exists())
 }

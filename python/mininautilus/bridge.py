@@ -205,16 +205,19 @@ class Engine:
         """
         return self.rotate(successor)
 
-    def rotate(self, successor, *, reclaim_cold=False):
+    def rotate(self, successor, *, reclaim_cold=False, paged_cold=False):
         """Rotate the journal. Live (`serve`) rotation additionally writes the cold
         dedup index and is refused unless the request immediately follows a venue
         reconciliation (docs/adr-live-rotation.md); the successor stays gated until
         the adapter reconciles again."""
         effects = self._roundtrip(self._encode({"at": self.state["now"],
                                              "rotate_to": str(Path(successor).resolve()),
-                                             "reclaim_superseded_cold": reclaim_cold}))
+                                             "reclaim_superseded_cold": reclaim_cold, "paged_cold": paged_cold}))
         self.journal = str(Path(successor).resolve())
         return effects
+
+    def retry_cold_gc(self):
+        return self._roundtrip(self._encode({"at": self.state["now"], "retry_cold_gc": True}))
 
     def send_batch(self, at, events):
         """Process events in order in one round trip; returns all their effects.

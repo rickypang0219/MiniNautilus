@@ -421,17 +421,35 @@ fn child_rotation_fault_target() {
     let d = PathBuf::from(directory);
     fs::create_dir_all(&d).unwrap();
     let mut engine = DurableEngine::create(&d.join("events"), config()).unwrap();
+    let paged = std::env::var_os("MINI_LC_TEST_PAGED").is_some();
+    if paged {
+        engine
+            .set_cold_verification(mininautilus::cold_pages::Verification::PathVerified)
+            .unwrap();
+    }
     let mut at = 0;
     trade(&mut engine, &mut at, 1, 5);
     reconcile(&mut engine, at);
-    let mut engine = engine.rotate_into_retaining(&d.join("events-1")).unwrap();
+    let mut engine = if paged {
+        engine
+            .rotate_into_retaining_paged(&d.join("events-1"))
+            .unwrap()
+    } else {
+        engine.rotate_into_retaining(&d.join("events-1")).unwrap()
+    };
     reconcile(&mut engine, at);
     trade(&mut engine, &mut at, 6, 2);
     reconcile(&mut engine, at);
     fs::write(d.join("armed"), b"armed").unwrap();
-    engine
-        .rotate_into_retaining_with_gc(&d.join("events-2"))
-        .unwrap();
+    if paged {
+        engine
+            .rotate_into_retaining_paged_with_gc(&d.join("events-2"))
+            .unwrap();
+    } else {
+        engine
+            .rotate_into_retaining_with_gc(&d.join("events-2"))
+            .unwrap();
+    }
 }
 
 #[test]
@@ -487,6 +505,105 @@ fn publication_crashes_recover_or_fail_closed_without_losing_evidence() {
             report(&mut engine, 100, Report::Fill(fill(1)));
             assert_eq!(engine.core().health, Health::Healthy, "{boundary}");
             assert_eq!(engine.core().position, 7, "{boundary}");
+        }
+    }
+}
+
+#[test]
+fn paged_rotation_preserves_retired_dedup_and_retries_gc() {
+    use mininautilus::cold_pages::Verification;
+    let d = dir("paged-production");
+    let path = d.join("events.jsonl");
+    let mut engine = DurableEngine::create(&path, config()).unwrap();
+    engine
+        .set_cold_verification(Verification::PathVerified)
+        .unwrap();
+    let mut at = 0;
+    trade(&mut engine, &mut at, 1, 2);
+    reconcile(&mut engine, at);
+    let mut engine = engine
+        .rotate_into_retaining_paged_with_gc(&d.join("next-1.jsonl"))
+        .unwrap();
+    reconcile(&mut engine, at);
+    trade(&mut engine, &mut at, 3, 2);
+    reconcile(&mut engine, at);
+    let mut engine = engine
+        .rotate_into_retaining_paged_with_gc(&d.join("next-2.jsonl"))
+        .unwrap();
+    reconcile(&mut engine, at);
+    let pos = engine.core().position;
+    let effects = report(&mut engine, at, Report::Fill(fill(1)));
+    assert!(!effects.iter().any(|e| matches!(e, Effect::Alert { .. })));
+    assert_eq!(engine.core().position, pos);
+    engine.retry_cold_reclamation().unwrap();
+    assert_eq!(engine.core().fills.len(), 0);
+}
+
+#[test]
+#[cfg(feature = "fault-injection")]
+fn paged_publication_and_catalog_crashes_preserve_a_unique_state_or_fail_closed() {
+    use std::process::Command;
+    for boundary in [
+        "page_before",
+        "page_mid",
+        "page_fsync_after",
+        "pages_dirsync_after",
+        "root_fsync_after",
+        "root_rename_after",
+        "root_dirsync_after",
+        "catalog_before",
+        "catalog_fsync_after",
+        "catalog_rename_after",
+        "catalog_dirsync_after",
+        "gc_before",
+        "gc_after_unlink",
+        "gc_after",
+    ] {
+        for repetition in 0..3 {
+            let d = dir(&format!("paged-crash-{boundary}-{repetition}"));
+            let result = Command::new(std::env::current_exe().unwrap())
+                .args(["--exact", "child_rotation_fault_target", "--nocapture"])
+                .env("MINI_LC_TEST_DIR", &d)
+                .env("MINI_LC_TEST_PAGED", "1")
+                .env("MINI_LC_FAULT_ARM_FILE", d.join("armed"))
+                .env("MINI_LC_CRASH_AT", boundary)
+                .output()
+                .unwrap();
+            assert_eq!(
+                result.status.code(),
+                Some(99),
+                "{boundary}: {}",
+                String::from_utf8_lossy(&result.stderr)
+            );
+            fs::remove_file(d.join("armed")).unwrap();
+            let old = d.join("events-1");
+            let new = d.join("events-2");
+            assert_eq!(journal::replay(&old).unwrap().position, 7);
+            if new.exists() {
+                let core = journal::replay(&new).unwrap();
+                assert_eq!(core.position, 7);
+                ColdIndex::open(&d, core.cold.as_ref().unwrap()).unwrap();
+                let mut recovered = DurableEngine::recover(&new, None).unwrap();
+                reconcile(&mut recovered, 100);
+                report(&mut recovered, 100, Report::Fill(fill(1)));
+                assert_eq!(recovered.core().position, 7);
+                assert_eq!(recovered.core().health, Health::Healthy);
+            } else {
+                // Pre-Closed failures leave the complete current segment intact.
+                // A partial immutable page may deliberately require operator repair.
+                match journal::rotate_retaining(&old, &new) {
+                    Ok(core) => {
+                        assert_eq!(core.position, 7);
+                        ColdIndex::open(&d, core.cold.as_ref().unwrap()).unwrap();
+                    }
+                    Err(_) => {
+                        assert_eq!(journal::replay(&old).unwrap().position, 7);
+                        if let Ok(recovered) = DurableEngine::recover(&old, None) {
+                            assert_ne!(recovered.core().health, Health::Healthy);
+                        }
+                    }
+                }
+            }
         }
     }
 }

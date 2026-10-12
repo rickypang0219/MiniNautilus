@@ -60,7 +60,7 @@ class ActorSession:
                  execution_timeout=10.0, quiescence_seconds=60.0, poll_seconds=1.0,
                  market_errors=MARKET_ERRORS, reconcile_attempts=3, reconcile_retry=None,
                  coordinator_options=None, drills=(), rotate_orders=None, max_rotation_delay=60.0,
-                 heartbeat_seconds=5.0, reclaim_cold=False, rotate_bytes=8*1024*1024, disk_headroom_guard=True):
+                 heartbeat_seconds=5.0, reclaim_cold=False, rotate_bytes=8*1024*1024, disk_headroom_guard=True, paged_cold=False):
         self.engine, self.adapter, self.strategy = engine, adapter, strategy
         self.availability = AdmissionClock(note)
         self.rotation_started_ns = None
@@ -78,6 +78,8 @@ class ActorSession:
         # Live retention (docs/adr-live-rotation.md): soft trigger N, hard limit 2N.
         if rotate_orders is not None and (rotate_orders < 1 or paper):
             raise ValueError('live rotation needs a positive order count and a live venue')
+        self.paged_cold = paged_cold
+        self.next_gc_retry = time.monotonic()
         self.rotate_orders, self.max_rotation_delay = rotate_orders, max_rotation_delay
         if rotate_bytes < 1:
             raise ValueError('positive rotation byte cap required')
@@ -484,6 +486,9 @@ class ActorSession:
                         self.fatal = 'disk_headroom_exhausted'
                         self._stop_marker(self.fatal)
                         break
+                if self.reclaim_cold and time.monotonic() >= self.next_gc_retry:
+                    await self._on_writer(self.engine.retry_cold_gc)
+                    self.next_gc_retry = time.monotonic() + 1.0
                 if self._retention_due(coordinator):
                     break
                 if self.drills and time.monotonic() - self.started >= self.drills[0]:
@@ -512,7 +517,8 @@ class ActorSession:
                 await self._quiesce()
             finally:
                 self.note('coordinator_accounting', epoch=self.engine.state['epoch'],
-                          counts=dict(coordinator.counts), gate_reason=coordinator.gate_reason)
+                          counts=dict(coordinator.counts), gate_reason=coordinator.gate_reason,
+                          source_counts=coordinator.accounting(), accounting_overflow=coordinator.accounting_overflow)
         if self.fatal is not None:
             raise FailClosed(self.fatal)
         if writer_failure is not None:
@@ -574,7 +580,7 @@ class ActorSession:
         publish_sidecar(sidecar, dict(successor=successor.name, venue=venue_state,
                                       position=self.engine.state['position']))
         retired = self.engine.state.get('id_floor', 0), len(self.engine.state['orders'])
-        self.engine.rotate(successor, reclaim_cold=self.reclaim_cold)
+        self.engine.rotate(successor, reclaim_cold=self.reclaim_cold, **({"paged_cold": True} if self.paged_cold else {}))
         if self.audit is not None:
             self.audit.reset(self.engine.state)
         self.sent_at.clear()

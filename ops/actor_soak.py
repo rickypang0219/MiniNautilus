@@ -43,6 +43,11 @@ def main():
     p.add_argument('--seed', type=int, default=7)
     p.add_argument('--fault-interval', type=float, default=90)
     p.add_argument('--rotate-orders', type=int, default=200)
+    p.add_argument('--paged-cold', action='store_true')
+    p.add_argument('--reclaim-cold', action='store_true')
+    p.add_argument('--pace', type=float, default=.02)
+    p.add_argument('--poll-seconds', type=float, default=.1)
+    p.add_argument('--cold-verify', choices=['full','pages'], default='full')
     p.add_argument('--binary', type=Path, default=ROOT/'target/release/mininautilus')
     p.add_argument('--receipt', type=Path, default=ROOT/'target/runtime-v2-build.json')
     p.add_argument('--allow-dirty', action='store_true')
@@ -57,7 +62,7 @@ def main():
                                       request_timeout_ms=30000, market_stale_ms=3000,
                                       private_stale_ms=30000, max_signal_lag=10)))
     rng = random.Random(args.seed)
-    adapter = FakeLiveAdapter(pace=0.02, prices=PRICES, candles=10**9, forget_retired=True)
+    adapter = FakeLiveAdapter(pace=args.pace, prices=PRICES, candles=10**9, forget_retired=True)
     injected = []
     log = (args.run_dir/'notes.jsonl').open('x')
     started = time.monotonic()
@@ -67,7 +72,7 @@ def main():
             log.write(json.dumps(dict(kind=kind, t=round(time.monotonic()-started, 2), **data))+'\n')
             log.flush()
 
-    with Engine(args.run_dir/'events.jsonl', config=config, binary=args.binary) as engine:
+    with Engine(args.run_dir/'events.jsonl', config=config, binary=args.binary, extra_args=['--sync','outbox','--cold-verify',args.cold_verify]) as engine:
         origin, initial = time.monotonic(), engine.state['now']
         def now():
             return initial + int((time.monotonic()-origin)*1000)
@@ -75,8 +80,8 @@ def main():
         audit.check(engine.state, None)
         session = ActorSession(engine, adapter, SmaStrategy(2, 3, 1, '1s', long_only=True),
                                identity=('fake', 'dedicated', 'TEST'), now=now, note=note, audit=audit,
-                               max_orders=10**9, poll_seconds=0.1, lots=1, execution_timeout=0.5,
-                               rotate_orders=args.rotate_orders, reconcile_retry=lambda attempt: time.sleep(0.2))
+                               max_orders=10**9, poll_seconds=args.poll_seconds, lots=1, execution_timeout=0.5,
+                               rotate_orders=args.rotate_orders, paged_cold=args.paged_cold, reclaim_cold=args.reclaim_cold, reconcile_retry=lambda attempt: time.sleep(0.2))
         stop = threading.Event()
 
         def faults():
@@ -119,6 +124,8 @@ def main():
                   rotated_at_least_three_times=report['rotations'] >= 3)
     result = dict(seed=args.seed, minutes=args.minutes, error=error, checks=checks,
                   passed=all(checks.values()), final=final, injected=injected, session=report,
+                  profile=dict(pace_seconds=args.pace,poll_seconds=args.poll_seconds,cold_format='pages' if args.paged_cold else 'legacy',cold_verify=args.cold_verify,reclaim_cold=args.reclaim_cold),
+                  acceptance_scope='DIAGNOSTIC: existing five-fault driver, not frozen 21-fault AC-F',
                   provenance=dict(commit=identity['commit'], dirty=identity['dirty'],
                                   binary_sha256=identity['binary_sha256']))
     (args.run_dir/'report.json').write_text(json.dumps(result, indent=2, default=list))

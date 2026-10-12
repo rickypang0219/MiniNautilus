@@ -1,0 +1,11 @@
+{
+  "schema": "lc_owner_decision_v1",
+  "date": "2026-10-12",
+  "timezone": "Asia/Hong_Kong",
+  "scope": "isolated Testnet live rotation; current-segment startup, durable root and visited-page verification; unvisited old-page damage detected on later lookup or complete scrub",
+  "owner_reply": "做先，如果差異大性能下降的話我們之後再switch back",
+  "decision": "APPROVED_FOR_TESTNET",
+  "adr": "docs/adr-cold-pages-v2.md",
+  "rollback": "full verification plus streaming legacy export; no blind old-binary substitution after new writes",
+  "performance_adoption": "requires independent evidence; no mainnet authorization"
+}

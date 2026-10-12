@@ -97,7 +97,7 @@ def run_actor(args, engine, venue, strategy, ledger_audit, now, note, metadata, 
                            now=now, note=note, audit=ledger_audit, order_ttl_ms=args.order_ttl * 1000,
                            max_orders=args.max_orders, paper=args.mode == 'paper', lots=lots,
                            drills=args.recovery_drill, rotate_orders=args.rotate_orders,
-                           max_rotation_delay=args.max_rotation_delay, reclaim_cold=args.reclaim_cold, rotate_bytes=args.rotate_bytes)
+                           max_rotation_delay=args.max_rotation_delay, reclaim_cold=args.reclaim_cold, rotate_bytes=args.rotate_bytes, paged_cold=args.cold_format == "pages")
     completed = reconciled = False
     try:
         if args.resume:
@@ -183,7 +183,7 @@ def run(args):
             metadata['baseline_base'] = sidecar['venue']['baseline_base']
     with (path / 'observations.jsonl').open('a') as log, Engine(journal, paper=args.mode == 'paper',
             recover=args.resume, config=path / 'config.json', env=engine_env,
-            extra_args=['--sync', args.sync], binary=args.binary) as engine:
+            extra_args=['--sync', args.sync, '--cold-verify', args.cold_verify], binary=args.binary) as engine:
         origin, initial = time.monotonic(), engine.state['now']
         sent_at = {}
         ledger_audit = IncrementalAudit(lots, long_only=True)
@@ -408,6 +408,8 @@ if __name__ == '__main__':
                    help='actor only: seconds after start to latch, reconcile and restart (repeatable)')
     p.add_argument('--rotate-bytes', type=int, default=8*1024*1024, help='with --rotate-orders: also rotate a quiet segment at this byte limit')
     p.add_argument('--rotation-trust-contract', choices=['current-segment-v1'], help='explicit operator choice; requires approved ADR before live rotation')
+    p.add_argument('--cold-format', choices=['legacy', 'pages'], default='legacy', help='pages requires approved immutable-pages ADR and live actor rotation')
+    p.add_argument('--cold-verify', choices=['full', 'pages'], default='full', help='full scrub or approved root/path verification')
     p.add_argument('--reclaim-cold', action='store_true', help='rotation only: reclaim superseded unpinned cold files')
     p.add_argument('--batch-reconcile', action='store_true', help='actor Testnet only: bounded REST bulk reconciliation')
     p.add_argument('--rotate-orders', type=int, help='actor + testnet only: live rotation soft trigger (hot orders)')
@@ -423,6 +425,10 @@ if __name__ == '__main__':
         p.error('--rotate-bytes must be positive')
     if a.rotate_orders is not None and a.mode == 'testnet' and a.rotation_trust_contract != 'current-segment-v1':
         p.error('live rotation requires an approved ADR and --rotation-trust-contract current-segment-v1')
+    if a.cold_format == "pages" and (a.rotate_orders is None or a.mode != "testnet" or a.runtime != "actor"):
+        p.error("--cold-format pages requires Testnet actor rotation")
+    if a.cold_verify == "pages" and a.rotation_trust_contract != "current-segment-v1":
+        p.error("--cold-verify pages requires approved ADR and explicit rotation trust contract")
     if a.reclaim_cold and a.rotate_orders is None:
         p.error('--reclaim-cold requires --rotate-orders')
     if a.batch_reconcile and (a.runtime != 'actor' or a.mode != 'testnet'):

@@ -26,6 +26,10 @@ struct Request {
     #[serde(default)]
     reclaim_superseded_cold: bool,
     #[serde(default)]
+    paged_cold: bool,
+    #[serde(default)]
+    retry_cold_gc: bool,
+    #[serde(default)]
     event: Option<Event>,
     #[serde(default)]
     events: Vec<Event>,
@@ -112,6 +116,15 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
         sync = args.get(i + 1).ok_or("--sync every|outbox")?.parse()?;
         args.drain(i..i + 2);
     }
+    let mut cold_verification = mininautilus::cold_pages::Verification::Full;
+    if let Some(i) = args.iter().position(|a| a == "--cold-verify") {
+        cold_verification = match args.get(i + 1).map(String::as_str) {
+            Some("full") => mininautilus::cold_pages::Verification::Full,
+            Some("pages") => mininautilus::cold_pages::Verification::PathVerified,
+            _ => return Err("--cold-verify full|pages".into()),
+        };
+        args.drain(i..i + 2);
+    }
     match args.get(1).map(String::as_str) {
         Some("demo") => demo(),
         Some("dashboard") => {
@@ -126,6 +139,24 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
                 8765
             };
             mininautilus::dashboard::serve(Path::new(root), port)?;
+            Ok(())
+        }
+        Some("export-cold") => {
+            let journal = args.get(2).ok_or("export-cold JOURNAL OUTPUT.cold")?;
+            let destination = args.get(3).ok_or("export-cold JOURNAL OUTPUT.cold")?;
+            let core = mininautilus::journal::replay(Path::new(journal))?;
+            let reference = core.cold.as_ref().ok_or("journal has no cold reference")?;
+            let directory = Path::new(journal)
+                .parent()
+                .filter(|p| !p.as_os_str().is_empty())
+                .unwrap_or(Path::new("."));
+            let index = mininautilus::cold_pages::Index::open(
+                directory,
+                reference,
+                mininautilus::cold_pages::Verification::Full,
+            )?;
+            let exported = index.export_legacy(Path::new(destination))?;
+            println!("{}", serde_json::to_string(&exported)?);
             Ok(())
         }
         Some("inspect") => {
@@ -163,6 +194,7 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
             };
             if let Backend::Durable(engine) = &mut backend {
                 engine.set_sync_policy(sync);
+                engine.set_cold_verification(cold_verification)?;
             }
             serve(backend, mode != "serve")
         }
@@ -341,6 +373,23 @@ fn serve(mut engine: Backend, simulate: bool) -> Result<(), Box<dyn std::error::
         let started = std::time::Instant::now();
         let mut request: Request = serde_json::from_str(&line)?;
         let rotated = request.rotate_to.is_some();
+        if request.paged_cold && (!rotated || simulate) {
+            return Err("paged cold requires isolated live rotation".into());
+        }
+        if request.retry_cold_gc {
+            if rotated
+                || request.event.is_some()
+                || !request.events.is_empty()
+                || !request.batch.is_empty()
+                || request.time.is_some()
+                || simulate
+            {
+                return Err("GC retry requires an isolated live request".into());
+            }
+            if let Backend::Durable(writer) = &engine {
+                writer.retry_cold_reclamation()?;
+            }
+        }
         if request.reclaim_superseded_cold && (!rotated || simulate) {
             return Err("cold reclamation requires an isolated live rotation".into());
         }
@@ -373,6 +422,10 @@ fn serve(mut engine: Backend, simulate: bool) -> Result<(), Box<dyn std::error::
             };
             engine = Backend::Durable(if simulate {
                 writer.rotate_into(&successor)?
+            } else if request.paged_cold && request.reclaim_superseded_cold {
+                writer.rotate_into_retaining_paged_with_gc(&successor)?
+            } else if request.paged_cold {
+                writer.rotate_into_retaining_paged(&successor)?
             } else if request.reclaim_superseded_cold {
                 writer.rotate_into_retaining_with_gc(&successor)?
             } else {

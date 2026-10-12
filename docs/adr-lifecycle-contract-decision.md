@@ -1,6 +1,6 @@
 # LC contract decision record
 
-Created at: 2026-10-12T16:10:00+08:00. Status: proposed; no approval inferred.
+Created at: 2026-10-12T16:10:00+08:00. Status: approved for isolated Testnet current-segment startup and immutable-page root/path verification by explicit owner reply on 2026-10-12; see adr-cold-pages-v2.md. This approval does not waive acceptance gates or authorize mainnet.
 
 The existing `b0223f3` rotation implementation validates only the current journal
 at startup and the complete current cold index at first use. No explicit owner
