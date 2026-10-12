@@ -25,11 +25,26 @@ from mininautilus.sma import SmaStrategy
 
 FAULTS=('late_result','sdk_held','gap','overflow','writer_kill','executor_cancel','old_epoch')
 
+class ObservedVenue(FakeLiveAdapter):
+    def __init__(self, log, **kwargs):
+        super().__init__(**kwargs)
+        self.cash = 0
+        self.external_log = log
+    def submit(self, intent):
+        self.external_log.write(json.dumps(dict(kind='external_submit', monotonic_ns=time.monotonic_ns(), intent=dict(intent)))+'\n'); self.external_log.flush()
+        return super().submit(intent)
+    def _fill(self, order):
+        super()._fill(order)
+        fill=self.fills[self.next_execution]
+        self.cash -= fill['qty']*fill['price']*(1 if order['intent']['side']=='Buy' else -1)
+        self.external_log.write(json.dumps(dict(kind='external_fill', monotonic_ns=time.monotonic_ns(), fill=fill, position=self.position, cash=self.cash))+'\n');self.external_log.flush()
+
 async def execute(args,identity):
     args.run_dir.mkdir(parents=True,exist_ok=False)
     config=args.run_dir/'config.json'
     config.write_text(json.dumps(dict(max_abs_position=1,max_order_qty=1,max_order_notional=10**9,request_timeout_ms=30000,market_stale_ms=3000,private_stale_ms=30000,max_signal_lag=10)))
-    adapter=FakeLiveAdapter(pace=.01,prices=PRICES,candles=10**9,forget_retired=True)
+    external=(args.run_dir/'venue.jsonl').open('x')
+    adapter=ObservedVenue(external,pace=.01,prices=PRICES,candles=10**9,forget_retired=True)
     rng=random.Random(args.seed)
     plan=[]
     for repetition in range(3):
@@ -54,7 +69,7 @@ async def execute(args,identity):
                 pending.update(recovered_ns=row['monotonic_ns'],recovery='quiescent reconciliation and eligible quote');faultlog.write(json.dumps(pending)+'\n');faultlog.flush();pending=None
     while time.monotonic()<deadline:
         launch=time.monotonic_ns();generation+=1
-        with Engine(journal,config=config,recover=generation>1,binary=args.binary,extra_args=['--sync','outbox','--cold-verify','pages']) as engine:
+        with Engine(journal,config=config,recover=generation>1,binary=args.binary,extra_args=['--sync','outbox','--cold-verify','pages'],env={'MINI_ORDER_TRACE':str(args.run_dir/'requests.jsonl')}) as engine:
             initial,origin=engine.state['now'],time.monotonic()
             now=lambda:initial+int((time.monotonic()-origin)*1000)
             audit=IncrementalAudit(1,long_only=True);audit.check(engine.state,None)
@@ -105,12 +120,22 @@ async def execute(args,identity):
         if failure is None:break
     # Verify final scope even after a controlled writer crash near the deadline.
     with Engine(current_journal(journal),recover=True,binary=args.binary,extra_args=['--sync','outbox','--cold-verify','pages']) as engine:
-        state=engine.state;engine.send(state['now'],'Reconnect');engine.send(state['now'],{'Reconcile':adapter.reconcile(engine.state)});position=engine.state['position'];healthy=engine.state['health']=='Healthy'
+        state=engine.state;engine.send(state['now'],'Reconnect');engine.send(state['now'],{'Reconcile':adapter.reconcile(engine.state)});position=engine.state['position'];cash=engine.state['cash'];healthy=engine.state['health']=='Healthy'
         final_journal=engine.journal
-    log.close();faultlog.close()
+    log.close();faultlog.close();external.close()
+    durable={}
+    for line in (args.run_dir/'requests.jsonl').read_text().splitlines():
+        row=json.loads(line)
+        if row['effect']=='SendOrder':
+            if not row['stages']['synced'] or row['durable_seq']!=row['seq']:errors.append('durability_trace_violation')
+            durable[row['order_id']]=row
+    unproved=[oid for oid in adapter.submits if oid not in durable]
+    allowed_gates={'rotation','delivery_uncertain','source_sequence_gap','input_overflow','writer_failed','executor_cancelled','executor_stopped','old_source_epoch','hard_stop'}
+    unexpected_gates=sorted({g for phase in phases for g in phase['gates']} - allowed_gates)
+
     counts=Counter(a['kind'] for a in armed)
-    checks=dict(no_unexpected_error=not errors,venue_position_matches=position==adapter.position,no_blind_resubmission=adapter.resubmissions==0 and len(adapter.submits)==len(set(adapter.submits)),final_reconciled=healthy,source_accounting=not source_failures,all_faults_three_times=all(counts[k]>=3 for k in FAULTS),all_faults_recovered=pending is None,minimum_submissions=totals['submissions']>=5000,minimum_rotations=totals['rotations']>=20,observation_complete=time.monotonic()-start>=args.seconds)
-    report=dict(schema='lc_evidence_v2_fast',scope='DIAGNOSTIC' if args.diagnostic else 'FAST_INTEGRATION',seed=args.seed,seconds=args.seconds,checks=checks,passed=all(checks.values()),errors=errors,totals=dict(totals),fault_counts=dict(counts),resumes=resume,position=position,venue_position=adapter.position,final_journal=final_journal,provenance=identity,limitations=['sdk_held is deliberately released after fail-closed; permanently blocked SDK tested separately','100 candles/s producer, SMA2/3 natural fake signals; not the W0 one-order-per-ten-input trace','Detailed resource acceptance requires external collector'],phases=phases)
+    checks=dict(no_unexpected_error=not errors,no_unexpected_gates=not unexpected_gates,durable_submit_trace=not unproved,cash_matches= cash==adapter.cash,venue_position_matches=position==adapter.position,no_blind_resubmission=adapter.resubmissions==0 and len(adapter.submits)==len(set(adapter.submits)),final_reconciled=healthy,source_accounting=not source_failures,all_faults_three_times=all(counts[k]>=3 for k in FAULTS),all_faults_recovered=pending is None,minimum_submissions=totals['submissions']>=5000,minimum_rotations=totals['rotations']>=20,observation_complete=time.monotonic()-start>=args.seconds)
+    report=dict(schema='lc_evidence_v2_fast',scope='DIAGNOSTIC' if args.diagnostic else 'FAST_INTEGRATION',seed=args.seed,seconds=args.seconds,checks=checks,passed=all(checks.values()),errors=errors,totals=dict(totals),fault_counts=dict(counts),resumes=resume,position=position,venue_position=adapter.position,cash=cash,venue_cash=adapter.cash,unproved_external_submits=unproved,unexpected_gates=unexpected_gates,final_journal=final_journal,provenance=identity,limitations=['sdk_held is deliberately released after fail-closed; permanently blocked SDK tested separately','100 candles/s producer, SMA2/3 natural fake signals; not the W0 one-order-per-ten-input trace','Detailed resource acceptance requires external collector'],phases=phases)
     (args.run_dir/'summary.json').write_text(json.dumps(report,indent=2,allow_nan=False));print(json.dumps({k:report[k] for k in ('passed','errors','totals','fault_counts','checks')}));return 0 if report['passed'] else 1
 
 def main():
