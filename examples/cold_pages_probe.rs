@@ -46,6 +46,7 @@ fn main() -> io::Result<()> {
     let d = Path::new(args.get(1).expect("directory"));
     let h: u64 = args.get(2).expect("H").parse().unwrap();
     let pin = args.get(3).is_some_and(|s| s == "pin");
+    let single_pin = args.get(3).is_some_and(|s| s == "single-pin");
     assert!([1000, 100000, 1000000].contains(&h));
     fs::create_dir(d)?;
     let mut reference = None;
@@ -87,7 +88,7 @@ fn main() -> io::Result<()> {
         writes += s.logical_write_bytes;
         buffer = buffer.max(s.working_buffer_bytes);
         peak = peak.max(allocated(d)?);
-        if pin {
+        if pin || (single_pin && cycle == 0) {
             pins.push(old);
         } else {
             drop(old);
@@ -124,7 +125,9 @@ fn main() -> io::Result<()> {
     let steady = allocated(d)?;
     drop(pins);
     drop(path);
+    let cleanup_started = Instant::now();
     let gc = cold_gc::retry_with(d, &r, Verification::PathVerified)?;
+    let cleanup_ms = cleanup_started.elapsed().as_secs_f64() * 1000.;
     Index::open(d, &r, Verification::Full)?.verify()?;
     let status = fs::read_to_string("/proc/self/status")?;
     let rss = |key: &str| {
@@ -137,7 +140,7 @@ fn main() -> io::Result<()> {
     };
     println!(
         "{}",
-        json!({"schema":"lc_pages_component_probe_v2","history":h,"cycles":20,"new_payload_bytes":49*200*20,"fixture_write_bytes":fixture_writes,"cold_logical_write_bytes":writes,"post_measure_cleanup_write_bytes":gc.logical_write_bytes,"rotation_durations_ms":durations,"gc_durations_ms":gc_ms,"full_first_lookup_ms":full_ms,"full_first_lookup_read_bytes":full_read,"path_first_lookup_ms":first_ms,"path_first_lookup_read_bytes":first_read,"warm_lookup_ms":warm,"buffer_max_single_allocation_bytes":buffer,"cold_peak_allocated_bytes":peak,"cold_steady_allocated_bytes":steady,"post_pin_release_allocated_bytes":allocated(d)?,"pinned_generations":pinned,"rss_bytes":rss("VmRSS:"),"hwm_bytes":rss("VmHWM:"),"current_reference":r,"correct":true,"limitations":["Component API: not full actor or durable journal rotation","Buffer field is largest observed segment allocation, not entire process working set","Logical writes exclude one-time fixture; pin-release cleanup separately included by analyzer"]})
+        json!({"schema":"lc_pages_component_probe_v2","history":h,"cycles":20,"new_payload_bytes":49*200*20,"fixture_write_bytes":fixture_writes,"cold_logical_write_bytes":writes,"post_measure_cleanup_write_bytes":gc.logical_write_bytes,"post_pin_release_cleanup_ms":cleanup_ms,"rotation_durations_ms":durations,"gc_durations_ms":gc_ms,"full_first_lookup_ms":full_ms,"full_first_lookup_read_bytes":full_read,"path_first_lookup_ms":first_ms,"path_first_lookup_read_bytes":first_read,"warm_lookup_ms":warm,"buffer_max_single_allocation_bytes":buffer,"cold_peak_allocated_bytes":peak,"cold_steady_allocated_bytes":steady,"post_pin_release_allocated_bytes":allocated(d)?,"pinned_generations":pinned,"rss_bytes":rss("VmRSS:"),"hwm_bytes":rss("VmHWM:"),"current_reference":r,"correct":true,"limitations":["Component API: not full actor or durable journal rotation","Buffer field is largest observed segment allocation, not entire process working set","Logical writes exclude one-time fixture; pin-release cleanup separately included by analyzer"]})
     );
     Ok(())
 }
