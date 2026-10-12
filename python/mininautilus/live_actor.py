@@ -29,6 +29,7 @@ import asyncio
 from collections import deque
 from concurrent.futures import ThreadPoolExecutor
 import copy
+import gc
 from dataclasses import asdict
 import json
 import os
@@ -510,6 +511,9 @@ class ActorSession:
         self.fills_by_order.clear()
         if hasattr(self.adapter, 'rotated'):
             self.adapter.rotated(venue_state)
+        # Quiescent point: collect the retired coordinator/mirror cycles now rather
+        # than whenever the next generation-2 collection happens (ADR §4 evidence).
+        gc.collect()
         self.counters['rotations'] += 1
         self.rotation_pending_since, self.rotation_requested = None, False
         self.note('rotated', journal=successor.name, id_floor=self.engine.state.get('id_floor', 0),

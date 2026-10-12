@@ -49,7 +49,7 @@ def run(case_dir, minutes, rotate_orders, binary, pace):
     config.write_text(json.dumps(dict(max_abs_position=1, max_order_qty=1, max_order_notional=10**9,
                                       request_timeout_ms=30000, market_stale_ms=3000,
                                       private_stale_ms=30000, max_signal_lag=10)))
-    adapter = FakeLiveAdapter(pace=pace, prices=PRICES, candles=10**9, forget_retired=True)
+    adapter = FakeLiveAdapter(pace=pace, prices=PRICES, candles=10**9, forget_retired=True, record_submits=False)
     samples = []
     with (case_dir/'notes.jsonl').open('x') as log, \
             Engine(case_dir/'events.jsonl', config=config, binary=binary) as engine:
@@ -120,6 +120,7 @@ def main():
     p = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     p.add_argument('--run-dir', type=Path, required=True)
     p.add_argument('--minutes', type=float, default=10)
+    p.add_argument('--baseline-minutes', type=float, help='default: same as --minutes; 0 skips the baseline')
     p.add_argument('--rotate-orders', type=int, default=200)
     p.add_argument('--pace', type=float, default=0.005, help='seconds between fake candles')
     p.add_argument('--binary', type=Path, default=ROOT/'target/release/mininautilus')
@@ -131,8 +132,10 @@ def main():
         p.error('clean tree required for evidence')
     args.run_dir.mkdir(parents=True, exist_ok=False)
     (args.run_dir/'provenance.json').write_text(json.dumps(identity, indent=2))
-    results = {case: run(args.run_dir/case, args.minutes, rotate, args.binary, args.pace)
-               for case, rotate in (('rotating', args.rotate_orders), ('baseline', None))}
+    baseline = args.minutes if args.baseline_minutes is None else args.baseline_minutes
+    cases = [('rotating', args.rotate_orders, args.minutes)] + ([('baseline', None, baseline)] if baseline else [])
+    results = {case: run(args.run_dir/case, minutes, rotate, args.binary, args.pace)
+               for case, rotate, minutes in cases}
     (args.run_dir/'summary.json').write_text(json.dumps(results, indent=2))
     print(json.dumps({k: {x: v[x] for x in ('submissions', 'rotations', 'hot_max', 'recovery_ms', 'slope_mib_per_hour', 'error')}
                       for k, v in results.items()}, indent=1))

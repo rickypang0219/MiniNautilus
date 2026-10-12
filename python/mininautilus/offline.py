@@ -182,7 +182,7 @@ class FakeLiveAdapter:
     def __init__(self, *, interval_ms=1000, pace=0.03, submit_delay=0.0, submit_block=None,
                  submit_lost_before_send=False, disconnect_after=None, poll_fail_once_after=None,
                  timing_delay=0.0, prices=PRICES, auto_fill=True, replay_retired=False,
-                 reconcile_fail_from=None, forget_retired=False, candles=None):
+                 reconcile_fail_from=None, forget_retired=False, candles=None, record_submits=True):
         self.interval_ms, self.pace, self.prices = interval_ms, pace, prices
         self.submit_delay, self.submit_block = submit_delay, submit_block
         self.submit_lost_before_send = submit_lost_before_send
@@ -193,6 +193,7 @@ class FakeLiveAdapter:
         self.retired, self.rotations, self.replayed = set(), 0, 0
         self.forget_retired = forget_retired  # long probes: keep fake venue memory flat
         self.limit = len(prices) - 1 if candles is None else candles
+        self.record_submits = record_submits  # tests assert on IDs; long probes stay flat
         self.lock = threading.Lock()
         self.orders, self.fills, self.submits, self.position = {}, {}, [], 0
         self.next_execution, self.cursor, self.streams, self.polls, self.reconciles = 0, 0, 0, 0, 0
@@ -250,7 +251,8 @@ class FakeLiveAdapter:
         return {}
 
     def submit(self, intent):
-        self.submits.append(intent['id'])
+        if self.record_submits:
+            self.submits.append(intent['id'])
         if self.submit_lost_before_send:
             self.submit_lost_before_send = False
             raise TimeoutError('request never left the client')
