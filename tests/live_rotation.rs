@@ -274,3 +274,219 @@ fn stray_cold_file_without_close_is_ignored_by_recovery() {
     assert!(engine.core().cold.is_none());
     assert!(!Path::new(&directory.join("events-1.jsonl")).exists());
 }
+
+#[test]
+fn streaming_merge_is_exact_for_interleaved_fill_keys() {
+    use mininautilus::cold::{self, RetiredOrder};
+    let d = dir("streaming-merge");
+    let terminal = |id| RetiredOrder {
+        id,
+        filled: 1,
+        lifecycle: Lifecycle::Filled,
+    };
+    let old_orders = [terminal(1), terminal(2)];
+    let mut old_fills = [fill(1), fill(2)];
+    old_fills[0].execution_id = 1;
+    old_fills[1].execution_id = 10;
+    let reference = cold::write(&d.join("old.cold"), &old_orders, &old_fills).unwrap();
+    let index = ColdIndex::open(&d, &reference).unwrap();
+    let orders = [terminal(3), terminal(4)];
+    let mut fills = [fill(3), fill(4)];
+    fills[0].execution_id = 5;
+    fills[1].execution_id = 20;
+    let merged = cold::extend(&d.join("merged.cold"), Some(&index), &orders, &fills).unwrap();
+    let all_orders = [terminal(1), terminal(2), terminal(3), terminal(4)];
+    let all_fills = [
+        old_fills[0].clone(),
+        fills[0].clone(),
+        old_fills[1].clone(),
+        fills[1].clone(),
+    ];
+    let expected = cold::write(&d.join("expected.cold"), &all_orders, &all_fills).unwrap();
+    assert_eq!(merged.checksum, expected.checksum);
+    assert_eq!(
+        fs::read(d.join("merged.cold")).unwrap(),
+        fs::read(d.join("expected.cold")).unwrap()
+    );
+    let reopened = ColdIndex::open(&d, &merged).unwrap();
+    for f in all_fills {
+        assert_eq!(reopened.fill(f.execution_id).unwrap(), Some(f));
+    }
+    // Reusing a retired execution ID is refused, never silently deduplicated during publication.
+    let changed = Fill {
+        execution_id: 10,
+        order_id: 3,
+        qty: 1,
+        price: 100,
+    };
+    assert!(cold::extend(&d.join("bad.cold"), Some(&index), &orders[..1], &[changed]).is_err());
+    assert!(!d.join("bad.cold").exists());
+    assert!(!d.join(".bad.cold.tmp").exists());
+}
+
+#[test]
+#[cfg(target_os = "linux")]
+fn cold_enospc_and_sync_failure_do_not_close_predecessor() {
+    use std::os::unix::fs::symlink;
+    for device in ["/dev/full", "/dev/null"] {
+        let d = dir(if device.ends_with("full") {
+            "enospc"
+        } else {
+            "sync-failure"
+        });
+        let path = d.join("events.jsonl");
+        let mut engine = DurableEngine::create(&path, config()).unwrap();
+        let mut at = 0;
+        trade(&mut engine, &mut at, 1, 2);
+        reconcile(&mut engine, at);
+        let before = fs::read(&path).unwrap();
+        symlink(device, d.join(".next.cold.tmp")).unwrap();
+        assert!(engine.rotate_into_retaining(&d.join("next")).is_err());
+        assert_eq!(fs::read(&path).unwrap(), before);
+        assert!(!d.join("next").exists());
+        assert_eq!(
+            DurableEngine::recover(&path, None).unwrap().core().position,
+            2
+        );
+        assert!(!d.join(".next.cold.tmp").exists());
+    }
+}
+
+#[test]
+fn reclamation_never_deletes_current_or_pinned_evidence() {
+    use mininautilus::cold::{self, RetiredOrder};
+    let d = dir("gc-pinned");
+    let order = RetiredOrder {
+        id: 1,
+        filled: 1,
+        lifecycle: Lifecycle::Filled,
+    };
+    let old = cold::write(&d.join("old.cold"), &[order], &[fill(1)]).unwrap();
+    let current = cold::write(&d.join("current.cold"), &[order], &[fill(1)]).unwrap();
+    let pinned = ColdIndex::open(&d, &old).unwrap();
+    assert!(!cold::remove_superseded(&d, &old, &current).unwrap());
+    assert!(cold::remove_superseded(&d, &current, &current).is_err());
+    assert_eq!(pinned.fill(10).unwrap(), Some(fill(1)));
+    drop(pinned);
+    assert!(cold::remove_superseded(&d, &old, &current).unwrap());
+    assert!(d.join("current.cold").exists());
+    assert!(!cold::remove_superseded(&d, &old, &current).unwrap());
+}
+
+#[test]
+fn crash_rerun_keeps_the_exact_successor_genesis_anchor() {
+    let (_, second, mut engine, at) = rotated_session("anchor-rerun");
+    reconcile(&mut engine, at);
+    let third = second.with_file_name("events-2.jsonl");
+    let next = engine.rotate_into_retaining(&third).unwrap();
+    drop(next);
+    let original = fs::read(&third).unwrap();
+    // recover() adds Disconnect, which is not part of the publication genesis.
+    let original_genesis = original.split(|b| *b == b'\n').next().unwrap().to_vec();
+    fs::remove_file(&third).unwrap();
+    journal::rotate_retaining(&second, &third).unwrap();
+    let rerun = fs::read(&third).unwrap();
+    assert_eq!(
+        rerun.split(|b| *b == b'\n').next().unwrap(),
+        original_genesis
+    );
+}
+
+#[test]
+fn gc_is_opt_in_and_only_runs_after_successor_publication() {
+    let (_, second, mut engine, at) = rotated_session("gc-published");
+    let old_cold = engine.core().cold.clone().unwrap();
+    reconcile(&mut engine, at);
+    let third = second.with_file_name("events-2.jsonl");
+    let next = engine.rotate_into_retaining_with_gc(&third).unwrap();
+    assert!(!second.parent().unwrap().join(old_cold.file).exists());
+    assert!(second.exists(), "old journal is retained for replay");
+    assert_eq!(journal::replay(&second).unwrap().position, 5);
+    let reference = next.core().cold.clone().unwrap();
+    assert_eq!(
+        ColdIndex::open(third.parent().unwrap(), &reference)
+            .unwrap()
+            .fill(10)
+            .unwrap(),
+        Some(fill(1))
+    );
+}
+
+#[test]
+#[cfg(feature = "fault-injection")]
+fn child_rotation_fault_target() {
+    let Ok(directory) = std::env::var("MINI_LC_TEST_DIR") else {
+        return;
+    };
+    let d = PathBuf::from(directory);
+    fs::create_dir_all(&d).unwrap();
+    let mut engine = DurableEngine::create(&d.join("events"), config()).unwrap();
+    let mut at = 0;
+    trade(&mut engine, &mut at, 1, 5);
+    reconcile(&mut engine, at);
+    let mut engine = engine.rotate_into_retaining(&d.join("events-1")).unwrap();
+    reconcile(&mut engine, at);
+    trade(&mut engine, &mut at, 6, 2);
+    reconcile(&mut engine, at);
+    fs::write(d.join("armed"), b"armed").unwrap();
+    engine
+        .rotate_into_retaining_with_gc(&d.join("events-2"))
+        .unwrap();
+}
+
+#[test]
+#[cfg(feature = "fault-injection")]
+fn publication_crashes_recover_or_fail_closed_without_losing_evidence() {
+    use std::process::Command;
+    for boundary in [
+        "cold_write_before",
+        "cold_write_mid",
+        "cold_fsync_after",
+        "cold_rename_after",
+        "cold_dirsync_after",
+        "closed_before",
+        "closed_durable_after",
+        "genesis_before",
+        "genesis_fsync_after",
+        "genesis_dirsync_after",
+        "gc_before",
+        "gc_after_unlink",
+        "gc_after",
+    ] {
+        for repetition in 0..3 {
+            let d = dir(&format!("crash-{boundary}-{repetition}"));
+            let result = Command::new(std::env::current_exe().unwrap())
+                .args(["--exact", "child_rotation_fault_target", "--nocapture"])
+                .env("MINI_LC_TEST_DIR", &d)
+                .env("MINI_LC_FAULT_ARM_FILE", d.join("armed"))
+                .env("MINI_LC_CRASH_AT", boundary)
+                .output()
+                .unwrap();
+            assert_eq!(
+                result.status.code(),
+                Some(99),
+                "{boundary}: {}",
+                String::from_utf8_lossy(&result.stderr)
+            );
+            fs::remove_file(d.join("armed")).unwrap();
+            let old = d.join("events-1");
+            let new = d.join("events-2");
+            assert_eq!(journal::replay(&old).unwrap().position, 7);
+            if !new.exists() {
+                journal::rotate_retaining(&old, &new).unwrap();
+            } else if journal::replay(&new).is_err() {
+                // An empty successor exists after create-new but before its durable
+                // genesis. Fail closed, then the operator removes only this empty file.
+                assert!(fs::metadata(&new).unwrap().len() == 0);
+                assert!(DurableEngine::recover(&new, None).is_err());
+                fs::remove_file(&new).unwrap();
+                journal::rotate_retaining(&old, &new).unwrap();
+            }
+            let mut engine = DurableEngine::recover(&new, None).unwrap();
+            reconcile(&mut engine, 100);
+            report(&mut engine, 100, Report::Fill(fill(1)));
+            assert_eq!(engine.core().health, Health::Healthy, "{boundary}");
+            assert_eq!(engine.core().position, 7, "{boundary}");
+        }
+    }
+}

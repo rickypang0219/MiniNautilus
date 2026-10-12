@@ -10,7 +10,7 @@ use crate::model::{Fill, Lifecycle, OrderId, Report, RetiredVerdict};
 use serde::{Deserialize, Serialize};
 use std::{
     fs::{self, File, OpenOptions},
-    io::{self, Read, Write},
+    io::{self, BufReader, BufWriter, Read, Seek, SeekFrom, Write},
     os::unix::fs::FileExt,
     path::Path,
 };
@@ -36,6 +36,29 @@ pub struct RetiredOrder {
     pub id: OrderId,
     pub filled: i64,
     pub lifecycle: Lifecycle,
+}
+
+/// Explicit fault-test build only. Default production builds compile this away.
+/// An arm file permits fixtures to be created before the selected crash boundary.
+pub fn fault_point(name: &str) -> io::Result<()> {
+    #[cfg(feature = "fault-injection")]
+    if std::env::var("MINI_LC_FAULT_ARM_FILE")
+        .ok()
+        .is_none_or(|p| Path::new(&p).exists())
+    {
+        if let Ok(selected) = std::env::var("MINI_LC_CRASH_AT")
+            && selected == name
+        {
+            std::process::exit(99);
+        }
+        if let Ok(selected) = std::env::var("MINI_LC_ERROR_AT")
+            && selected == name
+        {
+            return Err(io::Error::other(format!("injected I/O failure at {name}")));
+        }
+    }
+    let _ = name;
+    Ok(())
 }
 
 fn invalid(reason: &str) -> io::Error {
@@ -67,9 +90,21 @@ fn lifecycle_from(code: u8) -> io::Result<Lifecycle> {
     }
 }
 
-/// Writes `path` atomically (temporary file, fsync, rename, directory fsync).
-/// Inputs must be strictly increasing by key; identical inputs give identical bytes.
+/// Writes a new index without allocating a full-file serialization buffer.
+/// The format and full-file integrity check are unchanged.
 pub fn write(path: &Path, orders: &[RetiredOrder], fills: &[Fill]) -> io::Result<ColdRef> {
+    extend(path, None, orders, fills)
+}
+
+/// Merge a verified immutable predecessor with only the current segment in RAM.
+/// Working memory is 64 KiB plus the bounded segment slices. Old records are
+/// read one at a time; write amplification remains O(history) and is reported.
+pub fn extend(
+    path: &Path,
+    previous: Option<&ColdIndex>,
+    orders: &[RetiredOrder],
+    fills: &[Fill],
+) -> io::Result<ColdRef> {
     if orders.windows(2).any(|w| w[0].id >= w[1].id)
         || fills
             .windows(2)
@@ -77,56 +112,141 @@ pub fn write(path: &Path, orders: &[RetiredOrder], fills: &[Fill]) -> io::Result
     {
         return Err(invalid("cold records must be unique and sorted"));
     }
-    let mut bytes = Vec::with_capacity(
-        (HEADER + ORDER * orders.len() as u64 + FILL * fills.len() as u64 + 8) as usize,
-    );
-    bytes.extend_from_slice(MAGIC);
-    bytes.extend_from_slice(&(orders.len() as u64).to_le_bytes());
-    bytes.extend_from_slice(&(fills.len() as u64).to_le_bytes());
-    for order in orders {
-        bytes.extend_from_slice(&order.id.to_le_bytes());
-        bytes.extend_from_slice(&order.filled.to_le_bytes());
-        bytes.push(lifecycle_code(order.lifecycle)?);
+    let (old_orders, old_fills) = previous.map_or((0, 0), |p| (p.orders, p.fills));
+    if let (Some(p), Some(first)) = (previous, orders.first())
+        && old_orders > 0
+        && p.order_at(old_orders - 1)?.id >= first.id
+    {
+        return Err(invalid("segment order IDs overlap retired orders"));
     }
-    for fill in fills {
-        for value in [fill.execution_id, fill.order_id] {
-            bytes.extend_from_slice(&value.to_le_bytes());
-        }
-        for value in [fill.qty, fill.price] {
-            bytes.extend_from_slice(&value.to_le_bytes());
-        }
-    }
-    let checksum = fnv(FNV_OFFSET, &bytes);
-    bytes.extend_from_slice(&checksum.to_le_bytes());
+    let total_orders = old_orders
+        .checked_add(orders.len() as u64)
+        .ok_or_else(|| invalid("cold order count overflow"))?;
+    let total_fills = old_fills
+        .checked_add(fills.len() as u64)
+        .ok_or_else(|| invalid("cold fill count overflow"))?;
     let name = path
         .file_name()
         .and_then(|n| n.to_str())
         .ok_or_else(|| invalid("cold index needs a UTF-8 file name"))?;
     let temporary = path.with_file_name(format!(".{name}.tmp"));
-    {
-        let mut file = OpenOptions::new()
+    let result = (|| -> io::Result<ColdRef> {
+        fault_point("cold_write_before")?;
+        let file = OpenOptions::new()
             .write(true)
             .create(true)
             .truncate(true)
             .open(&temporary)?;
-        file.write_all(&bytes)?;
-        file.sync_all()?;
-    }
-    fs::rename(&temporary, path)?;
-    if let Some(parent) = path.parent() {
-        let parent = if parent.as_os_str().is_empty() {
-            Path::new(".")
-        } else {
-            parent
+        let mut out = BufWriter::with_capacity(1 << 16, file);
+        let mut checksum = FNV_OFFSET;
+        let mut emit = |bytes: &[u8]| -> io::Result<()> {
+            checksum = fnv(checksum, bytes);
+            out.write_all(bytes)
         };
+        emit(MAGIC)?;
+        emit(&total_orders.to_le_bytes())?;
+        emit(&total_fills.to_le_bytes())?;
+        let mut source = previous
+            .map(|p| {
+                p.file
+                    .try_clone()
+                    .map(|f| BufReader::with_capacity(1 << 16, f))
+            })
+            .transpose()?;
+        if let Some(reader) = source.as_mut() {
+            reader.seek(SeekFrom::Start(HEADER))?;
+        }
+        for _ in 0..old_orders {
+            let mut bytes = [0_u8; 17];
+            source.as_mut().unwrap().read_exact(&mut bytes)?;
+            let record = RetiredOrder {
+                id: ColdIndex::word(&bytes, 0),
+                filled: ColdIndex::word(&bytes, 8) as i64,
+                lifecycle: lifecycle_from(bytes[16])?,
+            };
+            emit(&record.id.to_le_bytes())?;
+            emit(&record.filled.to_le_bytes())?;
+            emit(&[lifecycle_code(record.lifecycle)?])?;
+        }
+        for record in orders {
+            emit(&record.id.to_le_bytes())?;
+            emit(&record.filled.to_le_bytes())?;
+            emit(&[lifecycle_code(record.lifecycle)?])?;
+        }
+        let (mut old, mut new) = (0, 0);
+        fault_point("cold_write_mid")?;
+        if let Some(reader) = source.as_mut() {
+            reader.seek(SeekFrom::Start(HEADER + old_orders * ORDER))?;
+        }
+        let mut next_old = || -> io::Result<Fill> {
+            let mut bytes = [0_u8; 32];
+            source.as_mut().unwrap().read_exact(&mut bytes)?;
+            Ok(Fill {
+                execution_id: ColdIndex::word(&bytes, 0),
+                order_id: ColdIndex::word(&bytes, 8),
+                qty: ColdIndex::word(&bytes, 16) as i64,
+                price: ColdIndex::word(&bytes, 24) as i64,
+            })
+        };
+        let mut old_record = if old_fills > 0 {
+            Some(next_old()?)
+        } else {
+            None
+        };
+        while old_record.is_some() || new < fills.len() {
+            let record = match (old_record.as_ref(), fills.get(new)) {
+                (Some(a), Some(b)) if a.execution_id == b.execution_id => {
+                    return Err(invalid("segment fill IDs overlap retired fills"));
+                }
+                (Some(a), Some(b)) if a.execution_id < b.execution_id => a.clone(),
+                (Some(a), None) => a.clone(),
+                (_, Some(b)) => {
+                    new += 1;
+                    b.clone()
+                }
+                (None, None) => unreachable!(),
+            };
+            if old_record
+                .as_ref()
+                .is_some_and(|r| r.execution_id == record.execution_id)
+            {
+                old += 1;
+                old_record = if old < old_fills {
+                    Some(next_old()?)
+                } else {
+                    None
+                };
+            }
+            for value in [record.execution_id, record.order_id] {
+                emit(&value.to_le_bytes())?;
+            }
+            for value in [record.qty, record.price] {
+                emit(&value.to_le_bytes())?;
+            }
+        }
+        out.write_all(&checksum.to_le_bytes())?;
+        out.flush()?;
+        out.get_ref().sync_all()?;
+        fault_point("cold_fsync_after")?;
+        fs::rename(&temporary, path)?;
+        fault_point("cold_rename_after")?;
+        let parent = path
+            .parent()
+            .filter(|p| !p.as_os_str().is_empty())
+            .unwrap_or(Path::new("."));
         File::open(parent)?.sync_all()?;
+        fault_point("cold_dirsync_after")?;
+        Ok(ColdRef {
+            file: name.to_string(),
+            checksum,
+            orders: total_orders,
+            fills: total_fills,
+        })
+    })();
+    if result.is_err() {
+        let _ = fs::remove_file(&temporary);
     }
-    Ok(ColdRef {
-        file: name.to_string(),
-        checksum,
-        orders: orders.len() as u64,
-        fills: fills.len() as u64,
-    })
+    result
 }
 
 /// A verified cold index; lookups are binary searches with positioned reads.
@@ -145,6 +265,7 @@ impl ColdIndex {
             ));
         }
         let mut file = File::open(directory.join(&reference.file))?;
+        file.try_lock_shared().map_err(io::Error::other)?;
         let length = file.metadata()?.len();
         if length != HEADER + ORDER * reference.orders + FILL * reference.fills + 8 {
             return Err(invalid("cold index size mismatch"));
@@ -234,29 +355,13 @@ impl ColdIndex {
         Ok(None)
     }
 
-    /// Every record, in key order (used when the next rotation extends the index).
-    pub fn records(&self) -> io::Result<(Vec<RetiredOrder>, Vec<Fill>)> {
-        let mut orders = Vec::with_capacity(self.orders as usize);
-        for index in 0..self.orders {
-            let record: [u8; 17] = self.read(HEADER + index * ORDER)?;
-            orders.push(RetiredOrder {
-                id: Self::word(&record, 0),
-                filled: Self::word(&record, 8) as i64,
-                lifecycle: lifecycle_from(record[16])?,
-            });
-        }
-        let base = HEADER + ORDER * self.orders;
-        let mut fills = Vec::with_capacity(self.fills as usize);
-        for index in 0..self.fills {
-            let record: [u8; 32] = self.read(base + index * FILL)?;
-            fills.push(Fill {
-                execution_id: Self::word(&record, 0),
-                order_id: Self::word(&record, 8),
-                qty: Self::word(&record, 16) as i64,
-                price: Self::word(&record, 24) as i64,
-            });
-        }
-        Ok((orders, fills))
+    fn order_at(&self, index: u64) -> io::Result<RetiredOrder> {
+        let record: [u8; 17] = self.read(HEADER + index * ORDER)?;
+        Ok(RetiredOrder {
+            id: Self::word(&record, 0),
+            filled: Self::word(&record, 8) as i64,
+            lifecycle: lifecycle_from(record[16])?,
+        })
     }
 
     /// The verdict for a report about a retired order (ADR table, §3).
@@ -290,4 +395,39 @@ impl ColdIndex {
             Report::Retired { .. } => Contradiction,
         })
     }
+}
+
+/// Remove only an explicitly identified superseded cold file, after publication.
+/// A verified reader pins its file with a shared lock. Busy readers are skipped;
+/// this does not sweep directories, delete journals or guess which file is live.
+pub fn remove_superseded(
+    directory: &Path,
+    previous: &ColdRef,
+    current: &ColdRef,
+) -> io::Result<bool> {
+    if previous.file == current.file {
+        return Err(invalid("cannot reclaim current cold index"));
+    }
+    // Verify the durable successor before disposing of any evidence.
+    let _current = ColdIndex::open(directory, current)?;
+    if previous.file.contains('/') || previous.file.starts_with('.') {
+        return Err(invalid(
+            "cold index must be a plain file next to its journal",
+        ));
+    }
+    let path = directory.join(&previous.file);
+    let file = match File::open(&path) {
+        Ok(file) => file,
+        Err(e) if e.kind() == io::ErrorKind::NotFound => return Ok(false),
+        Err(e) => return Err(e),
+    };
+    if file.try_lock().is_err() {
+        return Ok(false);
+    }
+    fault_point("gc_before")?;
+    fs::remove_file(&path)?;
+    fault_point("gc_after_unlink")?;
+    File::open(directory)?.sync_all()?;
+    fault_point("gc_after")?;
+    Ok(true)
 }

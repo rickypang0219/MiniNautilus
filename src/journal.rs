@@ -408,24 +408,48 @@ impl DurableEngine {
     /// Consumes this writer before the existing crash-safe offline rotation.
     /// The successor remains gated until the caller reconciles its venue.
     pub fn rotate_into(self, successor: &Path) -> io::Result<Self> {
-        self.rotate_into_with(successor, false)
+        self.rotate_into_with(successor, false, false)
     }
 
     /// Live rotation: also writes the cold index that keeps exact dedup evidence
     /// for every retired order and fill (docs/adr-live-rotation.md).
     pub fn rotate_into_retaining(self, successor: &Path) -> io::Result<Self> {
-        self.rotate_into_with(successor, true)
+        self.rotate_into_with(successor, true, false)
     }
 
-    fn rotate_into_with(mut self, successor: &Path, retain: bool) -> io::Result<Self> {
+    /// Opt-in reclamation of only this writer's superseded cold generation.
+    /// Pinned readers retain their generation; old journals are never removed.
+    pub fn rotate_into_retaining_with_gc(self, successor: &Path) -> io::Result<Self> {
+        self.rotate_into_with(successor, true, true)
+    }
+
+    fn rotate_into_with(
+        mut self,
+        successor: &Path,
+        retain: bool,
+        reclaim: bool,
+    ) -> io::Result<Self> {
         self.core.rotation_ready().map_err(invalid)?;
         self.sync()?;
         let old = self.journal_path.clone();
+        let previous_cold = self.core.cold.clone();
+        if reclaim
+            && fs::canonicalize(old.parent().unwrap())?
+                != fs::canonicalize(successor.parent().unwrap_or(Path::new(".")))?
+        {
+            return Err(invalid(
+                "cold reclamation requires the same journal directory",
+            ));
+        }
         let policy = self.sync;
         drop(self);
         rotate_with(&old, successor, retain)?;
         let mut next = Self::recover(successor, None)?;
         next.set_sync_policy(policy);
+        if reclaim && let (Some(previous), Some(current)) = (previous_cold, next.core.cold.as_ref())
+        {
+            cold::remove_superseded(old.parent().unwrap(), &previous, current)?;
+        }
         Ok(next)
     }
 
@@ -527,6 +551,7 @@ struct Scanned {
     core: Core,
     checksum: u64,
     closed: Option<String>,
+    predecessor_anchor: u64,
 }
 
 fn scan(bytes: &[u8], snapshot: Option<&Snapshot>) -> io::Result<(Core, u64)> {
@@ -544,6 +569,7 @@ fn scan_all(bytes: &[u8], snapshot: Option<&Snapshot>) -> io::Result<Scanned> {
     let mut previous = 0;
     let mut core = None;
     let mut closed = None;
+    let mut predecessor_anchor = 0;
     for (index, line) in bytes
         .split(|b| *b == b'\n')
         .filter(|s| !s.is_empty())
@@ -565,7 +591,10 @@ fn scan_all(bytes: &[u8], snapshot: Option<&Snapshot>) -> io::Result<Scanned> {
                     carry,
                 },
             ) => core = Some(genesis(config, carry)?),
-            (_, Payload::Closed { successor }) => closed = Some(successor),
+            (_, Payload::Closed { successor }) if closed.is_none() => {
+                predecessor_anchor = previous;
+                closed = Some(successor);
+            }
             (_, Payload::Input(_)) if closed.is_some() => {
                 return Err(invalid("input after journal was closed by rotation"));
             }
@@ -599,6 +628,11 @@ fn scan_all(bytes: &[u8], snapshot: Option<&Snapshot>) -> io::Result<Scanned> {
     Ok(Scanned {
         core,
         checksum: previous,
+        predecessor_anchor: if closed.is_some() {
+            predecessor_anchor
+        } else {
+            previous
+        },
         closed,
     })
 }
@@ -648,6 +682,7 @@ fn rotate_with(old: &Path, new: &Path, retain: bool) -> io::Result<Core> {
             let mut checksum = scanned.checksum;
             let mut poisoned = false;
             file.seek(SeekFrom::End(0))?;
+            cold::fault_point("closed_before")?;
             append_frame(
                 &mut file,
                 &mut checksum,
@@ -658,12 +693,14 @@ fn rotate_with(old: &Path, new: &Path, retain: bool) -> io::Result<Core> {
             )?;
         }
     }
+    cold::fault_point("closed_durable_after")?;
     let config = scanned.core.config.clone();
     let mut carry = scanned.core.carry();
     carry.cold = cold;
     let core = Core::from_carry(config.clone(), &carry).map_err(invalid)?;
     let mut next = OpenOptions::new().write(true).create_new(true).open(new)?;
     let (mut checksum, mut poisoned) = (0, false);
+    cold::fault_point("genesis_before")?;
     append_frame(
         &mut next,
         &mut checksum,
@@ -673,29 +710,30 @@ fn rotate_with(old: &Path, new: &Path, retain: bool) -> io::Result<Core> {
             config,
             carry: Some(Carried {
                 carry,
-                predecessor_checksum: scanned.checksum,
+                predecessor_checksum: scanned.predecessor_anchor,
             }),
         },
     )?;
+    cold::fault_point("genesis_fsync_after")?;
     sync_parent(new)?;
+    cold::fault_point("genesis_dirsync_after")?;
     Ok(core)
 }
 
 /// `<successor>.cold`: the predecessor's cold index (verified) extended by every
 /// order and fill of the closing segment. Deterministic, so a rerun is idempotent.
 fn write_cold(old: &Path, new: &Path, core: &Core) -> io::Result<cold::ColdRef> {
-    let (mut orders, mut fills) = match &core.cold {
-        Some(reference) => {
-            let directory = old.parent().unwrap_or(Path::new("."));
-            let directory = if directory.as_os_str().is_empty() {
-                Path::new(".")
-            } else {
-                directory
-            };
-            ColdIndex::open(directory, reference)?.records()?
-        }
-        None => (Vec::new(), Vec::new()),
-    };
+    let directory = old
+        .parent()
+        .filter(|p| !p.as_os_str().is_empty())
+        .unwrap_or(Path::new("."));
+    let previous = core
+        .cold
+        .as_ref()
+        .map(|reference| ColdIndex::open(directory, reference))
+        .transpose()?;
+    let mut orders = Vec::with_capacity(core.orders.len());
+    let mut fills = Vec::with_capacity(core.fills.len());
     for (id, order) in &core.orders {
         if orders
             .last()
@@ -715,7 +753,12 @@ fn write_cold(old: &Path, new: &Path, core: &Core) -> io::Result<cold::ColdRef> 
         .file_name()
         .and_then(|n| n.to_str())
         .ok_or_else(|| invalid("successor needs a UTF-8 file name"))?;
-    cold::write(&new.with_file_name(format!("{name}.cold")), &orders, &fills)
+    cold::extend(
+        &new.with_file_name(format!("{name}.cold")),
+        previous.as_ref(),
+        &orders,
+        &fills,
+    )
 }
 
 /// Read-only validated replay. Refuses an active writer or an incomplete tail.

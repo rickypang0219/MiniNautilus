@@ -5,6 +5,9 @@ edition = "2024"
 description = "A deterministic trading systems learning laboratory"
 license = "MIT"
 
+[features]
+fault-injection = []
+
 [dependencies]
 rusqlite = { version = "0.40.2", features = ["bundled"] }
 serde = { version = "1.0", features = ["derive"] }

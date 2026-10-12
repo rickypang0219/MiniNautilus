@@ -119,14 +119,40 @@ class CoordinatorTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(actor.gate_reason,'delivery_uncertain')
 
     async def test_guard_and_execution_have_separate_timeout_budgets(self):
-        calls=[]
-        async def apply(item):return [{'SendOrder':{'id':1}}]
-        async def guard(effect):await asyncio.sleep(.04);return 'send'
-        async def execute(effect):await asyncio.sleep(.04);calls.append(effect)
-        actor=Coordinator(apply,execute,dispatch_guard=guard,execution_timeout=.07).start()
-        actor.offer(Input('market','market','Submit'))
-        await asyncio.wait_for(actor.finish(),1)
-        self.assertEqual(len(calls),1)
+        # Assert the actual independent budget allocations with controlled events.
+        # Wall-clock sleeps near 70ms made this test scheduler-dependent.
+        from unittest.mock import patch
+        original = asyncio.wait_for
+        allocations = []
+        guard_started, release_guard = asyncio.Event(), asyncio.Event()
+        execution_started, release_execution = asyncio.Event(), asyncio.Event()
+        calls = []
+        async def apply(item):
+            return [{'SendOrder': {'id': 1}}]
+        async def guard(effect):
+            guard_started.set()
+            await release_guard.wait()
+            return 'send'
+        async def execute(effect):
+            execution_started.set()
+            await release_execution.wait()
+            calls.append(effect)
+        async def observed_wait(awaitable, timeout):
+            allocations.append((getattr(awaitable, '__name__', None), timeout))
+            return await original(awaitable, timeout=timeout)
+        # A generous per-stage timeout removes scheduler races; the assertion
+        # still fails if guard and execution are wrapped in one shared budget.
+        with patch('mininautilus.runtime.asyncio.wait_for', observed_wait):
+            actor = Coordinator(apply, execute, dispatch_guard=guard, execution_timeout=10).start()
+            actor.offer(Input('market', 'market', 'Submit'))
+            finishing = asyncio.create_task(actor.finish())
+            await original(guard_started.wait(), 5)
+            release_guard.set()
+            await original(execution_started.wait(), 5)
+            release_execution.set()
+            await original(finishing, 5)
+        self.assertEqual(allocations, [('_private_barrier', 10), ('guard', 10), ('execute', 10)])
+        self.assertEqual(len(calls), 1)
         self.assertFalse(actor.gated)
 
     async def test_blocking_executor_timeout_does_not_spawn_a_replacement(self):
