@@ -114,3 +114,48 @@ Treat a failed batch as uncertain, recover/query its sequence, and never retry
 the whole batch blindly. The actor uses individual receive-time-aware calls;
 no new live batching codec or accumulation delay is introduced. A future batch
 runner must explicitly cap events/bytes/wait and carry each input's live time.
+
+## LC lifecycle experiments and recovery
+
+Read `docs/runtime-v2-lifecycle-results.md` before adopting the LC changes. Overall
+LC acceptance is still FAIL. No W2/W3 long soak has passed in this phase.
+
+Live rotation additionally requires an approved trust decision and the explicit
+operator flag `--rotation-trust-contract current-segment-v1`. The actor stays
+opt-in. `--batch-reconcile` uses bounded bulk discovery without changing the
+absence fence or wallet/quantity checks. `--reclaim-cold` skips pinned readers;
+without a bounded retry catalogue it does not prove a global disk bound.
+
+With `--rotate-orders N`, `--rotate-bytes` defaults to 8 MiB. Quote-only history
+therefore has a rotation trigger too. Disk preflight reserves the next cold file
+plus max(2 GiB, 20% filesystem capacity). A low-headroom stop file is evidence of
+a fail-closed stop, not proof of the final durable sequence; recover/reconcile
+before trading. Do not delete stop evidence or uncertain orders to reopen a gate.
+
+If a predecessor is already Closed and its named successor was not published,
+`mininautilus repair-retaining CLOSED_PREDECESSOR EXACT_NAMED_SUCCESSOR` retries
+publication. It refuses an unclosed predecessor and refuses to overwrite an
+existing successor. A partial/empty successor or conflicting sidecar requires
+manual inspection; preserve the files before any cleanup. Full journal corruption
+is never silently repaired. A successor starts disconnected and needs venue
+reconciliation; repair never resends an effect.
+
+LC collection examples (fresh directories only):
+
+```sh
+cargo build --locked --release --example lifecycle_probe
+python3 ops/lifecycle_evidence.py run --run-dir runs/lc-v1/new-case -- \
+  target/release/examples/lifecycle_probe runs/lc-v1/new-fixture 1000000 20 gc
+python3 ops/lifecycle_evidence.py analyse runs/lc-v1/new-case
+python3 ops/lifecycle_startup_probe.py --journal CURRENT_JOURNAL \
+  --binary target/release/mininautilus --output runs/lc-v1/new-startup.json --reps 5
+```
+
+`lifecycle_probe ... 20 gc pin` is an isolated reader-pin stress case, not a live
+command. Verify capacity on the actual output/spool mounts first; `/tmp` may be a
+small tmpfs. Stream compressed archives to S3, verify SHA on download, then remove
+only task-owned local derived copies. No source/evidence may be overwritten.
+
+The raw recorder is a prototype: complete LC0 receipt/schema validation and W0
+host-gate qualification are still required. Short native probe results do not
+certify full actor CPU, memory or trade-enabled availability.

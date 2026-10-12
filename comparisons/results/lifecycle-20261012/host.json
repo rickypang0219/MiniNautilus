@@ -1,0 +1,15 @@
+{
+  "instance_id": "i-015087878f29f14cd",
+  "instance_type": "t4g.micro",
+  "architecture": "arm64",
+  "state": "running",
+  "volumes": [
+    {
+      "VolumeId": "vol-01a3889c26aa59663",
+      "Size": 12,
+      "VolumeType": "gp3",
+      "Iops": 3000,
+      "Throughput": 125
+    }
+  ]
+}

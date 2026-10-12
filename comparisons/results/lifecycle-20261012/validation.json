@@ -1,0 +1,33 @@
+{
+  "verify_ok": true,
+  "rust_tests": 78,
+  "python_tests": 138,
+  "node_tests": 4,
+  "parity_seeds": 20,
+  "timeout_stress_passed": 100,
+  "publication_crash_boundaries": 13,
+  "crash_reps_each": 3,
+  "scope": "unit/integration and model crashes, not hardware power loss or long soak",
+  "raw_index": [
+    {
+      "path": "runs/lc-v1/validation/publication-matrix.log",
+      "sha256": "0da67c1b8f426e53156e2af1a23348b0d1ed505c3ff2a370995606c3030df862",
+      "bytes": 1231
+    },
+    {
+      "path": "runs/lc-v1/validation/replay.json",
+      "sha256": "73f29b61d4257c733205d54b0b9f6c5f7862382d9de062629e2c3bc66cb08615",
+      "bytes": 116
+    },
+    {
+      "path": "runs/lc-v1/validation/timeout-stress.log",
+      "sha256": "fff9d75fb8f968eb6abbae67a7d7c1ae3627d024092ad6e62cb727804a9cbb68",
+      "bytes": 200
+    },
+    {
+      "path": "runs/lc-v1/validation/verify.log",
+      "sha256": "3c794bcec771496ac662aa3d8127b046601a2120d2ab439fe4062877170a9945",
+      "bytes": 11210
+    }
+  ]
+}

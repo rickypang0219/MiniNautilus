@@ -1,0 +1,128 @@
+{
+  "schema": "lc_evidence_v1",
+  "period_seconds": 300,
+  "instance_id": "i-015087878f29f14cd",
+  "datapoints": [
+    {
+      "Timestamp": "2026-10-12T07:57:00+00:00",
+      "Minimum": 222.20180136666667,
+      "Unit": "Count"
+    },
+    {
+      "Timestamp": "2026-10-12T08:02:00+00:00",
+      "Minimum": 223.17937521666667,
+      "Unit": "Count"
+    },
+    {
+      "Timestamp": "2026-10-12T08:07:00+00:00",
+      "Minimum": 224.15555861666667,
+      "Unit": "Count"
+    },
+    {
+      "Timestamp": "2026-10-12T08:12:00+00:00",
+      "Minimum": 224.72035311666667,
+      "Unit": "Count"
+    },
+    {
+      "Timestamp": "2026-10-12T08:17:00+00:00",
+      "Minimum": 225.69604466666667,
+      "Unit": "Count"
+    },
+    {
+      "Timestamp": "2026-10-12T08:22:00+00:00",
+      "Minimum": 226.67416136666668,
+      "Unit": "Count"
+    },
+    {
+      "Timestamp": "2026-10-12T08:27:00+00:00",
+      "Minimum": 227.65070858333334,
+      "Unit": "Count"
+    },
+    {
+      "Timestamp": "2026-10-12T08:32:00+00:00",
+      "Minimum": 228.62862821666667,
+      "Unit": "Count"
+    },
+    {
+      "Timestamp": "2026-10-12T08:37:00+00:00",
+      "Minimum": 229.6042611,
+      "Unit": "Count"
+    },
+    {
+      "Timestamp": "2026-10-12T08:42:00+00:00",
+      "Minimum": 230.58334483333334,
+      "Unit": "Count"
+    },
+    {
+      "Timestamp": "2026-10-12T08:47:00+00:00",
+      "Minimum": 231.55903828333334,
+      "Unit": "Count"
+    },
+    {
+      "Timestamp": "2026-10-12T08:52:00+00:00",
+      "Minimum": 232.538605,
+      "Unit": "Count"
+    },
+    {
+      "Timestamp": "2026-10-12T08:57:00+00:00",
+      "Minimum": 233.51487713333333,
+      "Unit": "Count"
+    },
+    {
+      "Timestamp": "2026-10-12T09:02:00+00:00",
+      "Minimum": 234.49232566666666,
+      "Unit": "Count"
+    },
+    {
+      "Timestamp": "2026-10-12T09:07:00+00:00",
+      "Minimum": 235.468428,
+      "Unit": "Count"
+    },
+    {
+      "Timestamp": "2026-10-12T09:12:00+00:00",
+      "Minimum": 236.44648095,
+      "Unit": "Count"
+    },
+    {
+      "Timestamp": "2026-10-12T09:17:00+00:00",
+      "Minimum": 237.42294,
+      "Unit": "Count"
+    },
+    {
+      "Timestamp": "2026-10-12T09:22:00+00:00",
+      "Minimum": 238.40067213333333,
+      "Unit": "Count"
+    },
+    {
+      "Timestamp": "2026-10-12T09:27:00+00:00",
+      "Minimum": 239.37700355,
+      "Unit": "Count"
+    },
+    {
+      "Timestamp": "2026-10-12T09:32:00+00:00",
+      "Minimum": 240.35573286666667,
+      "Unit": "Count"
+    },
+    {
+      "Timestamp": "2026-10-12T09:37:00+00:00",
+      "Minimum": 241.01150871666667,
+      "Unit": "Count"
+    },
+    {
+      "Timestamp": "2026-10-12T09:42:00+00:00",
+      "Minimum": 241.98851006666666,
+      "Unit": "Count"
+    },
+    {
+      "Timestamp": "2026-10-12T09:47:00+00:00",
+      "Minimum": 242.96421305,
+      "Unit": "Count"
+    },
+    {
+      "Timestamp": "2026-10-12T09:52:00+00:00",
+      "Minimum": 243.94304141666666,
+      "Unit": "Count"
+    }
+  ],
+  "missing_reason": null
+}

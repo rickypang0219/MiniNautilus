@@ -1,0 +1,7 @@
+{
+  "CommandId": "e8ccf07b-fe18-4f0f-9d87-9bd1fa666ff5",
+  "Status": "Success",
+  "ResponseCode": 0,
+  "StandardOutputContent": "80809a2fc5a58df5f53db4f125d625b45c3a0703\ne8ab3699b2fb7e95ba7babf07e4b044493989184f2686eef0c0eb69bc6c61a11  target/release/mininautilus\nFilesystem      Size  Used Avail Use% Mounted on\n/dev/nvme0n1p1   12G  7.0G  5.0G  59% /\ntmpfs           459M  442M   18M  97% /tmp\n    PID COMMAND         %CPU   RSS\n 153818 ssm-document-wo  6.0 23904\n   1647 ssm-agent-worke  0.0 16688\n 153837 systemd          6.0 12764\n    814 systemd-journal  0.0 11232\n      1 systemd          0.0  8556\n 153899 systemd-hostnam  3.0  7848\n   1577 amazon-ssm-agen  0.0  7468\n",
+  "StandardErrorContent": "Warning: you are leaving 6 commits behind, not connected to\nany of your branches:\n\n  15bc8ae Bound lifecycle admission and add recovery, disk, and evidence safeguards\n  03048ad Add opt-in batch reconciliation and lifecycle admission accounting\n  2a8a18b Stream cold merges, preserve crash anchors, and pin reclaimed generations\n  9939d32 Freeze LC history sweep and raw resource evidence recorder\n ... and 2 more.\n\nIf you want to keep them by creating a new branch, this may be a good time\nto do so with:\n\n git branch <new-branch-name> 15bc8ae\n\nHEAD is now at 80809a2 Record Testnet actor soak, offline fault soaks and retention probes; probe logs failure reasons\n"
+}
