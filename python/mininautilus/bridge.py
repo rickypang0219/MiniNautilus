@@ -67,6 +67,32 @@ def next_order_id(state):
     return cached + 1
 
 
+def current_journal(path):
+    """Follow `Closed{successor}` records of rotated journals to the writable one.
+
+    Rust validates the chosen journal and its genesis when recovering it; this only
+    locates it. A successor that was never created leaves the predecessor closed,
+    and Rust recovery then refuses with the successor's name."""
+    path = Path(path)
+    seen = set()
+    while path not in seen:
+        seen.add(path)
+        with path.open('rb') as handle:
+            handle.seek(0, os.SEEK_END)
+            size = handle.tell()
+            handle.seek(max(0, size - 65536))
+            lines = handle.read().rstrip(b'\n').split(b'\n')
+        try:
+            payload = json.loads(json.loads(lines[-1])['payload'])
+        except (ValueError, KeyError, IndexError):
+            return path  # torn tail: Rust recovery decides
+        successor = payload.get('Closed', {}).get('successor') if isinstance(payload, dict) else None
+        if successor is None or not Path(successor).exists():
+            return path
+        path = Path(successor)
+    raise RuntimeError('journal rotation chain loops')
+
+
 class Engine:
     def __init__(self, journal=None, *, paper=False, sim=False, recover=False, config=None,
                  binary=None, time_mode="live", full_state=False, extra_args=(), env=None):
@@ -172,11 +198,18 @@ class Engine:
         return response["effects"]
 
     def rotate_paper(self, successor):
-        """Rotate a flat, fully resolved durable paper session; live use is refused.
+        """Rotate a flat, fully resolved durable paper session.
 
         Rust syncs/closes the predecessor, recovers/reconciles a fresh paper venue,
         and returns a full mirror so both languages release retained history.
         """
+        return self.rotate(successor)
+
+    def rotate(self, successor):
+        """Rotate the journal. Live (`serve`) rotation additionally writes the cold
+        dedup index and is refused unless the request immediately follows a venue
+        reconciliation (docs/adr-live-rotation.md); the successor stays gated until
+        the adapter reconciles again."""
         effects = self._roundtrip(self._encode({"at": self.state["now"],
                                              "rotate_to": str(Path(successor).resolve())}))
         self.journal = str(Path(successor).resolve())

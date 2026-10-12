@@ -21,7 +21,7 @@ sys.path.insert(0, str(ROOT / 'python'))
 from websockets.sync.client import connect
 from websockets.exceptions import ConnectionClosed
 from mininautilus import metrics
-from mininautilus.bridge import Engine
+from mininautilus.bridge import Engine, current_journal
 from mininautilus.audit import IncrementalAudit, full_audit
 from mininautilus.binance import BinanceSpot, VenueError, units
 from mininautilus.market import missing_candles
@@ -95,7 +95,8 @@ def run_actor(args, engine, venue, strategy, ledger_audit, now, note, metadata, 
     session = ActorSession(engine, adapter, strategy, identity=('binance-spot-testnet', metadata['session'], args.symbol),
                            now=now, note=note, audit=ledger_audit, order_ttl_ms=args.order_ttl * 1000,
                            max_orders=args.max_orders, paper=args.mode == 'paper', lots=lots,
-                           drills=args.recovery_drill)
+                           drills=args.recovery_drill, rotate_orders=args.rotate_orders,
+                           max_rotation_delay=args.max_rotation_delay)
     completed = reconciled = False
     try:
         if args.resume:
@@ -170,7 +171,15 @@ def run(args):
     fired_faults = set()
     retry_budget = ReconnectBudget()
     started = time.monotonic()
-    with (path / 'observations.jsonl').open('a') as log, Engine(path / 'events.jsonl', paper=args.mode == 'paper',
+    journal = path / 'events.jsonl'
+    if args.resume:
+        # Live rotation (actor --rotate-orders): continue from the newest segment and
+        # its balance baseline, written before that segment's genesis.
+        journal = current_journal(journal)
+        if journal.name != 'events.jsonl':
+            sidecar = json.loads((path / f'rotation-{journal.name}.json').read_text())
+            metadata['baseline_base'] = sidecar['venue']['baseline_base']
+    with (path / 'observations.jsonl').open('a') as log, Engine(journal, paper=args.mode == 'paper',
             recover=args.resume, config=path / 'config.json', env=engine_env,
             extra_args=['--sync', args.sync], binary=args.binary) as engine:
         origin, initial = time.monotonic(), engine.state['now']
@@ -395,6 +404,8 @@ if __name__ == '__main__':
     p.add_argument('--runtime', choices=['serial', 'actor'], default='serial', help='actor is opt-in and requires --receipt')
     p.add_argument('--recovery-drill', type=float, action='append', default=[],
                    help='actor only: seconds after start to latch, reconcile and restart (repeatable)')
+    p.add_argument('--rotate-orders', type=int, help='actor + testnet only: live rotation soft trigger (hot orders)')
+    p.add_argument('--max-rotation-delay', type=float, default=60.0, help='seconds to wait for open orders before forcing')
     p.add_argument('--binary', type=Path, default=ROOT / 'target/debug/mininautilus')
     p.add_argument('--receipt', type=Path, help='release receipt (ops/runtime_bench.py --build); refuses a mismatched binary')
     a = p.parse_args()
@@ -402,6 +413,8 @@ if __name__ == '__main__':
         p.error('--runtime actor requires --receipt for a verified release binary')
     if a.runtime == 'actor' and a.faults:
         p.error('--faults injects into the serial loop only; actor faults are tested offline (tests/test_live_actor.py)')
+    if a.rotate_orders is not None and (a.runtime != 'actor' or a.mode != 'testnet' or a.rotate_orders < 1):
+        p.error('--rotate-orders requires --runtime actor --mode testnet and a positive count')
     if a.faults and a.mode != 'paper':
         p.error('--faults is restricted to paper mode')
     if a.reconcile_only and (not a.resume or a.mode != 'testnet'):

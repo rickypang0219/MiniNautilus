@@ -335,6 +335,19 @@ impl Transition {
     }
 
     fn report(&mut self, core: &Core, report: &Report) -> Result<(), String> {
+        if let Report::Retired { report, verdict } = report {
+            let id = report.order_id();
+            if core.id_floor == 0 || id > core.id_floor || core.orders.contains_key(&id) {
+                return Err("retired verdict for an order that is not retired".into());
+            }
+            return match verdict {
+                RetiredVerdict::Duplicate => Ok(()),
+                RetiredVerdict::Contradiction => {
+                    Err("report contradicts retired order evidence".into())
+                }
+                RetiredVerdict::Unavailable => Err("retired order evidence unavailable".into()),
+            };
+        }
         if let Report::Fill(fill) = report {
             if let Some(update) = FillUpdate::prepare(core, fill)? {
                 self.writes = Writes::Fill(update);
@@ -346,7 +359,7 @@ impl Transition {
             Report::Canceled { id, .. } => (*id, "cancel for unknown order"),
             Report::Rejected { id } => (*id, "reject for unknown order"),
             Report::CancelRejected { id } => (*id, "cancel rejection for unknown order"),
-            Report::Fill(_) => unreachable!(),
+            Report::Fill(_) | Report::Retired { .. } => unreachable!(),
         };
         let mut order = core.orders.get(&id).ok_or(unknown)?.clone();
         match report {
@@ -409,7 +422,7 @@ impl Transition {
                     self.gate("cancel rejected; query actual order state");
                 }
             }
-            Report::Fill(_) => unreachable!(),
+            Report::Fill(_) | Report::Retired { .. } => unreachable!(),
         }
         self.writes = Writes::Order(id, order);
         Ok(())

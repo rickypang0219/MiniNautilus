@@ -29,6 +29,10 @@ import asyncio
 from concurrent.futures import ThreadPoolExecutor
 import copy
 from dataclasses import asdict
+import json
+import os
+from pathlib import Path
+import re
 import threading
 import time
 
@@ -52,7 +56,7 @@ class ActorSession:
                  order_ttl_ms=10_000, max_orders=6, paper=False, lots=1,
                  execution_timeout=10.0, quiescence_seconds=60.0, poll_seconds=1.0,
                  market_errors=MARKET_ERRORS, reconcile_attempts=3, reconcile_retry=None,
-                 coordinator_options=None, drills=()):
+                 coordinator_options=None, drills=(), rotate_orders=None, max_rotation_delay=60.0):
         self.engine, self.adapter, self.strategy = engine, adapter, strategy
         self.identity, self.now, self.note, self.audit = tuple(identity), now, note, audit
         self.order_ttl_ms, self.max_orders, self.paper, self.lots = order_ttl_ms, max_orders, paper, lots
@@ -62,6 +66,13 @@ class ActorSession:
         self.coordinator_options = dict(coordinator_options or {})
         # Operator recovery drills (seconds after start): latch, reconcile, restart.
         self.drills = sorted(drills)
+        # Live retention (docs/adr-live-rotation.md): soft trigger N, hard limit 2N.
+        if rotate_orders is not None and (rotate_orders < 1 or paper):
+            raise ValueError('live rotation needs a positive order count and a live venue')
+        self.rotate_orders, self.max_rotation_delay = rotate_orders, max_rotation_delay
+        self.rotation_pending_since = None
+        self.rotation_requested = False
+        self.hot_max = dict(core_orders=0, core_fills=0, audit_orders=0, sent_at=0)
         self.reconcile_retry = reconcile_retry or (lambda attempt: time.sleep(2 ** attempt))
         self.writer = ThreadPoolExecutor(max_workers=1, thread_name_prefix='core-writer')
         self.poller = ThreadPoolExecutor(max_workers=1, thread_name_prefix='private-poll')
@@ -76,7 +87,8 @@ class ActorSession:
         self.counters = dict(closed_bars=0, signals=0, submissions=0, cancels=0, reconnects=0,
                              reconciliations=0, coordinators=0, backfilled_bars=0, duplicates=0,
                              market_rejected=0, market_inputs=0, market_during_execution=0,
-                             executions=0, late_results=0, invariant_checks=0, gates={})
+                             executions=0, late_results=0, invariant_checks=0, gates={},
+                             rotations=0, rotation_blocked_signals=0)
         self.high_water = dict(input=0, effects=0)
         self.tick_to_submit_ms = []
 
@@ -141,6 +153,9 @@ class ActorSession:
         self.counters['closed_bars'] += 1
         if self.coordinator is not None and self.coordinator.gated:
             return effects  # never create new intent behind a latch
+        if self.rotation_pending_since is not None:
+            self.counters['rotation_blocked_signals'] += 1
+            return effects  # retention trigger reached: no new risk until rotated
         signal = self.strategy.signal()
         if signal:
             self.counters['signals'] += 1
@@ -392,6 +407,8 @@ class ActorSession:
             while not coordinator.gated and not coordinator.closed and self.fatal is None:
                 if time.monotonic() >= deadline:
                     break
+                if self._retention_due(coordinator):
+                    break
                 if self.drills and time.monotonic() - self.started >= self.drills[0]:
                     self.drills.pop(0)
                     self.counters['drills'] = self.counters.get('drills', 0) + 1
@@ -425,6 +442,68 @@ class ActorSession:
             return True
         return False
 
+    def _hot(self):
+        state = self.engine.state
+        sizes = dict(core_orders=len(state['orders']), core_fills=len(state['fills']),
+                     audit_orders=len(self.audit.orders) if self.audit is not None else 0,
+                     sent_at=len(self.sent_at))
+        for key, value in sizes.items():
+            self.hot_max[key] = max(self.hot_max[key], value)
+        return sizes
+
+    def _retention_due(self, coordinator):
+        """Soft trigger blocks new risk; rotate once nothing is open or after the delay."""
+        if self.rotate_orders is None:
+            return False
+        orders = self._hot()['core_orders']
+        if self.rotation_pending_since is None:
+            if orders < self.rotate_orders:
+                return False
+            self.rotation_pending_since = time.monotonic()
+            self.note('rotation_pending', hot_orders=orders)
+        quiet = not self.engine.state.open_orders
+        overdue = time.monotonic() - self.rotation_pending_since >= self.max_rotation_delay
+        if quiet or overdue or orders >= 2 * self.rotate_orders:
+            self.rotation_requested = True
+            coordinator.gate('rotation')
+            return True
+        return False
+
+    def _successor(self):
+        current = Path(self.engine.journal)
+        match = re.fullmatch(r'(.*?)(?:-(\d+))?', current.stem)
+        number = int(match.group(2) or 0) + 1
+        return current.with_name(f'{match.group(1)}-{number}{current.suffix}')
+
+    def _rotate(self):
+        """Writer thread, after the rotation reconciliation (ADR §1-§2)."""
+        successor = self._successor()
+        venue_state = self.adapter.rotation_state() if hasattr(self.adapter, 'rotation_state') else {}
+        sidecar = successor.with_name(f'rotation-{successor.name}.json')
+        with sidecar.open('x') as handle:
+            json.dump(dict(successor=successor.name, venue=venue_state,
+                           position=self.engine.state['position']), handle)
+            handle.flush()
+            os.fsync(handle.fileno())
+        directory = os.open(sidecar.parent, os.O_RDONLY)
+        try:
+            os.fsync(directory)
+        finally:
+            os.close(directory)
+        retired = self.engine.state.get('id_floor', 0), len(self.engine.state['orders'])
+        self.engine.rotate(successor)
+        if self.audit is not None:
+            self.audit.reset(self.engine.state)
+        self.sent_at.clear()
+        self.fills_by_order.clear()
+        if hasattr(self.adapter, 'rotated'):
+            self.adapter.rotated(venue_state)
+        self.counters['rotations'] += 1
+        self.rotation_pending_since, self.rotation_requested = None, False
+        self.note('rotated', journal=successor.name, id_floor=self.engine.state.get('id_floor', 0),
+                  previous_floor=retired[0], retired_orders=retired[1], hot=self._hot())
+        self._reconcile()  # the successor starts gated
+
     async def run(self, seconds):
         self.loop = asyncio.get_running_loop()
         self.started = time.monotonic()
@@ -433,6 +512,13 @@ class ActorSession:
             while time.monotonic() < deadline:
                 if await self._segment(deadline):
                     await self._on_writer(self._reconcile)
+                    if self.rotation_requested:
+                        try:
+                            await self._on_writer(self._rotate)
+                        except Exception as error:
+                            # Never drop evidence or rotate without the boundary: stop (ADR §4.2).
+                            self.note('rotation_failed', error_type=type(error).__name__)
+                            raise RuntimeError('retention_rotation_failed') from None
         except FailClosed:
             self.fail_closed = True
             raise
@@ -464,6 +550,7 @@ class ActorSession:
         ordered = sorted(self.tick_to_submit_ms)
         def pct(q):
             return round(ordered[int((len(ordered) - 1) * q)], 3) if ordered else None
-        return dict(self.counters, queue_high_water=self.high_water,
+        return dict(self.counters, queue_high_water=self.high_water, hot_max=self.hot_max,
+                    hot_now=self._hot() if self.rotate_orders else None,
                     tick_to_submit_ms=dict(samples=len(ordered), p50=pct(.5), p99=pct(.99)))
 

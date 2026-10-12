@@ -1,4 +1,4 @@
-use crate::model::*;
+use crate::{cold::ColdRef, model::*};
 use serde::{Deserialize, Serialize};
 use std::collections::{BTreeMap, BTreeSet};
 
@@ -36,6 +36,9 @@ pub struct Core {
     /// Client order IDs up to this value belong to rotated-out sessions.
     #[serde(default, skip_serializing_if = "is_zero_u64")]
     pub id_floor: OrderId,
+    /// Retired-order evidence written by live rotation; metadata only, Core never reads it.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub cold: Option<ColdRef>,
     /// Derived from `orders`; never serialized. Code that mutates `orders` directly
     /// (outside transitions) must call `reindex` before applying further events.
     #[serde(skip)]
@@ -85,6 +88,9 @@ pub struct Carry {
     pub epoch: u64,
     pub last_target_revision: u64,
     pub id_floor: OrderId,
+    /// Cold index of every order at or below `id_floor` (live rotation only).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub cold: Option<ColdRef>,
 }
 
 impl Serialize for Core {
@@ -165,6 +171,7 @@ impl Core {
             opening_position: 0,
             opening_cash: 0,
             id_floor: 0,
+            cold: None,
             index: OrderIndex::default(),
             changes: ChangeLog::default(),
         })
@@ -194,6 +201,7 @@ impl Core {
                 .last_key_value()
                 .map_or(self.id_floor, |(id, _)| *id)
                 .max(self.id_floor),
+            cold: self.cold.clone(),
         }
     }
 
@@ -210,6 +218,7 @@ impl Core {
         core.epoch = carry.epoch;
         core.last_target_revision = carry.last_target_revision;
         core.id_floor = carry.id_floor;
+        core.cold = carry.cold.clone();
         Ok(core)
     }
 
@@ -454,6 +463,7 @@ impl Core {
         (rebuilt.opening_position, rebuilt.opening_cash) =
             (self.opening_position, self.opening_cash);
         rebuilt.id_floor = self.id_floor;
+        rebuilt.cold = self.cold.clone();
         let mut ids = BTreeSet::new();
         for remote in &snapshot.orders {
             let local = self

@@ -30,12 +30,16 @@ class FakeAdapter:
 
     def __init__(self, *, interval_ms=1000, pace=0.03, submit_delay=0.0, submit_block=None,
                  submit_lost_before_send=False, disconnect_after=None, poll_fail_once_after=None,
-                 timing_delay=0.0, prices=PRICES):
+                 timing_delay=0.0, prices=PRICES, auto_fill=True, replay_retired=False,
+                 reconcile_fail_from=None):
         self.interval_ms, self.pace, self.prices = interval_ms, pace, prices
         self.submit_delay, self.submit_block = submit_delay, submit_block
         self.submit_lost_before_send = submit_lost_before_send
         self.disconnect_after, self.poll_fail_once_after = disconnect_after, poll_fail_once_after
         self.timing_delay = timing_delay
+        self.auto_fill, self.replay_retired = auto_fill, replay_retired
+        self.reconcile_fail_from = reconcile_fail_from
+        self.retired, self.rotations, self.replayed = set(), 0, 0
         self.lock = threading.Lock()
         self.orders, self.fills, self.submits, self.position = {}, {}, [], 0
         self.next_execution, self.cursor, self.streams, self.polls, self.reconciles = 0, 0, 0, 0, 0
@@ -130,20 +134,34 @@ class FakeAdapter:
                 order = self.orders.get(int(oid))
                 if order is None:
                     continue
-                if order['lifecycle'] == 'Accepted':
+                if order['lifecycle'] == 'Accepted' and self.auto_fill:
                     self._fill(order)
                 for fill in self.fills.values():
                     if fill['order_id'] == int(oid) and str(fill['execution_id']) not in snapshot['fills']:
                         reports.append({'Fill': fill})
                 if order['lifecycle'] == 'Canceled':
                     reports.append({'Canceled': {'id': int(oid), 'cumulative_filled': order['filled']}})
+            if self.replay_retired and self.retired:
+                # A late duplicate of a retired fill, as a venue could resend it.
+                fill = next(f for f in self.fills.values() if f['order_id'] in self.retired)
+                reports.append({'Fill': dict(fill)})
+                self.replayed += 1
         return reports
+
+    def rotation_state(self):
+        return {'segment': self.rotations + 1}
+
+    def rotated(self, venue_state):
+        self.rotations += 1
+        self.retired |= set(self.orders)
 
     def heartbeat(self):
         pass
 
     def reconcile(self, state):
         self.reconciles += 1
+        if self.reconcile_fail_from is not None and self.reconciles >= self.reconcile_fail_from:
+            raise OSError('fake venue cannot establish a barrier')
         with self.lock:
             for order in self.orders.values():
                 if order['lifecycle'] == 'Accepted':
@@ -157,8 +175,12 @@ class FakeAdapter:
                     absent.append(int(oid))
                 elif local['lifecycle'] == 'Rejected':
                     orders.append(dict(intent=local['intent'], filled=0, lifecycle='Rejected'))
+            local = {int(oid) for oid in state['orders']}
+            fills = [f for f in self.fills.values() if f['order_id'] in local]
+            position = sum(f['qty'] * (1 if self.orders[f['order_id']]['intent']['side'] == 'Buy' else -1)
+                           for f in fills)  # relative to the segment's opening position
             return dict(epoch=state['epoch'], watermark=state['venue_seq'], orders=orders,
-                        fills=list(self.fills.values()), position=self.position, absent=sorted(absent))
+                        fills=fills, position=position, absent=sorted(absent))
 
 
 def run_session(adapter, seconds=3.0, **options):
@@ -185,9 +207,14 @@ def run_session(adapter, seconds=3.0, **options):
                 asyncio.run(session.run(seconds))
             except Exception as failure:
                 error = failure
-            reconciled = session.close(reconcile=True)
+            try:
+                reconciled = session.close(reconcile=True)
+            except Exception:
+                reconciled = False
             final = dict(position=engine.state['position'], health=engine.state['health'],
-                         orders=dict(engine.state['orders']), fills=len(engine.state['fills']))
+                         orders=dict(engine.state['orders']), fills=len(engine.state['fills']),
+                         journal=Path(engine.journal).name, id_floor=engine.state.get('id_floor', 0),
+                         files=sorted(p.name for p in path.iterdir()))
         return session, final, notes, error, reconciled
 
 
@@ -282,6 +309,58 @@ class LiveActorFaultTests(unittest.TestCase):
         self.assertGreaterEqual(report['coordinators'], 2)
         self.assertEqual(len(adapter.submits), len(set(adapter.submits)))
         self.assertEqual(final['position'], adapter.position)
+
+
+class LiveRetentionTests(unittest.TestCase):
+    def test_rotation_bounds_hot_state_and_dedups_late_retired_fills(self):
+        adapter = FakeAdapter(prices=PRICES*3, replay_retired=True)
+        session, final, notes, error, reconciled = run_session(adapter, seconds=6.0, rotate_orders=3)
+        self.assertIsNone(error)
+        report = session.report()
+        self.assertGreaterEqual(report['rotations'], 2)
+        # Soft trigger N blocks new risk: hot orders never exceed N + one open order.
+        self.assertLessEqual(report['hot_max']['core_orders'], 4)
+        self.assertLessEqual(report['hot_max']['audit_orders'], 4)
+        self.assertGreater(adapter.replayed, 0)
+        self.assertEqual(set(report['gates']), {'rotation'}, 'late duplicates must not gate')
+        self.assertEqual(final['position'], adapter.position)
+        self.assertGreaterEqual(final['id_floor'], 3)
+        self.assertTrue(final['journal'].startswith('events-'))
+        self.assertTrue(any(name.endswith('.cold') for name in final['files']))
+        self.assertTrue(any(name.startswith('rotation-events-') for name in final['files']))
+        self.assertTrue(reconciled)
+
+    def test_resume_locates_the_newest_segment(self):
+        from mininautilus.bridge import current_journal
+        adapter = FakeAdapter(prices=PRICES*2)
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory)
+            with Engine(path/'events.jsonl') as engine:
+                engine.send(engine.state['now'], 'Disconnect')
+                engine.send(engine.state['now'], 'Reconnect')
+                engine.send(engine.state['now'], {'Reconcile': adapter.reconcile(engine.state)})
+                engine.rotate(path/'events-1.jsonl')
+            self.assertEqual(current_journal(path/'events.jsonl'), (path/'events-1.jsonl').resolve())
+            with Engine(current_journal(path/'events.jsonl'), recover=True) as engine:
+                self.assertEqual(engine.state['health'], 'Disconnected')
+
+    def test_open_order_past_the_delay_is_reconciled_then_rotated(self):
+        adapter = FakeAdapter(auto_fill=False)
+        session, final, notes, error, reconciled = run_session(
+            adapter, seconds=3.0, rotate_orders=1, max_rotation_delay=0.4, order_ttl_ms=10**7)
+        self.assertIsNone(error)
+        self.assertGreaterEqual(session.report()['rotations'], 1)
+        self.assertTrue(any(n['kind'] == 'rotation_pending' for n in notes))
+        self.assertEqual(final['position'], adapter.position)
+
+    def test_rotation_that_cannot_reach_a_barrier_stops_without_rotating(self):
+        adapter = FakeAdapter(reconcile_fail_from=1)
+        session, final, notes, error, reconciled = run_session(adapter, seconds=3.0, rotate_orders=2)
+        self.assertIsNotNone(error)
+        self.assertEqual(session.report()['rotations'], 0)
+        self.assertEqual(final['journal'], 'events.jsonl')
+        self.assertFalse(any(name.endswith('.cold') for name in final['files']))
+        self.assertFalse(reconciled)
 
 
 if __name__ == '__main__':

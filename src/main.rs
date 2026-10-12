@@ -199,6 +199,23 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
             );
             Ok(())
         }
+        Some("verify-cold") => {
+            let path = Path::new(args.get(2).ok_or("verify-cold JOURNAL")?);
+            let state = mininautilus::journal::replay(path)?;
+            let reference = state.cold.ok_or("journal has no cold index")?;
+            let directory = path.parent().unwrap_or(Path::new("."));
+            let directory = if directory.as_os_str().is_empty() {
+                Path::new(".")
+            } else {
+                directory
+            };
+            mininautilus::cold::ColdIndex::open(directory, &reference)?;
+            println!(
+                "cold index verified: orders={} fills={}",
+                reference.orders, reference.fills
+            );
+            Ok(())
+        }
         Some("convert-bars") => {
             let usage = "convert-bars BARS.csv BARS.bin";
             let (input, output) = (args.get(2).ok_or(usage)?, args.get(3).ok_or(usage)?);
@@ -313,19 +330,25 @@ fn serve(mut engine: Backend, simulate: bool) -> Result<(), Box<dyn std::error::
         let mut request: Request = serde_json::from_str(&line)?;
         let rotated = request.rotate_to.is_some();
         if let Some(successor) = request.rotate_to.take() {
-            if !simulate || !matches!(engine, Backend::Durable(_)) {
-                return Err(
-                    "automatic rotation is supported only for durable paper sessions".into(),
-                );
+            if !matches!(engine, Backend::Durable(_)) {
+                return Err("automatic rotation requires a durable journal".into());
             }
-            if engine.core().position != 0
-                || request.event.is_some()
-                || !request.events.is_empty()
-                || !request.batch.is_empty()
-                || request.time.is_some()
-            {
+            let isolated = request.event.is_none()
+                && request.events.is_empty()
+                && request.batch.is_empty()
+                && request.time.is_none();
+            if simulate && (engine.core().position != 0 || !isolated) {
                 return Err(
                     "paper rotation requires flat inventory and an isolated request".into(),
+                );
+            }
+            // Live rotation (docs/adr-live-rotation.md §1): the adapter must have just
+            // reconciled with the venue; any private report since then refuses it.
+            let core = engine.core();
+            if !simulate && (!isolated || core.reconciled_through != core.venue_seq) {
+                return Err(
+                    "live rotation requires an isolated request right after venue reconciliation"
+                        .into(),
                 );
             }
             engine.core().rotation_ready()?;
@@ -333,10 +356,16 @@ fn serve(mut engine: Backend, simulate: bool) -> Result<(), Box<dyn std::error::
             let Backend::Durable(writer) = std::mem::replace(&mut engine, placeholder) else {
                 unreachable!()
             };
-            engine = Backend::Durable(writer.rotate_into(&successor)?);
+            engine = Backend::Durable(if simulate {
+                writer.rotate_into(&successor)?
+            } else {
+                writer.rotate_into_retaining(&successor)?
+            });
             engine.track_changes();
             venue = PaperExchange::new();
             request.at = engine.core().now;
+            // Paper reconciles a fresh venue below; a live successor stays gated
+            // until its adapter reconciles (Disconnect was journaled by recovery).
             request.event = Some(Event::Reconnect);
         }
         let mut effects = Vec::new();

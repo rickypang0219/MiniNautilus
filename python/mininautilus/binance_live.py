@@ -101,3 +101,17 @@ class BinanceActorAdapter:
 
     def timing(self, event):
         return self.venue.timing(event)
+
+    def rotation_state(self):
+        """Balance identity baseline for the successor segment (ADR §2 sidecar).
+
+        Called right after a successful reconciliation, which verified
+        balance == baseline + net change; that balance is the new baseline."""
+        change = Decimal(self.venue.last_reconciliation['net_base_change'])
+        return {'baseline_base': str(Decimal(str(self.baseline_base)) + change)}
+
+    def rotated(self, venue_state):
+        self.baseline_base = venue_state['baseline_base']
+        # Retired orders are never polled again; drop their per-order bookkeeping.
+        self.venue.sent_at.clear()
+        self.venue.execution_times.clear()

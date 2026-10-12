@@ -1,5 +1,6 @@
 //! Durable input-before-effect processing. Replay NEVER dispatches historical effects.
 use crate::{
+    cold::{self, ColdIndex, RetiredOrder},
     core::{Carry, Core},
     model::*,
 };
@@ -147,6 +148,8 @@ pub struct DurableEngine {
     sync: SyncPolicy,
     unsynced: bool,
     pending_bytes: u64,
+    /// Verified lazily on the first report about a retired order; never read by Core.
+    cold: Option<ColdIndex>,
 }
 
 impl DurableEngine {
@@ -167,6 +170,7 @@ impl DurableEngine {
             sync: SyncPolicy::EveryInput,
             unsynced: false,
             pending_bytes: 0,
+            cold: None,
         };
         engine.append(&Payload::Genesis {
             schema: 1,
@@ -207,6 +211,7 @@ impl DurableEngine {
             sync: SyncPolicy::EveryInput,
             unsynced: false,
             pending_bytes: 0,
+            cold: None,
         };
         // A recovered local state is not proof of current venue state.
         engine.process(engine.core.now, Event::Disconnect)?;
@@ -290,6 +295,7 @@ impl DurableEngine {
         if self.poisoned {
             return Err(io::Error::other("journal failed; restart and reconcile"));
         }
+        let event = self.resolve_retired(event)?;
         let input = Envelope {
             seq: self
                 .core
@@ -340,6 +346,56 @@ impl DurableEngine {
         Ok(effects)
     }
 
+    /// Reports about orders retired by rotation get a verdict from the cold index
+    /// before journaling, so the pure Core and replay never do I/O (ADR §3).
+    fn resolve_retired(&mut self, event: Event) -> io::Result<Event> {
+        let Event::Execution {
+            epoch,
+            venue_seq,
+            report,
+        } = event
+        else {
+            return Ok(event);
+        };
+        if matches!(report, Report::Retired { .. }) {
+            return Err(invalid(
+                "retired verdicts are assigned by the journal, not callers",
+            ));
+        }
+        let id = report.order_id();
+        let floor = self.core.id_floor;
+        if floor == 0 || id > floor || self.core.orders.contains_key(&id) {
+            return Ok(Event::Execution {
+                epoch,
+                venue_seq,
+                report,
+            });
+        }
+        let verdict = match self.cold_index() {
+            Some(index) => index
+                .verdict(&report)
+                .unwrap_or(RetiredVerdict::Unavailable),
+            None => RetiredVerdict::Unavailable,
+        };
+        Ok(Event::Execution {
+            epoch,
+            venue_seq,
+            report: Report::Retired {
+                report: Box::new(report),
+                verdict,
+            },
+        })
+    }
+
+    fn cold_index(&mut self) -> Option<&ColdIndex> {
+        if self.cold.is_none() {
+            let reference = self.core.cold.as_ref()?;
+            let directory = self.journal_path.parent()?;
+            self.cold = ColdIndex::open(directory, reference).ok();
+        }
+        self.cold.as_ref()
+    }
+
     fn append(&mut self, payload: &Payload) -> io::Result<()> {
         append_frame(
             &mut self.file,
@@ -351,13 +407,23 @@ impl DurableEngine {
 
     /// Consumes this writer before the existing crash-safe offline rotation.
     /// The successor remains gated until the caller reconciles its venue.
-    pub fn rotate_into(mut self, successor: &Path) -> io::Result<Self> {
+    pub fn rotate_into(self, successor: &Path) -> io::Result<Self> {
+        self.rotate_into_with(successor, false)
+    }
+
+    /// Live rotation: also writes the cold index that keeps exact dedup evidence
+    /// for every retired order and fill (docs/adr-live-rotation.md).
+    pub fn rotate_into_retaining(self, successor: &Path) -> io::Result<Self> {
+        self.rotate_into_with(successor, true)
+    }
+
+    fn rotate_into_with(mut self, successor: &Path, retain: bool) -> io::Result<Self> {
         self.core.rotation_ready().map_err(invalid)?;
         self.sync()?;
         let old = self.journal_path.clone();
         let policy = self.sync;
         drop(self);
-        rotate(&old, successor)?;
+        rotate_with(&old, successor, retain)?;
         let mut next = Self::recover(successor, None)?;
         next.set_sync_policy(policy);
         Ok(next)
@@ -543,6 +609,16 @@ fn scan_all(bytes: &[u8], snapshot: Option<&Snapshot>) -> io::Result<Scanned> {
 /// journal is closed first (naming its successor); if the process stops before
 /// `new` exists, running the same rotation again completes it.
 pub fn rotate(old: &Path, new: &Path) -> io::Result<Core> {
+    rotate_with(old, new, false)
+}
+
+/// `rotate` plus the live cold index (ADR §2): written before the predecessor closes.
+/// Paper sessions restart venue execution IDs per session, so they keep plain H4.
+pub fn rotate_retaining(old: &Path, new: &Path) -> io::Result<Core> {
+    rotate_with(old, new, true)
+}
+
+fn rotate_with(old: &Path, new: &Path, retain: bool) -> io::Result<Core> {
     let mut file = OpenOptions::new().read(true).write(true).open(old)?;
     file.try_lock().map_err(io::Error::other)?;
     let mut bytes = Vec::new();
@@ -553,13 +629,22 @@ pub fn rotate(old: &Path, new: &Path) -> io::Result<Core> {
     let scanned = scan_all(&bytes, None)?;
     let successor = new.display().to_string();
     match &scanned.closed {
+        None => scanned.core.rotation_ready().map_err(invalid)?,
         Some(existing) if *existing != successor => {
             return Err(invalid(format!("journal already rotated to {existing}")));
         }
         Some(_) if new.exists() => return Err(invalid("rotation already completed")),
         Some(_) => {}
+    }
+    // Retired evidence first (ADR §2): previous cold index plus this segment.
+    let cold = if retain {
+        Some(write_cold(old, new, &scanned.core)?)
+    } else {
+        scanned.core.cold.clone()
+    };
+    match &scanned.closed {
+        Some(_) => {}
         None => {
-            scanned.core.rotation_ready().map_err(invalid)?;
             let mut checksum = scanned.checksum;
             let mut poisoned = false;
             file.seek(SeekFrom::End(0))?;
@@ -574,7 +659,8 @@ pub fn rotate(old: &Path, new: &Path) -> io::Result<Core> {
         }
     }
     let config = scanned.core.config.clone();
-    let carry = scanned.core.carry();
+    let mut carry = scanned.core.carry();
+    carry.cold = cold;
     let core = Core::from_carry(config.clone(), &carry).map_err(invalid)?;
     let mut next = OpenOptions::new().write(true).create_new(true).open(new)?;
     let (mut checksum, mut poisoned) = (0, false);
@@ -593,6 +679,43 @@ pub fn rotate(old: &Path, new: &Path) -> io::Result<Core> {
     )?;
     sync_parent(new)?;
     Ok(core)
+}
+
+/// `<successor>.cold`: the predecessor's cold index (verified) extended by every
+/// order and fill of the closing segment. Deterministic, so a rerun is idempotent.
+fn write_cold(old: &Path, new: &Path, core: &Core) -> io::Result<cold::ColdRef> {
+    let (mut orders, mut fills) = match &core.cold {
+        Some(reference) => {
+            let directory = old.parent().unwrap_or(Path::new("."));
+            let directory = if directory.as_os_str().is_empty() {
+                Path::new(".")
+            } else {
+                directory
+            };
+            ColdIndex::open(directory, reference)?.records()?
+        }
+        None => (Vec::new(), Vec::new()),
+    };
+    for (id, order) in &core.orders {
+        if orders
+            .last()
+            .is_some_and(|last: &RetiredOrder| last.id >= *id)
+        {
+            return Err(invalid("segment order IDs overlap retired orders"));
+        }
+        orders.push(RetiredOrder {
+            id: *id,
+            filled: order.filled,
+            lifecycle: order.lifecycle,
+        });
+    }
+    fills.extend(core.fills.values().cloned());
+    fills.sort_by_key(|fill| fill.execution_id);
+    let name = new
+        .file_name()
+        .and_then(|n| n.to_str())
+        .ok_or_else(|| invalid("successor needs a UTF-8 file name"))?;
+    cold::write(&new.with_file_name(format!("{name}.cold")), &orders, &fills)
 }
 
 /// Read-only validated replay. Refuses an active writer or an incomplete tail.

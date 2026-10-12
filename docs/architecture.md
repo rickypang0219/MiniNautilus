@@ -17,8 +17,9 @@ writes/effects, then prepare the original gate behavior with consumed sequence/t
 `DurableEngine` holds this token across journal sync and commits only on success.
 Commit performs no recoverable business validation or callbacks; collection inserts
 may allocate, so this does not promise OOM or arbitrary panic recovery. Full
-reconciliation still builds and validates replacement history. BTreeMaps retain all
-orders/fills for ID deduplication; there is no retention/compaction policy yet.
+reconciliation still builds and validates replacement history. BTreeMaps retain the
+current journal segment's orders/fills; older segments' dedup evidence lives in the
+cold index written by rotation (see Persistence).
 A derived, unserialized index (open orders and `(deadline, id)`) is updated by every
 committed order write and rebuilt on deserialization, so risk bounds, timeouts, the
 target barrier and disconnect handling walk open orders only. `PaperExchange` keeps a
@@ -117,8 +118,19 @@ Durable paper sessions also accept an isolated `rotate_to` request. It requires
 flat inventory in addition to the resolved/Healthy boundary above. The writer
 syncs and closes before offline rotation, recovers the successor gated, then
 reconciles a fresh paper venue. The response is full state so Python releases its
-old order/fill mirrors and resumes from the carried ID floor. Automatic live
-rotation is refused: a live adapter must establish its own venue reconciliation.
+old order/fill mirrors and resumes from the carried ID floor.
+
+Live (`serve`) rotation is opt-in (actor runner `--rotate-orders N`) and follows
+[the live rotation ADR](adr-live-rotation.md). Rust accepts an isolated `rotate_to`
+only when Healthy, nothing is open, and no private report was applied since the
+adapter's last venue reconciliation (`reconciled_through == venue_seq`). It writes a
+checksummed cold index of every retired order and fill (`<successor>.cold`) before
+closing the predecessor, and the successor genesis references it. The durable
+engine, not the pure Core, resolves any report about an order at or below the ID
+floor against that index and journals the verdict (`Report::Retired`): an exact
+duplicate consumes its venue sequence and changes nothing; a contradiction or
+missing/corrupt evidence gates. Startup validates only the current segment; the
+cold index is verified lazily on first use and by `mininautilus verify-cold`.
 `ops/synthetic_session.py --rotate-orders N` waits for this boundary; N is a soft
 trigger and does not force liquidation. Rotation scans the predecessor journal,
 so transient RSS can exceed the retained-history size.

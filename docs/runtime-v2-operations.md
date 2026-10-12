@@ -1,6 +1,8 @@
 # Runtime v2 offline operation
 
-The implemented entrypoints exercise the Rust OMS through the bounded coordinator and an independent fake venue. They do not connect to Binance, Hyperliquid or Kraken. The original live SMA example still uses its serial venue loop; its audit now uses deltas. A live actor runner needs adapter-specific stream buffering and reconciliation integration before execution is supported.
+The implemented entrypoints exercise the Rust OMS through the bounded coordinator and an independent fake venue. They do not connect to Binance, Hyperliquid or Kraken. The live SMA example keeps its serial venue loop by default.
+
+**Next phase (G2/G3, opt-in):** `examples/sma_spot.py --runtime actor --receipt target/runtime-v2-build.json --binary target/release/mininautilus` runs the same strategy through `mininautilus.live_actor.ActorSession` with the Binance Testnet adapter (`binance_live.py`). It refuses a binary without a matching release receipt and, for Testnet, a dirty tree. `--recovery-drill SECONDS` latches, reconciles and restarts a coordinator on purpose. `--rotate-orders N` (Testnet only) enables live rotation per [the ADR](adr-live-rotation.md): new risk stops at N hot orders, the session reconciles and rotates the journal, retired evidence moves to a cold index, and `--resume` follows the rotation chain using the `rotation-<journal>.json` baseline. Offline fault coverage: `tests/test_live_actor.py`, `tests/live_rotation.rs`.
 
 Read [design decisions](runtime-v2-design.md) and [scope/criteria](runtime-v2-proposal.md). No AWS resources or API keys are needed. Future cloud use keeps the existing Tokyo and under-USD-20 constraints; these commands do not deploy or resize anything.
 
@@ -50,7 +52,7 @@ These are actual wall-clock durations. Running them concurrently is valid reliab
 
 Shutdown explicitly flattens this offline fixture, persists Kill, restarts and reconciles to prove the latch remains. This is not an automatic live liquidation policy. Raw journals, per-generation order traces, input/phase logs, OS samples, fake venue facts and report JSON remain under the run directory. Reports distinguish active/recovery/shutdown and expected versus unexpected faults.
 
-Only queues, tasks and the strategy window are bounded. Core/mirror terminal orders, audit dedup evidence and the fake venue's history are retained; report their growth and restart peaks. There is no automatic live compaction or checkpoint shortcut. A finite 90-minute run is not a proof of indefinitely bounded RSS.
+Only queues, tasks and the strategy window are bounded by default. Core/mirror terminal orders, audit dedup evidence and the fake venue's history are retained; report their growth and restart peaks. The opt-in actor `--rotate-orders N` bounds Core/mirror/audit/runner hot orders to N plus open orders by rotating (see the ADR); without it there is no automatic live compaction or checkpoint shortcut. A finite 90-minute run is not a proof of indefinitely bounded RSS.
 
 The active deadline is checked again after producer sleeps and after recovery;
 no new scripted fault or quote is admitted after that deadline. Shutdown drains

@@ -1,5 +1,6 @@
 //! MiniNautilus: deterministic state, explicit effects, replaceable transports.
 pub mod backtest;
+pub mod cold;
 pub mod core;
 pub mod dashboard;
 pub mod journal;
