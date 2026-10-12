@@ -217,7 +217,7 @@ def run(args):
         from mininautilus.evidence import verified_identity
         if args.engine_binary is None or args.engine_receipt is None:
             raise ValueError('fast evidence requires exact engine binary and release receipt')
-        identity = verified_identity(ROOT,args.engine_binary,args.engine_receipt)
+        identity = verified_identity(ROOT,args.engine_binary,args.engine_receipt,allow_historical=getattr(args,'allow_historical_engine',False))
         if identity['build'].get('source_dirty') or not identity['build'].get('source_commit'):
             raise ValueError('fast receipt requires a clean, explicit build source commit')
         frozen = json.loads(Path(threshold).read_text())
@@ -260,12 +260,18 @@ def run(args):
             initial_vm = None
             deadline = time.monotonic()
             final_sample = False
+            ordinal = 0
             while True:
                 sample_ns = time.monotonic_ns()
+                scheduled_ns = sample_ns if final_sample else int(deadline*1e9)
+                missed = max(0,(sample_ns-scheduled_ns)//int(args.interval*1e9))
                 ps = descendants(process.pid)
                 h, previous = host(previous)
                 vfs = os.statvfs(d)
                 record = dict(timestamp=utc(), monotonic_ns=sample_ns, phase=args.profile,
+                              scheduled_monotonic_ns=scheduled_ns,sample_ordinal=ordinal,
+                              sample_lateness_ns=sample_ns-scheduled_ns,missed_samples=missed,
+                              final_sample=final_sample,
                               processes=ps, rss_bytes=sum(p['rss_bytes'] or 0 for p in ps) if ps else None,
                               cgroup=cgroup(process.pid, args.cgroup), host=h,
                               disk_free_bytes=vfs.f_bavail*vfs.f_frsize)
@@ -284,7 +290,8 @@ def run(args):
                                                   detected_ns=sample_ns, timestamp=utc()))
                 if final_sample:
                     break
-                deadline += args.interval
+                ordinal += missed+1
+                deadline += args.interval*(missed+1)
                 final_sample = stop.wait(max(0, deadline-time.monotonic()))
         thread = threading.Thread(target=sample, daemon=True)
         thread.start()
@@ -316,6 +323,7 @@ def main():
     r.add_argument('--threshold-manifest',type=Path)
     r.add_argument('--engine-binary',type=Path)
     r.add_argument('--engine-receipt',type=Path)
+    r.add_argument('--allow-historical-engine',action='store_true',help='verify baseline Rust inputs against its exact clean Git commit; Python/harness identity stays current')
     r.add_argument('--command-receipt',type=Path)
     r.add_argument('--trust-contract',default='full-cold-verification')
     r.add_argument('--interval', type=float, default=.1)
@@ -327,8 +335,8 @@ def main():
     a.add_argument('directory', type=Path)
     args = p.parse_args()
     if args.mode == 'run':
-        if args.interval <= 0:
-            p.error('interval must be positive')
+        if not math.isfinite(args.interval) or args.interval*1e9 < 1:
+            p.error('interval must be finite and at least one nanosecond')
         return run(args)
     recomputed = analyse(args.directory)
     recorded = json.loads((args.directory/'summary.json').read_text())

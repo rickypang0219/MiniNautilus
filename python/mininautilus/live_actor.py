@@ -60,7 +60,7 @@ class ActorSession:
                  execution_timeout=10.0, quiescence_seconds=60.0, poll_seconds=1.0,
                  market_errors=MARKET_ERRORS, reconcile_attempts=3, reconcile_retry=None,
                  coordinator_options=None, drills=(), rotate_orders=None, max_rotation_delay=60.0,
-                 heartbeat_seconds=5.0, reclaim_cold=False, rotate_bytes=8*1024*1024, disk_headroom_guard=True, paged_cold=False, max_hot_fills=10000, stop_requested=None):
+                 heartbeat_seconds=5.0, reclaim_cold=False, rotate_bytes=8*1024*1024, disk_headroom_guard=True, paged_cold=False, max_hot_fills=10000, stop_requested=None, gc_retry=True):
         self.engine, self.adapter, self.strategy = engine, adapter, strategy
         self.availability = AdmissionClock(note)
         self.rotation_started_ns = None
@@ -90,6 +90,7 @@ class ActorSession:
         self.disk_headroom_guard = disk_headroom_guard
         self.last_disk_check = float('-inf')
         self.reclaim_cold = reclaim_cold
+        self.gc_retry = gc_retry
         self.rotation_pending_since = None
         self.rotation_requested = False
         self.hot_max = dict(core_orders=0, core_fills=0, audit_orders=0, sent_at=0)
@@ -516,7 +517,7 @@ class ActorSession:
                         self.fatal = 'disk_headroom_exhausted'
                         self._stop_marker(self.fatal)
                         break
-                if self.reclaim_cold and time.monotonic() >= self.next_gc_retry:
+                if self.reclaim_cold and self.gc_retry and time.monotonic() >= self.next_gc_retry:
                     await self._on_writer(self.engine.retry_cold_gc)
                     self.next_gc_retry = time.monotonic() + 1.0
                 if self._retention_due(coordinator):

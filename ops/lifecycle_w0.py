@@ -58,7 +58,7 @@ class TimedActor(ActorSession):
 
 def main():
     p=argparse.ArgumentParser(description=__doc__);p.add_argument('--run-dir',type=Path,required=True);p.add_argument('--binary',type=Path,default=ROOT/'target/release/mininautilus');p.add_argument('--receipt',type=Path,default=ROOT/'target/runtime-v2-build.json');p.add_argument('--cold-format',choices=['legacy','pages'],required=True);p.add_argument('--delay-ms',type=int,choices=[0,20],default=0);a=p.parse_args()
-    identity=verified_identity(ROOT,a.binary,a.receipt)
+    identity=verified_identity(ROOT,a.binary,a.receipt,allow_historical=a.cold_format=='legacy')
     if identity['dirty']:p.error('clean source required')
     a.run_dir.mkdir(parents=True,exist_ok=False)
     config=a.run_dir/'config.json';config.write_text(json.dumps(dict(max_abs_position=1,max_order_qty=1,max_order_notional=10**9,request_timeout_ms=30000,market_stale_ms=3000,private_stale_ms=30000,max_signal_lag=10)))
@@ -68,10 +68,10 @@ def main():
         if kind in ('candle','signal'):return
         record=dict(kind=kind,observed_ns=time.perf_counter_ns());record.update(row);notes.write(json.dumps(record)+'\n');notes.flush()
         if kind=='coordinator_accounting':totals.append(row['counts'])
-    with Engine(a.run_dir/'events.jsonl',config=config,binary=a.binary,extra_args=['--sync','outbox','--cold-verify','pages' if a.cold_format=='pages' else 'full'],env={'MINI_ORDER_TRACE':str(a.run_dir/'requests.jsonl')}) as engine:
+    with Engine(a.run_dir/'events.jsonl',config=config,binary=a.binary,extra_args=['--sync','outbox']+(['--cold-verify','pages'] if a.cold_format=='pages' else []),env={'MINI_ORDER_TRACE':str(a.run_dir/'requests.jsonl')}) as engine:
         origin,initial=time.monotonic(),engine.state['now'];audit=IncrementalAudit(1,long_only=True);audit.check(engine.state,None)
         resource_stop=os.environ.get('MINI_LC_RESOURCE_STOP_FILE')
-        session=TimedActor(engine,adapter,SmaStrategy(3,8,1,'1s',long_only=True),identity=('fake','dedicated','TEST'),now=lambda:initial+int((time.monotonic()-origin)*1000),note=note,audit=audit,max_orders=10**9,poll_seconds=.005,rotate_orders=200,reclaim_cold=True,paged_cold=a.cold_format=='pages',durations=durations,steady_start_ns=int((start+60)*1e9),stop_requested=(lambda:Path(resource_stop).exists()) if resource_stop else None)
+        session=TimedActor(engine,adapter,SmaStrategy(3,8,1,'1s',long_only=True),identity=('fake','dedicated','TEST'),now=lambda:initial+int((time.monotonic()-origin)*1000),note=note,audit=audit,max_orders=10**9,poll_seconds=.005,rotate_orders=200,reclaim_cold=True,gc_retry=a.cold_format=='pages',paged_cold=a.cold_format=='pages',durations=durations,steady_start_ns=int((start+60)*1e9),stop_requested=(lambda:Path(resource_stop).exists()) if resource_stop else None)
         error=None
         try:asyncio.run(session.run(max(0,start+360-time.perf_counter())))
         except Exception as e:error=type(e).__name__

@@ -213,3 +213,25 @@ for known in-flight work under existing deadlines and writes stop evidence.
 This option is supported by the W0 and lifecycle fake actor harnesses, not a
 promise to safely interrupt any arbitrary native command. A diagnostic guard
 stop before 900s is a failed/incomplete run, never a successful short soak.
+
+
+Full fake resume now launches a fresh Python interpreter and Rust child for every
+repetition. Timing begins before Python process launch, includes provenance
+checks, engine boot/root verification, a retired duplicate lookup, venue
+reconciliation, eight-bar strategy warm-up and the first eligible fresh quote.
+Earlier `delivery-resume-*` numbers measured new contexts in one Python process;
+they are retained as component observations, superseded by fresh-runner results.
+
+For W0 historical baseline artifacts, use collector `--allow-historical-engine`
+and runner `--cold-format legacy`. The verifier binds every Rust input to the
+receipt's exact immutable clean Git commit; Python and harness identity remain
+current and separate. Legacy W0 omits the new cold-verification CLI option and
+periodic GC-retry RPC, retaining the baseline's per-rotation reclamation. Never
+run an old baseline binary against a v2 live journal. A receipt missing explicit
+clean build source still needs a genuine baseline build, not inferred identity.
+
+Fault recovery requires matching `coordinator_accounting.gate_reason` in the
+injected writer generation before a later eligible quote can complete the fault.
+Ordinary availability flickers do not allow another injection. Independent
+analysis checks both records; older diagnostics without that proof cannot certify
+fault recovery even when cash and position happened to match.

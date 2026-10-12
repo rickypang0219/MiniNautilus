@@ -58,13 +58,26 @@ def write_receipt(root, binary, destination):
     return receipt
 
 
-def verified_identity(root, binary, receipt_path):
+def committed_rust_inputs(root, commit):
+    """Bind historical artifacts to every Rust input in the immutable Git tree."""
+    names=command(root,'git','ls-tree','-r','--name-only',commit).splitlines()
+    selected=[n for n in names if n.startswith('src/') or n in ('Cargo.toml','Cargo.lock','rust-toolchain.toml')]
+    return {n:hashlib.sha256(subprocess.check_output(['git','show',f'{commit}:{n}'],cwd=root)).hexdigest() for n in selected}
+
+
+def verified_identity(root, binary, receipt_path, *, allow_historical=False):
     identity = build_identity(root, binary)
     receipt = json.loads(Path(receipt_path).read_text())
     if receipt.get('profile') != 'release' or receipt.get('binary_sha256') != identity['binary_sha256']:
         raise ValueError('binary has no matching release build receipt')
     if receipt.get('rust_inputs') != rust_inputs(identity['source_hashes']):
-        raise ValueError('release build inputs changed; rebuild and issue a new receipt')
+        commit=receipt.get('source_commit')
+        if not allow_historical or not commit or receipt.get('source_dirty',True):
+            raise ValueError('release build inputs changed; rebuild and issue a new receipt')
+        resolved=command(root,'git','rev-parse',commit+'^{commit}')
+        if resolved!=commit or receipt['rust_inputs']!=committed_rust_inputs(root,commit):
+            raise ValueError('historical build source receipt mismatch')
+        identity['historical_engine_source_commit']=commit
     identity['build'] = receipt
     identity['platform'] = platform.platform()
     identity['python'] = platform.python_version()
