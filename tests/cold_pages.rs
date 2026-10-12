@@ -178,6 +178,19 @@ fn legacy_migration_preserves_original_and_exact_records() {
 }
 
 #[test]
+fn migration_refuses_a_root_outside_the_shared_page_directory() {
+    let d = dir();
+    let other = dir();
+    let (orders, fills) = rows(1, 5);
+    let original = mininautilus::cold::write(&d.join("legacy.cold"), &orders, &fills).unwrap();
+    assert!(cold_pages::migrate_legacy(&d, &original, &other.join("migrated.cold")).is_err());
+    assert!(!other.join("migrated.cold").exists());
+    assert!(mininautilus::cold::ColdIndex::open(&d, &original).is_ok());
+    fs::remove_dir_all(other).unwrap();
+    fs::remove_dir_all(d).unwrap();
+}
+
+#[test]
 fn rollback_export_is_byte_identical_to_legacy_and_never_overwrites() {
     let d = dir();
     let (o, f) = rows(1, 400);
@@ -251,4 +264,111 @@ fn committed_successor_repairs_catalogue_gap_after_publication_crash() {
     assert!(!d.join("g1.cold").exists());
     Index::open(&d, &r2, Verification::Full).unwrap();
     fs::remove_dir_all(d).unwrap();
+}
+
+#[test]
+#[cfg(feature = "fault-injection")]
+fn child_migration_fault_target() {
+    let Ok(path) = std::env::var("MINI_LC_MIGRATION_DIR") else {
+        return;
+    };
+    let d = PathBuf::from(path);
+    let (orders, fills) = rows(1, 400);
+    let reference = mininautilus::cold::write(&d.join("legacy.cold"), &orders, &fills).unwrap();
+    fs::write(
+        d.join("legacy-reference.json"),
+        serde_json::to_vec(&reference).unwrap(),
+    )
+    .unwrap();
+    fs::write(d.join("armed"), b"armed").unwrap();
+    cold_pages::migrate_legacy(&d, &reference, &d.join("migrated.cold")).unwrap();
+}
+
+#[test]
+#[cfg(feature = "fault-injection")]
+fn migration_crash_or_io_failure_preserves_original_and_never_publishes_partial_root() {
+    use std::process::Command;
+    for boundary in [
+        "page_before",
+        "page_mid",
+        "page_fsync_after",
+        "pages_dirsync_after",
+        "root_fsync_after",
+        "root_rename_after",
+        "root_dirsync_after",
+        "migration_root_fsync_after",
+        "migration_publish_after",
+        "migration_dirsync_after",
+    ] {
+        for repetition in 0..3 {
+            let d = dir();
+            let child = Command::new(std::env::current_exe().unwrap())
+                .args(["--exact", "child_migration_fault_target", "--nocapture"])
+                .env("MINI_LC_MIGRATION_DIR", &d)
+                .env("MINI_LC_FAULT_ARM_FILE", d.join("armed"))
+                .env("MINI_LC_CRASH_AT", boundary)
+                .output()
+                .unwrap();
+            assert_eq!(
+                child.status.code(),
+                Some(99),
+                "{boundary}/{repetition}: {}",
+                String::from_utf8_lossy(&child.stderr)
+            );
+            let reference: mininautilus::cold::ColdRef =
+                serde_json::from_slice(&fs::read(d.join("legacy-reference.json")).unwrap())
+                    .unwrap();
+            let original = mininautilus::cold::ColdIndex::open(&d, &reference).unwrap();
+            assert_eq!(original.fill(800).unwrap().unwrap().order_id, 400);
+            if d.join("migrated.cold").exists() {
+                // The final root is identical to the verified intermediate root.
+                assert_eq!(
+                    fs::read(d.join("migrated.cold")).unwrap(),
+                    fs::read(d.join("migrated.cold.migration-0.cold")).unwrap()
+                );
+                let bytes = fs::read(d.join("migrated.cold")).unwrap();
+                let checksum = bytes.iter().fold(0xcbf29ce484222325_u64, |h, b| {
+                    (h ^ *b as u64).wrapping_mul(0x100000001b3)
+                });
+                let published = mininautilus::cold::ColdRef {
+                    file: "migrated.cold".into(),
+                    checksum,
+                    orders: 400,
+                    fills: 400,
+                };
+                assert_eq!(
+                    Index::open(&d, &published, Verification::Full)
+                        .unwrap()
+                        .fill(800)
+                        .unwrap()
+                        .unwrap()
+                        .order_id,
+                    400
+                );
+            }
+            drop(original);
+            fs::remove_dir_all(d).unwrap();
+        }
+    }
+    for boundary in [
+        "page_before",
+        "page_mid",
+        "page_fsync_after",
+        "migration_root_fsync_after",
+    ] {
+        let d = dir();
+        let child = Command::new(std::env::current_exe().unwrap())
+            .args(["--exact", "child_migration_fault_target", "--nocapture"])
+            .env("MINI_LC_MIGRATION_DIR", &d)
+            .env("MINI_LC_FAULT_ARM_FILE", d.join("armed"))
+            .env("MINI_LC_ERROR_AT", boundary)
+            .output()
+            .unwrap();
+        assert!(!child.status.success());
+        let reference: mininautilus::cold::ColdRef =
+            serde_json::from_slice(&fs::read(d.join("legacy-reference.json")).unwrap()).unwrap();
+        assert!(mininautilus::cold::ColdIndex::open(&d, &reference).is_ok());
+        assert!(!d.join("migrated.cold").exists());
+        fs::remove_dir_all(d).unwrap();
+    }
 }

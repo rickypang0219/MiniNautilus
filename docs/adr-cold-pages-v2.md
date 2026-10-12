@@ -71,3 +71,13 @@ without changing the authoritative journal reference. It is an inspection/rebuil
 primitive, not an automatic old-binary rollback: rebinding a live journal to an
 exported root is not implemented. Stop executors and preserve uncertainty before
 any operator migration or rollback. Live legacy-to-v2 adoption is not automatic.
+
+
+Offline `migrate-cold JOURNAL UNUSED_OUTPUT.cold` streams and fully verifies the
+journal-referenced MNCOLD01 index and writes MNCOLD02 beside the shared pages.
+The original journal and index are untouched; the CLI explicitly reports
+`journal_rebound: false`. Final metadata is file-synced, published by an atomic
+no-replace hard link, then directory-synced. Interrupted temporary/intermediate
+files stay for inspection; they are not a reason to bind a partial root. The
+fault matrix kills migration at ten boundaries three times each and separately
+injects four I/O failures. Arbitrary cross-directory paged roots are refused.

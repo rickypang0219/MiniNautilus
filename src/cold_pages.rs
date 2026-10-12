@@ -542,6 +542,13 @@ pub fn migrate_legacy(
     reference: &ColdRef,
     destination: &Path,
 ) -> io::Result<(ColdRef, Stats)> {
+    let parent = destination
+        .parent()
+        .filter(|p| !p.as_os_str().is_empty())
+        .unwrap_or(Path::new("."));
+    if fs::canonicalize(parent)? != fs::canonicalize(directory)? {
+        return Err(bad("migration root must stay beside its immutable pages"));
+    }
     let legacy = crate::cold::ColdIndex::open(directory, reference)?;
     let mut result = None;
     let mut totals = Stats::default();
@@ -597,12 +604,20 @@ pub fn migrate_legacy(
         }
     }
     let bytes = fs::read(directory.join(&r.file))?;
+    let temporary = destination.with_extension("migration-root-tmp");
     let mut out = OpenOptions::new()
         .write(true)
         .create_new(true)
-        .open(destination)?;
+        .open(&temporary)?;
     out.write_all(&bytes)?;
     out.sync_all()?;
+    fault_point("migration_root_fsync_after")?;
+    // Publish a complete synced inode atomically, and never replace an old root.
+    fs::hard_link(&temporary, destination)?;
+    fault_point("migration_publish_after")?;
+    File::open(directory)?.sync_all()?;
+    fault_point("migration_dirsync_after")?;
+    fs::remove_file(&temporary)?;
     File::open(directory)?.sync_all()?;
     totals.logical_write_bytes += bytes.len() as u64;
     totals.logical_read_bytes = full.stats().logical_read_bytes;

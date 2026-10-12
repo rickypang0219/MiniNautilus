@@ -143,6 +143,26 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
             mininautilus::dashboard::serve(Path::new(root), port)?;
             Ok(())
         }
+        Some("migrate-cold") => {
+            let journal = args.get(2).ok_or("migrate-cold JOURNAL OUTPUT.cold")?;
+            let destination = args.get(3).ok_or("migrate-cold JOURNAL OUTPUT.cold")?;
+            let core = mininautilus::journal::replay(Path::new(journal))?;
+            let reference = core.cold.as_ref().ok_or("journal has no cold reference")?;
+            let directory = Path::new(journal)
+                .parent()
+                .filter(|p| !p.as_os_str().is_empty())
+                .unwrap_or(Path::new("."));
+            let (migrated, stats) = mininautilus::cold_pages::migrate_legacy(
+                directory,
+                reference,
+                Path::new(destination),
+            )?;
+            println!(
+                "{}",
+                serde_json::json!({"reference": migrated, "logical_write_bytes": stats.logical_write_bytes, "journal_rebound": false})
+            );
+            Ok(())
+        }
         Some("export-cold") => {
             let journal = args.get(2).ok_or("export-cold JOURNAL OUTPUT.cold")?;
             let destination = args.get(3).ok_or("export-cold JOURNAL OUTPUT.cold")?;

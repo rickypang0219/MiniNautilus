@@ -198,3 +198,18 @@ Before handing the Tokyo host back: archive all task-owned run data, download
 and verify archive SHA, stop only task-owned processes, restore the captured
 original checkout, binary and receipt, then verify the original binary hash and
 idle state. Existing stack, networking and unrelated data must be preserved.
+
+
+`migrate-cold CURRENT_JOURNAL UNUSED_OUTPUT.cold` is an offline legacy import;
+output must be in the same directory as the original page store. It preserves
+old journal/reference and does not adopt the returned new reference. Migration
+and export require a quiescent deployment and operator inspection before any
+journal binding changes; that adoption/rollback operation is still manual.
+
+LC actor evidence commands may use `--stop-file RUN_DIR/resource-stop.json`.
+The collector records fresh swap I/O, OOM, RSS/cgroup or host-headroom violations
+and atomically publishes a cooperative stop. The actor latches its gate, waits
+for known in-flight work under existing deadlines and writes stop evidence.
+This option is supported by the W0 and lifecycle fake actor harnesses, not a
+promise to safely interrupt any arbitrary native command. A diagnostic guard
+stop before 900s is a failed/incomplete run, never a successful short soak.
