@@ -36,6 +36,7 @@ class BinanceActorAdapter:
         self.interval_ms = INTERVALS[interval]
         self.validate = validate
         self.silent_seconds, self.max_lag_ms = silent_seconds, max_lag_ms
+        self.free_lots = None
 
     def exchange_now_ms(self):
         return int(time.time() * 1000) + self.venue.offset_ms
@@ -80,8 +81,9 @@ class BinanceActorAdapter:
         return self.venue.quote()
 
     def free_base_lots(self):
-        free = self.venue.available_base() / self.venue.lot
-        return int(free.to_integral_value(rounding=ROUND_FLOOR)) if free >= 0 else 0
+        """Free base from the last private heartbeat (no request per candle; the
+        REST budget is 4 requests/s). The venue still rejects an unaffordable sell."""
+        return self.free_lots
 
     def submit(self, intent):
         return self.venue.submit(intent)
@@ -94,7 +96,10 @@ class BinanceActorAdapter:
 
     def heartbeat(self):
         # Empty order polling performs no request; verify private connectivity explicitly.
-        self.venue.base_balance()
+        account = self.venue.request('GET', '/api/v3/account', signed=True)
+        free = next((Decimal(b['free']) for b in account['balances'] if b['asset'] == self.venue.base_asset),
+                    Decimal(0)) / self.venue.lot
+        self.free_lots = int(free.to_integral_value(rounding=ROUND_FLOOR)) if free >= 0 else 0
 
     def reconcile(self, state):
         return self.venue.reconcile(state, Decimal(str(self.baseline_base)))

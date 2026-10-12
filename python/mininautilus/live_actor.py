@@ -57,12 +57,14 @@ class ActorSession:
                  order_ttl_ms=10_000, max_orders=6, paper=False, lots=1,
                  execution_timeout=10.0, quiescence_seconds=60.0, poll_seconds=1.0,
                  market_errors=MARKET_ERRORS, reconcile_attempts=3, reconcile_retry=None,
-                 coordinator_options=None, drills=(), rotate_orders=None, max_rotation_delay=60.0):
+                 coordinator_options=None, drills=(), rotate_orders=None, max_rotation_delay=60.0,
+                 heartbeat_seconds=5.0):
         self.engine, self.adapter, self.strategy = engine, adapter, strategy
         self.identity, self.now, self.note, self.audit = tuple(identity), now, note, audit
         self.order_ttl_ms, self.max_orders, self.paper, self.lots = order_ttl_ms, max_orders, paper, lots
         self.execution_timeout, self.quiescence_seconds = execution_timeout, quiescence_seconds
         self.poll_seconds, self.market_errors = poll_seconds, market_errors
+        self.heartbeat_seconds = heartbeat_seconds
         self.reconcile_attempts = reconcile_attempts
         self.coordinator_options = dict(coordinator_options or {})
         # Operator recovery drills (seconds after start): latch, reconcile, restart.
@@ -89,7 +91,7 @@ class ActorSession:
                              reconciliations=0, coordinators=0, backfilled_bars=0, duplicates=0,
                              market_rejected=0, market_inputs=0, market_during_execution=0,
                              executions=0, late_results=0, invariant_checks=0, gates={},
-                             rotations=0, rotation_blocked_signals=0)
+                             rotations=0, rotation_blocked_signals=0, fills_applied=0)
         self.high_water = dict(input=0, effects=0)
         self.tick_to_submit_ms = deque(maxlen=10000)  # bounded: last 10k orders
 
@@ -102,6 +104,7 @@ class ActorSession:
         change = self.engine.last_change or {}
         for key, fill in change.get('fills', {}).items():
             self.fills_by_order.setdefault(str(fill['order_id']), set()).add(key)
+            self.counters['fills_applied'] += 1
         return effects
 
     def _add(self, payload):
@@ -341,6 +344,8 @@ class ActorSession:
                                       free_base_lots=None if self.paper else self.adapter.free_base_lots())
                         if offer({'Market': market}, received_ns=received_ns):
                             last = candle
+                        elif stop.is_set():
+                            return  # the coordinator is closing; not a dropped candle
                         else:
                             # A dropped candle is a gap: resynchronise from REST, never guess.
                             self.counters['market_rejected'] += 1
@@ -371,16 +376,21 @@ class ActorSession:
                 self.coordinator.offer(Input('heartbeat', 'timer', 'Heartbeat', **self._identity()))
                 continue
             snapshot = await self._on_writer(self._snapshot)
+            # A Heartbeat claims private connectivity only after a private request succeeded.
+            proven = bool(snapshot['orders'])
             try:
                 reports = await self.loop.run_in_executor(self.poller, self.adapter.poll, snapshot)
-                await self.loop.run_in_executor(self.poller, self.adapter.heartbeat)
+                if time.monotonic() - self.last_heartbeat >= self.heartbeat_seconds:
+                    await self.loop.run_in_executor(self.poller, self.adapter.heartbeat)
+                    self.last_heartbeat, proven = time.monotonic(), True
             except Exception:
                 self.coordinator.gate('private_poll_failed')
                 return
             for report in reports:
                 self.coordinator.offer(Input('private-poll', 'private', report,
                                              source_seq=self._next_seq('private-poll'), **self._identity()))
-            self.coordinator.offer(Input('heartbeat', 'timer', 'Heartbeat', **self._identity()))
+            if proven:
+                self.coordinator.offer(Input('heartbeat', 'timer', 'Heartbeat', **self._identity()))
 
     async def _quiesce(self):
         """Wait for an outstanding blocking venue call; its late result is discarded."""
@@ -395,6 +405,7 @@ class ActorSession:
 
     async def _segment(self, deadline):
         self.sequences = {}
+        self.last_heartbeat = float('-inf')
         self.coordinator = coordinator = Coordinator(
             self._apply_async, self._execute, observer=self._observe, identity=self.identity,
             execution_timeout=self.execution_timeout, clock_ms=self.now,
