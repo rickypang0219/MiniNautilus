@@ -25,7 +25,7 @@ python3 examples/hyperliquid_perp.py --mode paper --seconds 900 \
   --recovery-drill 300 --run-dir runs/hl-paper-new
 ```
 
-Market data uses WebSocket candle liveness plus bounded REST reads of finalized bars. There is no Binance `x` close flag. Warmup/backfill is capped; gaps/corrected closed candles fail closed. SMA keeps a fixed ring of at most 500 observations. Execution/private reports and accounting use bounded REST polling. Private WebSocket connectivity does not imply private-stream replay/recovery is implemented.
+Market data uses WebSocket candle liveness plus bounded REST reads of finalized bars. There is no Binance `x` close flag. Warmup/backfill is capped; gaps/corrected closed candles fail closed. The adapter can wait for one unpublished trailing minute, using one extra warmup observation. It never manufactures a bar, and new signals wait for a newer finalized observation. A missing interior bar or longer publication delay still fails closed. SMA keeps a fixed ring of at most 500 observations. Execution/private reports and accounting use bounded REST polling. Private WebSocket connectivity does not imply private-stream replay/recovery is implemented.
 
 Paper uses the same Rust OMS but an optimistic touch simulator, including one touch opportunity after submitting a new order. This avoids expiring all minute-bar orders before the next simulated trade. Fees/funding/queue position are not modeled in paper; its PnL is not strategy evidence.
 

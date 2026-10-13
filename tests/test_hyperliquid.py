@@ -199,6 +199,18 @@ class MutationTests(unittest.TestCase):
 
 
 class MarketTests(unittest.TestCase):
+    def test_unpublished_latest_bar_waits_without_fabricating_a_candle(self):
+        from mininautilus.hyperliquid_live import HyperliquidActorAdapter
+        v=gateway();a=HyperliquidActorAdapter(v);a.exchange_now_ms=lambda:180001
+        def bar(t):return dict(s='BTC',i='1m',t=t,T=t+59999,c='10000')
+        v.info=Mock(return_value=[bar(0),bar(60000)])
+        self.assertEqual([b.open_ms for b in a.warmup(2)],[0,60000])
+        v.info.return_value=[bar(0),bar(120000)]
+        with self.assertRaisesRegex(ValueError,'missing candle'):a.warmup(2)
+        a.exchange_now_ms=lambda:240001
+        v.info.return_value=[bar(0),bar(60000)]
+        with self.assertRaises(ValueError):a.warmup(2)
+
     def test_closed_window_duplicates_gaps_and_bounds(self):
         from mininautilus.hyperliquid_live import HyperliquidActorAdapter
         v=gateway(); a=HyperliquidActorAdapter(v,'1m');a.exchange_now_ms=lambda:180000

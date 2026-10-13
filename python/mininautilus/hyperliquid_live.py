@@ -59,23 +59,25 @@ class HyperliquidActorAdapter:
         for row in rows:
             bar = self.parse(row)
             if not start <= bar.open_ms <= end:
-                raise CandleGap('candle outside requested window')
+                raise CandleGap(f'candle outside window: requested={start}:{end}, actual={bar.open_ms}')
             if bar.close_ms >= now: continue
             if bar.open_ms in result and result[bar.open_ms] != bar:
                 raise CandleGap('changed duplicate closed candle')
             result[bar.open_ms] = bar
         ordered = sorted(result.values(), key=lambda b: b.open_ms)
         if any(b.open_ms-a.open_ms != self.interval_ms for a,b in zip(ordered, ordered[1:])):
-            raise CandleGap('missing candle in bounded response')
+            raise CandleGap(f'missing candle in bounded response: requested={start}:{end}, starts={[b.open_ms for b in ordered]}')
         return ordered
 
     def warmup(self, count):
         if not 1 <= count <= 501: raise ValueError('warmup count exceeds strategy bound')
         boundary = self.exchange_now_ms()//self.interval_ms*self.interval_ms
-        rows = self.candles(boundary-count*self.interval_ms, boundary-1)
-        if len(rows) != count or rows[-1].close_ms != boundary-1:
-            raise CandleGap('incomplete warmup')
-        return rows
+        # An empty latest minute may be published only with the next venue trade.
+        # Read one extra closed bar; never invent the unpublished observation.
+        rows = self.candles(boundary-(count+1)*self.interval_ms, boundary-1)
+        if len(rows) < count or rows[-1].close_ms < boundary-self.interval_ms-1:
+            raise CandleGap(f'incomplete warmup: count={count}, boundary={boundary}, starts={[b.open_ms for b in rows]}')
+        return rows[-count:]
 
     def backfill(self, last, candle):
         start, end = last.open_ms+self.interval_ms, candle.open_ms-1
@@ -94,7 +96,7 @@ class HyperliquidActorAdapter:
             def events():
                 last_message = last_ping = time.monotonic()
                 subscribed_at = time.monotonic()
-                last_boundary = self.exchange_now_ms()//self.interval_ms
+                last_boundary = self.exchange_now_ms()//self.interval_ms-1
                 while True:
                     message = None
                     try: message = json.loads(ws.recv(timeout=1))
@@ -124,8 +126,12 @@ class HyperliquidActorAdapter:
                     boundary = self.exchange_now_ms()//self.interval_ms
                     if self.subscription_confirmed and boundary > last_boundary and self.exchange_now_ms()%self.interval_ms >= 1000:
                         bar = self.warmup(2)[-1]
-                        last_boundary = boundary
-                        yield bar, time.perf_counter_ns()
+                        published_boundary = (bar.close_ms+1)//self.interval_ms
+                        if published_boundary > last_boundary:
+                            last_boundary = published_boundary
+                            yield bar, time.perf_counter_ns()
+                        else:
+                            yield None
                     else: yield None
             yield events()
 
