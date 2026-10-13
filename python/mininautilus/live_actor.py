@@ -249,6 +249,11 @@ class ActorSession:
                     if 'SendOrder' in effect:
                         effect['_received_ns'] = item.received_ns
                 effects += new
+                if self.paper and any('SendOrder' in effect for effect in new):
+                    # Minute bars exceed the order TTL. Give each new paper order
+                    # its declared optimistic touch opportunity before it expires.
+                    effects += self._send({'Trade': dict(taker='Sell' if intent['side']=='Buy' else 'Buy',
+                                                        price=intent['limit'], qty=self.lots)})
         return effects
 
     def _snapshot(self):

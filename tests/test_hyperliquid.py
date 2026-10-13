@@ -214,6 +214,26 @@ class MarketTests(unittest.TestCase):
 
 
 class RustRecoveryTests(unittest.TestCase):
+    def test_minute_paper_order_gets_touch_fill_before_ttl(self):
+        from mininautilus.bridge import Engine
+        from mininautilus.live_actor import ActorSession
+        from mininautilus.sma import SmaStrategy, Candle
+        from mininautilus.offline import Input
+        from dataclasses import asdict
+        with tempfile.TemporaryDirectory() as d, Engine(Path(d)/'events',paper=True,time_mode='historical') as engine:
+            adapter=Mock();adapter.supports_short=True;adapter.timing=lambda event: {}
+            strategy=SmaStrategy(1,2,1,'1m');strategy.add(Candle(0,59999,101))
+            session=ActorSession(engine,adapter,strategy,paper=True,allow_short=True,lots=1,
+                identity=('paper','paper','BTC'),now=lambda:1,note=lambda *a,**k:None)
+            try:
+                session._market(Input('market','market',None),dict(backfill=[],
+                    candle=asdict(Candle(60000,119999,100)), quote=dict(bid=99,ask=100),exchange_now_ms=120000))
+                self.assertEqual(engine.state['position'],-1)
+                self.assertEqual(len(engine.state['fills']),1)
+                adapter.submit.assert_not_called()
+            finally:
+                session.writer.shutdown();session.poller.shutdown()
+
     def test_paper_recovery_uses_rust_simulator_without_private_requests(self):
         from mininautilus.bridge import Engine
         from mininautilus.live_actor import ActorSession
