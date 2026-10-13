@@ -388,6 +388,13 @@ class PreflightTests(unittest.TestCase):
             v.info.return_value=role
             with self.assertRaisesRegex(HyperliquidError,'signer account binding'):
                 v.check_signer()
+        with tempfile.TemporaryDirectory() as d, ActionJournal(Path(d)/'actions') as actions:
+            v.execute=True;v.actions=actions;v.signer=lambda *args: {}
+            v.instrument=Instrument('BTC',0,5);v.post=Mock()
+            with self.assertRaisesRegex(HyperliquidError,'signer account binding'):
+                v.mutate(dict(type='order',orders=[]),'order-1')
+            v.post.assert_not_called()
+            self.assertEqual(actions.attempts,{})
 
     def test_environment_names_network_and_agent_identity(self):
         from mininautilus.hyperliquid import testnet_credentials
