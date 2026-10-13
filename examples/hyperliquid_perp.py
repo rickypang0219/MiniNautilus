@@ -83,7 +83,7 @@ def run(args):
     if execute and args.network != 'testnet': raise ValueError('no mainnet execution')
     if args.resume and not execute: raise ValueError('resume is Testnet only')
     if args.reconcile_only and not args.resume: raise ValueError('reconcile-only requires --resume')
-    account = None
+    account = agent = None
     signer = None
     provenance = None
     if execute:
@@ -97,7 +97,7 @@ def run(args):
     invocation = uuid.uuid4().hex
     started = time.monotonic()
     venue = Hyperliquid(args.symbol, network=args.network, account=account, execute=execute,
-                       signer=signer, max_notional=args.max_notional, max_loss=args.max_loss)
+                       signer=signer, agent_address=agent, max_notional=args.max_notional, max_loss=args.max_loss)
     venue.initialize()
     adapter = HyperliquidActorAdapter(venue, args.interval)
     if args.mode == 'probe':

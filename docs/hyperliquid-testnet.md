@@ -11,7 +11,7 @@ scripts/verify.sh
 
 The official SDK is used only for Testnet signing. Public data, paper and ordinary unit tests do not require it. `verify.sh` builds the release executable and writes `target/runtime-v2-build.json`; signed evidence also requires a clean Git checkout. No secrets enter build receipts.
 
-Secure environment bindings: `HL_NETWORK=testnet`, `HL_MAIN_ADDRESS` (account), `HL_API_ADDRESS` (approved agent), `HL_API_PRIVATE_KEY` (raw agent signing key). The key must derive the API address. Never paste keys into commands, code, logs or chat. Agent approval must exist on Testnet. The adapter cannot submit mainnet orders.
+Secure environment bindings: `HL_NETWORK=testnet`, `HL_MAIN_ADDRESS` (account), `HL_API_ADDRESS` (approved agent), `HL_API_PRIVATE_KEY` (raw agent signing key). The key must derive the API address. Startup and every signed mutation verify that `userRole` binds that agent to `HL_MAIN_ADDRESS`; do not rebind an agent while a session is running. Never paste keys into commands, code, logs or chat. Agent approval must exist on Testnet. The adapter cannot submit mainnet orders.
 
 Only use an exclusive account: no other machine, bot, manual orders, transfers or non-BTC positions during a session. A local process lock prevents duplicate local writers; it cannot lock other machines. Fresh sessions require no positions/open orders. Classical `default`/`disabled` account modes only; unified/portfolio margin, vaults and HIP-3 are unsupported.
 

@@ -73,6 +73,7 @@ class ContractTests(unittest.TestCase):
 def gateway(**options):
     v = Hyperliquid(account='0x'+'1'*40, baseline_cash='1000', started_ms=0, **options)
     v.instrument = Instrument('BTC', 0, 5)
+    v.check_signer = Mock()  # Transport/risk fixtures; real role binding has its own test.
     v.tick, v.lot = v.instrument.tick, v.instrument.lot
     return v
 
@@ -378,6 +379,16 @@ class OwnershipTests(unittest.TestCase):
 
 
 class PreflightTests(unittest.TestCase):
+    def test_agent_is_bound_to_the_account_whose_collateral_was_checked(self):
+        account='0x'+'1'*40
+        v=Hyperliquid(account=account,agent_address='0x'+'2'*40)
+        v.info=Mock(return_value=dict(role='agent',data=dict(user=account)))
+        v.check_signer()
+        for role in [dict(role='agent',data=dict(user='0x'+'3'*40)),dict(role='user'),dict(role='missing')]:
+            v.info.return_value=role
+            with self.assertRaisesRegex(HyperliquidError,'signer account binding'):
+                v.check_signer()
+
     def test_environment_names_network_and_agent_identity(self):
         from mininautilus.hyperliquid import testnet_credentials
         key = '0x'+'01'*32  # public disposable fixture, never funded or sent

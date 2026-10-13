@@ -30,7 +30,7 @@ def run(args):
     if identity['dirty']: raise ValueError('clean source required for Testnet evidence')
     args.run_dir.mkdir(parents=True, exist_ok=False)
     publish_sidecar(args.run_dir/'provenance.json', identity)
-    venue = Hyperliquid(account=account, execute=True, signer=testnet_signer(key, agent),
+    venue = Hyperliquid(account=account, execute=True, signer=testnet_signer(key, agent), agent_address=agent,
                        max_notional='40', max_loss='10')
     venue.initialize()
     venue.check_account_mode()

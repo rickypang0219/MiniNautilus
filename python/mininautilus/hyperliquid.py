@@ -209,7 +209,7 @@ def account_ledger(symbol, raw_fills, raw_funding):
 class Hyperliquid:
     def __init__(self, symbol='BTC', session='0000000000000000', *, network='testnet', account=None,
                  execute=False, actions=None, signer=None, max_notional='25', max_position_lots=100,
-                 baseline_cash=None, started_ms=None, max_loss='10'):
+                 baseline_cash=None, started_ms=None, max_loss='10', agent_address=None):
         if network not in URLS: raise ValueError('unsupported network')
         if execute and network != 'testnet': raise HyperliquidError('mainnet mutations are disabled')
         if not re.fullmatch('[0-9a-f]{16}', session): raise ValueError('session must be 64-bit hex')
@@ -217,6 +217,7 @@ class Hyperliquid:
             raise ValueError('invalid account address')
         self.network, self.base_url, self.symbol, self.session = network, URLS[network], symbol, session
         self.account, self.execute, self.actions, self.signer = account, execute, actions, signer
+        self.agent_address = agent_address
         self.max_notional, self.max_loss = decimal(max_notional), decimal(max_loss)
         if self.max_notional <= 0 or self.max_loss <= 0: raise ValueError('positive risk limits required')
         self.max_position_lots = integer(max_position_lots, 1)
@@ -254,6 +255,7 @@ class Hyperliquid:
     def info(self, kind, **params): return self.post('/info', dict(type=kind, **params))
 
     def initialize(self):
+        if self.execute: self.check_signer()
         meta = self.info('meta')
         rows = [(n, row) for n, row in enumerate(meta['universe']) if row['name'] == self.symbol]
         if len(rows) != 1 or rows[0][1].get('isDelisted', False):
@@ -298,6 +300,15 @@ class Hyperliquid:
         return state
 
     def open_orders(self): return self.info('openOrders', user=self.account)
+
+    def check_signer(self):
+        """Agent actions resolve to their registered owner, not the queried wallet."""
+        if not self.agent_address or not self.account:
+            raise HyperliquidError('signer account binding is required')
+        role = self.info('userRole', user=self.agent_address)
+        if (role.get('role') != 'agent' or
+                str(role.get('data', {}).get('user', '')).lower() != self.account.lower()):
+            raise HyperliquidError('signer account binding does not match configured account')
 
     def check_account_mode(self):
         if self.info('userAbstraction', user=self.account) not in ('default', 'disabled'):
@@ -346,6 +357,7 @@ class Hyperliquid:
         if action['type'] not in ('order', 'cancelByCloid') and not setup:
             raise HyperliquidError('unsupported mutation')
         with self.lock:
+            self.check_signer()
             now = int(time.time()*1000)
             nonce = self.actions.prepare(key, action, now)
             expires = self.actions.attempts[key]['expires_after']
