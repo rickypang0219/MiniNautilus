@@ -199,6 +199,19 @@ class MutationTests(unittest.TestCase):
 
 
 class MarketTests(unittest.TestCase):
+    def test_closed_revision_across_responses_rejected_and_cache_bounded(self):
+        from mininautilus.hyperliquid_live import HyperliquidActorAdapter
+        v=gateway();a=HyperliquidActorAdapter(v)
+        def bar(t,c='10000'):return dict(s='BTC',i='1m',t=t,T=t+59999,c=c)
+        for n in range(510):
+            a.exchange_now_ms=lambda n=n:(n+2)*60000
+            v.info=Mock(return_value=[bar(n*60000)])
+            a.candles(n*60000,(n+1)*60000-1)
+        self.assertLessEqual(len(a.closed_bars),503)
+        v.info.return_value=[bar(509*60000,'10001')]
+        with self.assertRaisesRegex(ValueError,'changed previously closed candle'):
+            a.candles(509*60000,510*60000-1)
+
     def test_unpublished_latest_bar_waits_without_fabricating_a_candle(self):
         from mininautilus.hyperliquid_live import HyperliquidActorAdapter
         v=gateway();a=HyperliquidActorAdapter(v);a.exchange_now_ms=lambda:180001

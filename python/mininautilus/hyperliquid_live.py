@@ -5,6 +5,7 @@ forming WS candle. At each time boundary fetch only the two recent closed bars;
 the actor backfills a bounded missing window before allowing a fresh signal.
 Quotes and private reports currently use bounded REST polling, not private WS.
 """
+from collections import OrderedDict
 from contextlib import contextmanager
 from decimal import Decimal, ROUND_CEILING, ROUND_FLOOR
 from .bridge import next_order_id
@@ -27,6 +28,7 @@ class HyperliquidActorAdapter:
         self.venue, self.interval = venue, interval
         self.interval_ms = INTERVALS[interval]
         self.subscription_confirmed = False
+        self.closed_bars = OrderedDict()
 
     def exchange_now_ms(self): return int(time.time()*1000)
     def free_base_lots(self): return None
@@ -67,6 +69,13 @@ class HyperliquidActorAdapter:
         ordered = sorted(result.values(), key=lambda b: b.open_ms)
         if any(b.open_ms-a.open_ms != self.interval_ms for a,b in zip(ordered, ordered[1:])):
             raise CandleGap(f'missing candle in bounded response: requested={start}:{end}, starts={[b.open_ms for b in ordered]}')
+        for bar in ordered:
+            previous = self.closed_bars.get(bar.open_ms)
+            if previous is not None and previous != bar:
+                raise CandleGap(f'changed previously closed candle: open_ms={bar.open_ms}')
+            self.closed_bars[bar.open_ms] = bar
+            if len(self.closed_bars) > 503:
+                self.closed_bars.popitem(last=False)
         return ordered
 
     def warmup(self, count):
