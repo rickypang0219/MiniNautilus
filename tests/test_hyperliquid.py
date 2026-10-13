@@ -214,6 +214,23 @@ class MarketTests(unittest.TestCase):
 
 
 class RustRecoveryTests(unittest.TestCase):
+    def test_paper_recovery_uses_rust_simulator_without_private_requests(self):
+        from mininautilus.bridge import Engine
+        from mininautilus.live_actor import ActorSession
+        from mininautilus.sma import SmaStrategy
+        with tempfile.TemporaryDirectory() as d, Engine(Path(d)/'events',paper=True) as engine:
+            adapter=Mock()
+            adapter.timing=lambda event: {}
+            adapter.reconcile.side_effect=AssertionError('paper must never query a live account')
+            session=ActorSession(engine,adapter,SmaStrategy(),paper=True,
+                identity=('paper','paper','BTC'),now=lambda:1,note=lambda *a,**k:None)
+            try:
+                session._reconcile()
+                self.assertEqual(engine.state['health'],'Healthy')
+                adapter.reconcile.assert_not_called()
+            finally:
+                session.writer.shutdown();session.poller.shutdown()
+
     def test_crash_before_send_after_send_and_after_fill_long_and_short(self):
         from mininautilus.bridge import Engine
         import time

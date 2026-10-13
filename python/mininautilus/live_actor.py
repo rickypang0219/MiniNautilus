@@ -274,11 +274,13 @@ class ActorSession:
             self._send('Disconnect')
             self._send('Reconnect')
             try:
-                snapshot = self.adapter.reconcile(self.engine.state)
-                if len(snapshot['fills']) > self.max_hot_fills:
-                    self.fatal = 'hot_fill_limit'
-                    raise FailClosed('reconciliation_exceeds_hot_fill_limit')
-                self._send({'Reconcile': snapshot})
+                if not self.paper:
+                    snapshot = self.adapter.reconcile(self.engine.state)
+                    if len(snapshot['fills']) > self.max_hot_fills:
+                        self.fatal = 'hot_fill_limit'
+                        raise FailClosed('reconciliation_exceeds_hot_fill_limit')
+                    self._send({'Reconcile': snapshot})
+                # Paper Reconnect is reconciled by Rust's own simulated venue.
                 if self.engine.state['health'] != 'Healthy':
                     raise RuntimeError('Rust rejected reconciliation')
                 if self.audit is not None:
