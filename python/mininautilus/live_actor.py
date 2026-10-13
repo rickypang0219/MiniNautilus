@@ -425,7 +425,8 @@ class ActorSession:
                 if stop.is_set():
                     return
                 self.counters['reconnects'] += 1
-                self.note('market_failure', error_type=type(error).__name__)
+                self.note('market_failure', error_type=type(error).__name__,
+                          candle_reason=str(error) if isinstance(error, CandleGap) else None)
                 self._offer_threadsafe(Input('market-control', 'control', 'MarketUnavailable',
                                              source_seq=None, **self._identity()), stop)
                 try:

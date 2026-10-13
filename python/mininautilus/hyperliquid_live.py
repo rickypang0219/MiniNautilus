@@ -167,3 +167,12 @@ def submit_target(engine, venue, target, *, timeout=20):
         time.sleep(0.5)
     raise HyperliquidError('diagnostic fill timeout; reconcile saved session, never retry')
 
+
+
+def flatten_known_position(engine, venue):
+    """A stopped writer needs a fresh proven account snapshot before closeout."""
+    reconcile_engine(engine, venue)
+    submit_target(engine, venue, 0)
+    reconcile_engine(engine, venue)
+    if engine.state['position'] != 0:
+        raise HyperliquidError('closeout incomplete')

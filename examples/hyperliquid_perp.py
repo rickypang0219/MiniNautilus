@@ -23,7 +23,7 @@ from mininautilus.audit import IncrementalAudit
 from mininautilus.bridge import Engine
 from mininautilus.evidence import verified_identity
 from mininautilus.hyperliquid import Hyperliquid, HyperliquidError, ActionJournal, decimal, testnet_signer, testnet_credentials, account_writer_lock
-from mininautilus.hyperliquid_live import HyperliquidActorAdapter, reconcile_engine, submit_target
+from mininautilus.hyperliquid_live import HyperliquidActorAdapter, flatten_known_position
 from mininautilus.lifecycle import publish_sidecar
 from mininautilus.live_actor import ActorSession
 from mininautilus.sma import SmaStrategy
@@ -168,9 +168,7 @@ def run(args):
                 try:
                     closed = session.close(reconcile=execute)
                     if args.flatten and execute and closed and not session.fail_closed:
-                        submit_target(engine, venue, 0)
-                        reconcile_engine(engine, venue)
-                        if engine.state['position'] != 0: raise HyperliquidError('closeout incomplete')
+                        flatten_known_position(engine, venue)
                     reconciled = closed
                 finally:
                     limits_pass = (args.reconcile_only or abs(measurements['runtime_s']-args.seconds) <= 5)

@@ -214,6 +214,24 @@ class MarketTests(unittest.TestCase):
 
 
 class RustRecoveryTests(unittest.TestCase):
+    def test_closeout_reconciles_disconnected_writer_before_new_order(self):
+        from mininautilus.bridge import Engine
+        from mininautilus.hyperliquid_live import flatten_known_position
+        from unittest.mock import patch
+        with tempfile.TemporaryDirectory() as d, Engine(Path(d)/'events',time_mode='historical') as engine:
+            engine.send(0,'Disconnect')
+            venue=Mock()
+            venue.reconcile.side_effect=lambda state: dict(epoch=state['epoch'],watermark=state['venue_seq'],
+                orders=[],fills=[],position=0,absent=[])
+            def submit(engine, venue, target):
+                self.assertEqual(engine.state['health'],'Healthy')
+                self.assertEqual(target,0)
+            with patch('mininautilus.hyperliquid_live.submit_target',side_effect=submit) as sender:
+                flatten_known_position(engine,venue)
+                sender.assert_called_once()
+            self.assertEqual(engine.state['health'],'Healthy')
+            self.assertEqual(engine.state['position'],0)
+
     def test_minute_paper_order_gets_touch_fill_before_ttl(self):
         from mininautilus.bridge import Engine
         from mininautilus.live_actor import ActorSession
