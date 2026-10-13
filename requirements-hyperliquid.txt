@@ -1,0 +1,2 @@
+# Optional Testnet signing. Public/paper transport uses stdlib + requirements.txt.
+hyperliquid-python-sdk==0.24.0

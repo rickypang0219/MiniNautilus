@@ -60,8 +60,11 @@ class ActorSession:
                  execution_timeout=10.0, quiescence_seconds=60.0, poll_seconds=1.0,
                  market_errors=MARKET_ERRORS, reconcile_attempts=3, reconcile_retry=None,
                  coordinator_options=None, drills=(), rotate_orders=None, max_rotation_delay=60.0,
-                 heartbeat_seconds=5.0, reclaim_cold=False, rotate_bytes=8*1024*1024, disk_headroom_guard=True, paged_cold=False, max_hot_fills=10000, stop_requested=None, gc_retry=True):
+                 heartbeat_seconds=5.0, reclaim_cold=False, rotate_bytes=8*1024*1024, disk_headroom_guard=True, paged_cold=False, max_hot_fills=10000, stop_requested=None, gc_retry=True, allow_short=False):
         self.engine, self.adapter, self.strategy = engine, adapter, strategy
+        if allow_short and not getattr(adapter, 'supports_short', False):
+            raise ValueError('shorting requires an explicit perp adapter contract')
+        self.allow_short = allow_short
         self.availability = AdmissionClock(note)
         self.rotation_started_ns = None
         self.rotation_pause_max_ms = 0.0
@@ -233,7 +236,7 @@ class ActorSession:
         intent = self.strategy.intent(state, market['exchange_now_ms'])
         if intent and len(state['orders']) < self.max_orders:
             self.adapter.validate(intent)
-            if intent['side'] == 'Sell' and intent['qty'] > state['position']:
+            if not self.allow_short and intent['side'] == 'Sell' and intent['qty'] > state['position']:
                 raise RuntimeError('Spot cannot short')
             free = market.get('free_base_lots')
             if not self.paper and intent['side'] == 'Sell' and free is not None and free < intent['qty']:
