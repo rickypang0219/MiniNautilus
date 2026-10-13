@@ -14,6 +14,7 @@ Report the command and its last lines. Never say "should work" without that evid
 - Never claim a performance change from one run: use the `perf-investigation` skill.
 - Never touch `.env*` or run anything against Binance with real keys; Testnet only, and only when asked.
 - Run artifacts go in `runs/` (git-ignored). Evidence is never overwritten.
+- Before starting or resuming signed venue tests, check for orphaned sessions and actual venue positions/open orders. `--flatten` is a best-effort normal shutdown path, not protection against process/container loss. Recover an interrupted session using its original journals before starting another; never report cleanup complete without a fresh venue check. Explain that long/short diagnostics temporarily hold exposure, and preserve interrupted runs as incomplete even if recovery succeeds.
 
 ## Skills
 

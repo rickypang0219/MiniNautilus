@@ -47,6 +47,8 @@ The live runner uses SMA(3,8), with signals only from completed 1-minute bars. I
 
 `--flatten` is explicit: after a successful quiescent reconciliation, send one bounded order to close known exposure and reconcile again. Without this flag, shutdown cancels owned resting orders but preserves filled positions. Uncertain exposure is never automatically flattened. If closeout fails, the summary is FAIL and operators must recover the same saved session.
 
+**A process kill or environment shutdown can leave a filled position on the exchange.** A 900-second runner limit is not an exchange-side position expiry. The SMA diagnostic intentionally holds either +0.0002 or -0.0002 BTC while running; the exchange does not close that position when the client disappears. Before starting another session, inspect prior run summaries and query actual positions/open orders. Missing completion evidence means interrupted, not successful. Recover the original session below, then independently confirm zero venue positions and zero open orders. Do not delete its journals or submit an unrelated opposite order as a shortcut. No independent watchdog or host-failure liquidation service is implemented; these runners are supervised diagnostics, not unattended deployment.
+
 ## Recovery and stop conditions
 
 Use identical risk/strategy parameters and the original directory:
