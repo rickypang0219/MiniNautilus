@@ -21,7 +21,7 @@ ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT/'python'))
 from mininautilus.audit import IncrementalAudit
 from mininautilus.bridge import Engine
-from mininautilus.evidence import verified_identity
+from mininautilus.evidence import build_identity, verified_identity
 from mininautilus.hyperliquid import Hyperliquid, HyperliquidError, ActionJournal, decimal, testnet_signer, testnet_credentials, account_writer_lock
 from mininautilus.hyperliquid_live import HyperliquidActorAdapter, flatten_known_position
 from mininautilus.lifecycle import publish_sidecar
@@ -92,6 +92,8 @@ def run(args):
         if args.receipt is None: raise ValueError('Testnet requires --receipt for release provenance')
         provenance = verified_identity(ROOT, args.binary, args.receipt)
         if provenance['dirty']: raise ValueError('Testnet acceptance requires clean source')
+    elif args.mode == 'paper':
+        provenance = build_identity(ROOT, args.binary)
     path = args.run_dir
     if not args.resume: path.mkdir(parents=True, exist_ok=False)
     invocation = uuid.uuid4().hex
