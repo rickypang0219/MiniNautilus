@@ -1,0 +1,214 @@
+{
+  "created_at": "2026-10-13T14:45:46.058655+00:00",
+  "status": "H1_DIAGNOSTIC_GATES_PASS",
+  "runtime_implementation_commit": "c23d154",
+  "proposal": "hyperliquid-migration-proposal.md",
+  "acceptance": {
+    "HL1": "PASS",
+    "HL2": "PASS",
+    "HL3": "PASS",
+    "HL4": "PASS",
+    "HL5": "PASS",
+    "HL6": "PASS",
+    "HL7": "PASS",
+    "HL8": "PASS",
+    "HL9": "PASS",
+    "HL10": "PASS",
+    "HL11": "NOT_IMPLEMENTED"
+  },
+  "soaks": [
+    {
+      "run": "hl-paper-20261013-r7",
+      "status": "PASS",
+      "checks": {
+        "summary_pass": true,
+        "duration": true,
+        "rss": true,
+        "input_queue": true,
+        "effect_queue": true,
+        "replay_position": true,
+        "terminal": true
+      },
+      "runtime_s": 902.062181756,
+      "rss_peak_mib": 46.0625,
+      "queue_high_water": {
+        "effects": 1,
+        "input": 2
+      },
+      "orders": 5,
+      "fills": 5,
+      "reconciliations": 1,
+      "gates": {
+        "recovery_drill": 1
+      },
+      "availability": {
+        "denominator_ns": 838457413715,
+        "enabled_ns": 45490559502,
+        "end_monotonic_ns": 3062092190287,
+        "start_monotonic_ns": 2223634776572,
+        "trade_enabled_ratio": 0.05425506263990492
+      },
+      "binary_sha256": "54e6d33ad497d3cf38c1d871b677a038151495e58a86a72fcf7f3ae3c090fde6"
+    },
+    {
+      "run": "hl-testnet-20261013-r5",
+      "status": "PASS",
+      "checks": {
+        "summary_pass": true,
+        "duration": true,
+        "rss": true,
+        "input_queue": true,
+        "effect_queue": true,
+        "replay_position": true,
+        "terminal": true,
+        "flat": true,
+        "unique_cloids": true,
+        "increasing_nonces": true,
+        "owned_orders": true,
+        "account_reconciled": true
+      },
+      "runtime_s": 901.7074104680014,
+      "rss_peak_mib": 90.4375,
+      "queue_high_water": {
+        "effects": 1,
+        "input": 3
+      },
+      "orders": 4,
+      "fills": 5,
+      "reconciliations": 4,
+      "gates": {
+        "private_poll_failed": 1,
+        "recovery_drill": 1
+      },
+      "availability": {
+        "denominator_ns": 890653163323,
+        "enabled_ns": 49530263897,
+        "end_monotonic_ns": 17132457502266,
+        "start_monotonic_ns": 16241804338943,
+        "trade_enabled_ratio": 0.05561116934924936
+      },
+      "binary_sha256": "54e6d33ad497d3cf38c1d871b677a038151495e58a86a72fcf7f3ae3c090fde6"
+    },
+    {
+      "run": "hl-testnet-20261013-r6",
+      "status": "PASS",
+      "checks": {
+        "summary_pass": true,
+        "duration": true,
+        "rss": true,
+        "input_queue": true,
+        "effect_queue": true,
+        "replay_position": true,
+        "terminal": true,
+        "flat": true,
+        "unique_cloids": true,
+        "increasing_nonces": true,
+        "owned_orders": true,
+        "account_reconciled": true
+      },
+      "runtime_s": 902.4224445590007,
+      "rss_peak_mib": 89.3515625,
+      "queue_high_water": {
+        "effects": 1,
+        "input": 3
+      },
+      "orders": 5,
+      "fills": 5,
+      "reconciliations": 3,
+      "gates": {
+        "recovery_drill": 1
+      },
+      "availability": {
+        "denominator_ns": 881662724711,
+        "enabled_ns": 52193650141,
+        "end_monotonic_ns": 18083588392601,
+        "start_monotonic_ns": 17201925667890,
+        "trade_enabled_ratio": 0.059199111721671735
+      },
+      "binary_sha256": "54e6d33ad497d3cf38c1d871b677a038151495e58a86a72fcf7f3ae3c090fde6"
+    }
+  ],
+  "final_venue_check": {
+    "status": "PASS",
+    "at": "2026-10-13T14:44:26.409475+00:00",
+    "venue_positions": [],
+    "venue_open_orders": 0,
+    "cross_run_cloids": 13,
+    "duplicate_cloids": 0,
+    "nonce_ordering": "strictly increasing within each persisted session",
+    "scope": "Final Testnet cohort and current-runtime four-order crash diagnostic; no mutating process is kept running"
+  },
+  "crash_diagnostic": {
+    "duplicate_send_attempts": 0,
+    "fills": 4,
+    "final_open_orders": 0,
+    "final_position": 0,
+    "orders": 4,
+    "position_path": [
+      20,
+      0,
+      -20,
+      0
+    ],
+    "recovery": "Rust SIGKILL after venue fill, before report",
+    "scope": "Testnet synthetic execution diagnostic, not strategy performance",
+    "status": "PASS"
+  },
+  "signal_replay": {
+    "status": "PASS",
+    "observations": 31,
+    "warmup_resets": 2,
+    "signal_mismatches": 0,
+    "max_strategy_slots": 8,
+    "scope": "Captured streaming observations replay through bounded SMA; not PCA research parity"
+  },
+  "ci": {
+    "observed_at": "2026-10-13T14:43:32.794815+00:00",
+    "runs": [
+      {
+        "id": 38412567838,
+        "head_sha": "8cfff365314ede521f1eaa0bff24138732a8c0b9",
+        "status": "completed",
+        "conclusion": "failure",
+        "html_url": "https://github.com/rickypang0219/MiniNautilus/actions/runs/38412567838",
+        "updated_at": "2026-10-13T14:24:24Z"
+      },
+      {
+        "id": 38415101373,
+        "head_sha": "30f41cb6a0118eb59479da52da48d20fcf2590c9",
+        "status": "completed",
+        "conclusion": "success",
+        "html_url": "https://github.com/rickypang0219/MiniNautilus/actions/runs/38415101373",
+        "updated_at": "2026-10-13T14:41:51Z"
+      }
+    ],
+    "first_failure": "Python step failed; original blob-host logs blocked by network policy. Subsequent CI and local 180-test rerun passed without runtime change; root cause unproven."
+  },
+  "artifacts": [
+    {
+      "uri": "s3://mininautilushost-artifacts82dd59a1-jimhxpumwqyb/runs/hyperliquid-migration/hyperliquid-evidence-20261013T144426Z/evidence.tar.gz",
+      "bytes": 2578362,
+      "sha256": "3d99005e803129e4e8f368a45ce34754147040b6fde48d8ea561697af84cb4f2",
+      "version_id": null
+    },
+    {
+      "uri": "s3://mininautilushost-artifacts82dd59a1-jimhxpumwqyb/runs/hyperliquid-migration/hyperliquid-evidence-20261013T144426Z/index.json",
+      "bytes": 33916,
+      "sha256": "6614962cf40ef8812adcd1287727ec3e68e19c5af273e62fa74755c44fbf1f0c",
+      "version_id": null
+    },
+    {
+      "uri": "s3://mininautilushost-artifacts82dd59a1-jimhxpumwqyb/runs/hyperliquid-migration/hyperliquid-evidence-20261013T144426Z/manifest.json",
+      "bytes": 298,
+      "sha256": "ecc5b18f39059572a52a4490d944e35bca958b31941107404c50a409f1f4d3e0",
+      "version_id": null
+    }
+  ],
+  "limitations": [
+    "Interrupted r4 left short 0.0002 BTC; recovered and flattened original session, not a soak PASS. No host-loss watchdog.",
+    "R5 private_poll_failed once; recovered, exact cause not recorded.",
+    "Initial CI Python failure unexplained; later CI and local rerun passed without runtime change.",
+    "No mainnet mutations, PCA deployment, shared collateral multi-instrument support, Hyperliquid live rotation or continuous admission SLO.",
+    "15-minute diagnostics do not establish long-run reliability, strategy alpha or latency improvement."
+  ]
+}

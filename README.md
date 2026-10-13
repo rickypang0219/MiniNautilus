@@ -58,6 +58,8 @@ cargo run --locked -- dashboard runs --port 8765
 
 下一個執行 venue 使用 Hyperliquid：沿用 Rust durable single writer、actor、bounded SMA cache，支援一個專用帳戶、一個 USDC perp 的 long/short、取消、USDC 費用／funding 對帳及恢復。Mainnet 下單關閉。詳見 [操作指引](docs/hyperliquid-testnet.md) 和 [migration scope／驗收](docs/hyperliquid-migration-proposal.md)。PCA 多交易對策略仍是獨立階段。
 
+[H1 驗收結果](docs/hyperliquid-migration-results.md)：15 分鐘 paper、兩輪 Testnet soak、實際成交後 SIGKILL recovery，以及中斷後殘留倉位的處理記錄。這些是受監督的 execution diagnostics，並非無人值守部署或策略收益證明。
+
 ```sh
 python3 -m pip install -r requirements.txt -r requirements-hyperliquid.txt
 python3 examples/hyperliquid_perp.py --mode probe --run-dir runs/hl-probe-new
