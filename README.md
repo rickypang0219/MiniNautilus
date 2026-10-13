@@ -2,7 +2,7 @@
 
 一個用 Rust 學 trading systems 嘅實驗室：**先驗證狀態正確同可恢復，再量度低延遲設計**。
 
-已實作 deterministic core、故障 simulator、durable journal/recovery、Python strategy、Binance Spot Testnet adapter，以及獨立效能實驗。範圍係 **一個 account、一個 instrument、limit order + cancel**。
+已實作 deterministic core、故障 simulator、durable journal/recovery、Python strategy、Hyperliquid Perps Testnet adapter、Binance Spot Testnet adapter，以及獨立效能實驗。範圍係 **一個 account、一個 instrument、limit order + cancel**。
 
 目前係可執行嘅 reference implementation，**未係 production/HFT engine**：Core 已改為 validate/prepare/commit，避免每個事件 clone 全份 state；journal 預設每個事件做 `sync_all`（可選 `--sync outbox`），Python bridge 用 JSON IPC（protocol 2 只送 delta），Binance 用 REST polling。風控、timer 和 paper 撮合只走 open-order index，不再掃描完整歷史。各部分「做到甚麼才算夠」見 [驗收條件](docs/acceptance.md)。
 
@@ -53,6 +53,15 @@ cargo run --locked -- dashboard runs --port 8765
 開 [http://127.0.0.1:8765](http://127.0.0.1:8765) 即時睇 trades、orders、signals、position、PnL 同 recovery 狀態。獨立 Rust observer 讀 journal，唔阻塞 engine；無 Docker／Node dependency。支援分頁、搜尋、side filter、pause view 同 CSV export。完整費用未齊時只顯示 gross，唔假設 fee 為零。
 
 詳見 [dashboard 使用與設計](docs/dashboard.md)。
+
+## Hyperliquid Perps Testnet
+
+下一個執行 venue 使用 Hyperliquid：沿用 Rust durable single writer、actor、bounded SMA cache，支援一個專用帳戶、一個 USDC perp 的 long/short、取消、USDC 費用／funding 對帳及恢復。Mainnet 下單關閉。詳見 [操作指引](docs/hyperliquid-testnet.md) 和 [migration scope／驗收](docs/hyperliquid-migration-proposal.md)。PCA 多交易對策略仍是獨立階段。
+
+```sh
+python3 -m pip install -r requirements.txt -r requirements-hyperliquid.txt
+python3 examples/hyperliquid_perp.py --mode probe --run-dir runs/hl-probe-new
+```
 
 ## Live market data + paper execution
 
