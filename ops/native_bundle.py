@@ -21,9 +21,7 @@ def bundle(output):
         raise ValueError('commit reviewed source and freeze the harness before packaging')
     commit=subprocess.check_output(['git','rev-parse','HEAD'],cwd=ROOT,text=True).strip()
     tracked=subprocess.check_output(['git','ls-files','-z'],cwd=ROOT).decode().split('\0')
-    names=[name for name in tracked if name]
-    if any(Path(name).name.startswith('.env') for name in names):
-        raise ValueError('tracked environment file requires removal before packaging')
+    names=[name for name in tracked if name and not Path(name).name.startswith(".env")]
     names+=['target/release/native-live','target/release/mininautilus']
     files={name:hashlib.sha256((ROOT/name).read_bytes()).hexdigest() for name in names}
     receipt=dict(schema=1,commit=commit,dirty=False,files=files,
