@@ -7,6 +7,8 @@ python3 -c "import websockets" 2>/dev/null || { echo "missing Python deps: pip i
 step cargo fmt --check
 step cargo clippy --locked --all-targets -- -D warnings
 step cargo test --locked
+step cargo clippy --locked --all-targets --features native-runtime -- -D warnings
+step cargo test --locked --features native-runtime
 step cargo build --locked
 step python3 ops/runtime_bench.py --build
 step cargo build --locked --release --example compare_engine

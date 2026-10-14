@@ -12,3 +12,6 @@ pub mod protocol;
 pub mod queue;
 pub mod sim;
 pub mod telemetry;
+
+#[cfg(feature = "native-runtime")]
+pub mod native;

@@ -21,6 +21,8 @@ jobs:
       - run: cargo fmt --check
       - run: cargo clippy --locked --all-targets -- -D warnings
       - run: cargo test --locked
+      - run: cargo clippy --locked --all-targets --features native-runtime -- -D warnings
+      - run: cargo test --locked --features native-runtime
       - run: cargo build --locked
       - run: python ops/runtime_bench.py --build
       - run: cargo build --locked --release --example compare_engine
