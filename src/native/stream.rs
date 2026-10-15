@@ -1,7 +1,7 @@
 //! Bounded WebSocket transport, including the managed environment's HTTP CONNECT proxy.
 use super::{
     Result, fail,
-    venue::{Instrument, parse_quote},
+    venue::{Instrument, number, parse_quote},
     wall_ms,
 };
 use futures_util::{SinkExt, StreamExt};
@@ -106,6 +106,7 @@ pub enum Observation {
         bid: i64,
         ask: i64,
         observed_at: u64,
+        exchange_time: u64,
     },
     PrivateWake,
     Ready,
@@ -193,6 +194,7 @@ pub async fn run(
                         bid,
                         ask,
                         observed_at: wall_ms(),
+                        exchange_time: number(&event["data"]["time"])?,
                     },
                     received,
                 )?;

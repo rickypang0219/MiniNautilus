@@ -173,6 +173,16 @@ impl Http {
         )
     }
 }
+/// Existing H1 diagnostic/closeout collar: 0.1%, rounded outward to whole USD.
+/// Strategy resting limits are unchanged. Admission still enforces the USD40 cap.
+pub fn closeout_limit(instrument: &Instrument, ticks: i64, buy: bool) -> Result<i64> {
+    if ticks <= 0 {
+        return Err(fail("nonpositive closeout reference"));
+    }
+    let reference = Decimal::from(ticks) * instrument.tick();
+    let price = reference * Decimal::new(if buy { 1001 } else { 999 }, 3);
+    instrument.price(&json!(wire(if buy { price.ceil() } else { price.floor() })))
+}
 pub fn parse_quote(i: &Instrument, book: &Value, now: u64) -> Result<(i64, i64)> {
     if book["coin"] != i.symbol {
         return Err(fail("wrong book instrument"));
@@ -597,7 +607,19 @@ impl Venue {
         if self.mutate(&action, &format!("cancel-{}", i.id), None, None)? != "success" {
             return Err(fail("unknown cancel acknowledgement"));
         }
-        Ok(())
+        // An action acknowledgement may precede orderStatus visibility. Query;
+        // never issue another cancellation or invent terminality from the ack.
+        let started = Instant::now();
+        loop {
+            let status = self.query(i)?;
+            if lifecycle(text(&status["status"])?, 0)?.terminal() {
+                return Ok(());
+            }
+            if started.elapsed() >= Duration::from_secs(5) {
+                return Err(fail("cancel not terminal; reconcile original session"));
+            }
+            std::thread::sleep(Duration::from_millis(100));
+        }
     }
     pub fn history(&mut self, kind: &str) -> Result<Vec<Value>> {
         let mut windows = vec![(self.session.started_ms, wall_ms())];

@@ -9,7 +9,7 @@ use super::{
 };
 use crate::{
     core::Core,
-    journal::{DurableEngine, SyncPolicy},
+    journal::{DurableEngine, EventTime, SyncPolicy},
     model::*,
 };
 use crossbeam_channel::{Receiver, Sender, bounded};
@@ -109,6 +109,7 @@ struct Market {
     bid: i64,
     ask: i64,
     observed_at: u64,
+    exchange_time: u64,
     received: Instant,
 }
 enum Control {
@@ -284,6 +285,14 @@ struct Writer {
 }
 impl Writer {
     fn process(&mut self, event: Event, received: Instant) -> Result<()> {
+        self.process_with_time(event, received, None)
+    }
+    fn process_with_time(
+        &mut self,
+        event: Event,
+        received: Instant,
+        time: Option<EventTime>,
+    ) -> Result<()> {
         let now = wall_ms().max(self.engine.core().now);
         let queue_ns = received.elapsed().as_nanos() as u64;
         let started = Instant::now();
@@ -295,7 +304,7 @@ impl Writer {
             Event::Reconcile(_) => "reconcile",
             _ => "control",
         };
-        let (effects, s) = self.engine.process_profiled(now, event, None)?;
+        let (effects, s) = self.engine.process_profiled(now, event, time)?;
         self.processed += 1;
         self.telemetry.emit(json!({"kind":"writer","input":kind,"seq":self.engine.core().seq,"epoch":self.engine.core().epoch,"at_ms":now,"receive_to_writer_ns":queue_ns,"request_ns":started.elapsed().as_nanos() as u64,"prepare_ns":s.prepare_ns,"encode_ns":s.encode_ns,"write_ns":s.write_ns,"sync_ns":s.sync_ns,"commit_ns":s.commit_ns,"sync_bytes":s.sync_pending_bytes,"health":self.engine.core().health,"position":self.engine.core().position}));
         if self.engine.core().health != Health::Healthy {
@@ -413,13 +422,19 @@ impl Writer {
     }
     fn market(&mut self, message: Market) -> Result<()> {
         self.market_count += 1;
-        self.process(
+        self.process_with_time(
             Event::QuoteObserved {
                 bid: message.bid,
                 ask: message.ask,
                 observed_at: message.observed_at,
             },
             message.received,
+            Some(EventTime {
+                event_time_ms: Some(message.exchange_time),
+                received_time_ms: Some(message.observed_at),
+                source: Some("hyperliquid-testnet:BTC:l2Book".into()),
+                ..EventTime::default()
+            }),
         )
     }
     fn dispatch_target(&mut self) -> Result<()> {
@@ -691,12 +706,14 @@ pub fn run(dir: &Path, options: Options) -> Result<Value> {
                             bid,
                             ask,
                             observed_at,
+                            exchange_time,
                         } => circuit.publish(
                             &market_tx,
                             Market {
                                 bid,
                                 ask,
                                 observed_at,
+                                exchange_time,
                                 received,
                             },
                         ),
@@ -916,7 +933,11 @@ pub fn cleanup_signed(engine: &mut DurableEngine, venue: &mut Venue, flatten: bo
                 + 1,
             side: if delta > 0 { Side::Buy } else { Side::Sell },
             qty: delta.abs(),
-            limit: if delta > 0 { ask } else { bid },
+            limit: venue::closeout_limit(
+                &venue.session.instrument,
+                if delta > 0 { ask } else { bid },
+                delta > 0,
+            )?,
             based_on_seq: core.seq,
             valid_until: wall_ms() + 3000,
         };
@@ -1057,7 +1078,11 @@ pub fn diagnostic(dir: &Path, crash_after_fill: bool) -> Result<Value> {
                 id: core.orders.len() as u64 + 1,
                 side: if delta > 0 { Side::Buy } else { Side::Sell },
                 qty: delta.abs(),
-                limit: if delta > 0 { ask } else { bid },
+                limit: venue::closeout_limit(
+                    &venue.session.instrument,
+                    if delta > 0 { ask } else { bid },
+                    delta > 0,
+                )?,
                 based_on_seq: core.seq,
                 valid_until: wall_ms() + 3000,
             };

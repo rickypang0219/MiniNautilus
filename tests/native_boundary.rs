@@ -379,3 +379,11 @@ fn strategy_partial_output_cannot_extend_absolute_deadline() {
         "partial reads renewed the request deadline: {elapsed:?}"
     );
 }
+
+#[test]
+fn diagnostic_collar_matches_existing_btc_closeout_and_is_bounded() {
+    let i = instrument();
+    assert_eq!(closeout_limit(&i, 814210, true).unwrap(), 815030);
+    assert_eq!(closeout_limit(&i, 814210, false).unwrap(), 813390);
+    assert!(closeout_limit(&i, 0, true).is_err());
+}

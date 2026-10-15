@@ -66,9 +66,10 @@ async def python_run(run_dir, manifest, binary):
     failure = None
     with Engine(run_dir / 'journal.jsonl', binary=binary, config=config_path,
                 time_mode='historical', extra_args=['--sync', 'outbox']) as engine:
-        def request(event):
+        def request(event, exchange_ms=None):
             before = time.perf_counter_ns()
-            effects = engine.send(max(engine.state['now'], time.time_ns() // 1000000), event)
+            metadata = dict(event_time_ms=exchange_ms, received_time_ms=event['QuoteObserved']['observed_at'],time_source='hyperliquid-testnet:BTC:l2Book') if exchange_ms is not None else {}
+            effects = engine.send(max(engine.state['now'], time.time_ns() // 1000000), event, **metadata)
             emit(q, dropped, dict(kind='writer', seq=engine.state['seq'], request_ns=time.perf_counter_ns()-before,
                                  ipc_ns=engine.last_roundtrip_ns, health=engine.state['health']))
             return effects
@@ -92,7 +93,7 @@ async def python_run(run_dir, manifest, binary):
                 effects.extend(request({'SetTarget': dict(revision=n+1, position=state['target'],
                                                           valid_until=time.time_ns()//1000000+65000)}))
             effects.extend(request({'QuoteObserved': dict(bid=payload['bid'], ask=payload['ask'],
-                                                          observed_at=item.event_time_ms)}))
+                                                          observed_at=item.event_time_ms)}, exchange_ms=payload['exchange_ms']))
             current = engine.state
             if state['target'] is not None and current['health'] == 'Healthy' and not any(open_orders(current)):
                 delta = state['target']-current['position']
@@ -158,7 +159,7 @@ async def python_run(run_dir, manifest, binary):
                 bid, ask = (instrument.price(data['levels'][i][0]['px']) for i in range(2))
                 target = [20, 0, -20, 0][n//manifest['order_every'] % 4] if n % manifest['order_every'] == 0 else None
                 digest.update(f'{n}:800000:{"none" if target is None else target}\n'.encode())
-                if not runtime.offer(Input('market', 'market', dict(bid=bid, ask=ask, target=target),
+                if not runtime.offer(Input('market', 'market', dict(bid=bid, ask=ask, target=target, exchange_ms=data['time']),
                     source_seq=n+1, received_ns=received, scheduled_ns=due, event_time_ms=time.time_ns()//1000000)):
                     raise RuntimeError('market admission failed')
                 market_admitted += 1

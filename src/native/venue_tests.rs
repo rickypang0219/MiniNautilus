@@ -16,6 +16,9 @@ struct Server {
 }
 impl Server {
     fn start(order_response: Value) -> Self {
+        Self::script(vec![order_response], None)
+    }
+    fn script(order_responses: Vec<Value>, mutation_response: Option<Value>) -> Self {
         let listener = TcpListener::bind("127.0.0.1:0").unwrap();
         listener.set_nonblocking(true).unwrap();
         let base = format!("http://{}", listener.local_addr().unwrap());
@@ -24,6 +27,7 @@ impl Server {
         let stopped = stop.clone();
         let count = actions.clone();
         let worker = thread::spawn(move || {
+            let mut queries = 0usize;
             while !stopped.load(Ordering::Acquire) {
                 let (mut stream, _) = match listener.accept() {
                     Ok(s) => s,
@@ -54,17 +58,26 @@ impl Server {
                 let mut body = vec![0; length];
                 reader.read_exact(&mut body).unwrap();
                 let request: Value = serde_json::from_slice(&body).unwrap();
-                if exchange {
+                let response = if exchange {
                     count.fetch_add(1, Ordering::AcqRel);
-                    continue;
-                } // Accepted remotely, response deliberately lost.
-                let response = match request["type"].as_str() {
-                    Some("userRole") => {
-                        json!({"role":"agent","data":{"user":"0x1111111111111111111111111111111111111111"}})
+                    let Some(reply) = &mutation_response else {
+                        continue;
+                    }; // lost acknowledgement
+                    reply.clone()
+                } else {
+                    match request["type"].as_str() {
+                        Some("userRole") => {
+                            json!({"role":"agent","data":{"user":"0x1111111111111111111111111111111111111111"}})
+                        }
+                        Some("orderStatus") => {
+                            let response =
+                                order_responses[queries.min(order_responses.len() - 1)].clone();
+                            queries += 1;
+                            response
+                        }
+                        Some("openOrders") => json!([]),
+                        other => panic!("unexpected request {other:?}"),
                     }
-                    Some("orderStatus") => order_response.clone(),
-                    Some("openOrders") => json!([]),
-                    other => panic!("unexpected request {other:?}"),
                 };
                 let body = response.to_string();
                 write!(stream,"HTTP/1.1 200 OK\r\nContent-Type: application/json\r\nContent-Length: {}\r\nConnection: close\r\n\r\n{}",body.len(),body).unwrap();
@@ -223,6 +236,26 @@ fn cancel_after_fill_does_not_send_another_mutation() {
     v.cancel(&intent()).unwrap();
     assert_eq!(server.actions.load(Ordering::Acquire), 0);
     assert!(v.attempts.entries.is_empty());
+    drop(v);
+    std::fs::remove_dir_all(dir).unwrap();
+}
+
+#[test]
+fn cancel_ack_waits_for_terminal_visibility_without_resending() {
+    let open = json!({"status":"order","order":{"status":"open","order":{"oid":123,"cloid":"0x0123456789abcdef0000000000000001","coin":"BTC","side":"B","origSz":"0.0002","sz":"0.0002","limitPx":"80000"}}});
+    let mut canceled = open.clone();
+    canceled["order"]["status"] = "canceled".into();
+    let server = Server::script(
+        vec![open.clone(), open, canceled],
+        Some(json!({"status":"ok","response":{"data":{"statuses":["success"]}}})),
+    );
+    let dir = dir("cancel-visibility");
+    let mut v = server.venue(&dir);
+    let started = Instant::now();
+    v.cancel(&intent()).unwrap();
+    assert!(started.elapsed() >= Duration::from_millis(100));
+    assert_eq!(server.actions.load(Ordering::Acquire), 1);
+    assert_eq!(v.attempts.entries.len(), 1);
     drop(v);
     std::fs::remove_dir_all(dir).unwrap();
 }

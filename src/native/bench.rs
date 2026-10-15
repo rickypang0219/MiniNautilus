@@ -140,6 +140,7 @@ pub fn run(dir: &Path, manifest: Manifest) -> Result<Value> {
                         bid,
                         ask,
                         observed_at: wall_ms(),
+                        exchange_time: event_time,
                         received,
                     },
                     target,
