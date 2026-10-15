@@ -4,7 +4,7 @@
 
 已實作 deterministic core、故障 simulator、durable journal/recovery、Python strategy、Hyperliquid Perps Testnet adapter、Binance Spot Testnet adapter，以及獨立效能實驗。範圍係 **一個 account、一個 instrument、limit order + cancel**。
 
-目前係可執行嘅 reference implementation，**未係 production/HFT engine**：Core 已改為 validate/prepare/commit，避免每個事件 clone 全份 state；journal 預設每個事件做 `sync_all`（可選 `--sync outbox`），Python bridge 用 JSON IPC（protocol 2 只送 delta），Binance 用 REST polling。風控、timer 和 paper 撮合只走 open-order index，不再掃描完整歷史。各部分「做到甚麼才算夠」見 [驗收條件](docs/acceptance.md)。
+目前係可執行嘅 reference implementation，**未係 production/HFT engine**：Core 已改為 validate/prepare/commit，避免每個事件 clone 全份 state；journal 預設每個事件做 `sync_all`（可選 `--sync outbox`），舊 Python bridge 用 JSON IPC（protocol 2 只送 delta）；新 `native-live` 在 Rust 直接呼叫 DurableEngine，Python 只作可選策略。Binance execution adapter 保留原有 REST polling。風控、timer 和 paper 撮合只走 open-order index，不再掃描完整歷史。各部分「做到甚麼才算夠」見 [驗收條件](docs/acceptance.md)。
 
 ## 先跑第一個 milestone
 
@@ -53,6 +53,18 @@ cargo run --locked -- dashboard runs --port 8765
 開 [http://127.0.0.1:8765](http://127.0.0.1:8765) 即時睇 trades、orders、signals、position、PnL 同 recovery 狀態。獨立 Rust observer 讀 journal，唔阻塞 engine；無 Docker／Node dependency。支援分頁、搜尋、side filter、pause view 同 CSV export。完整費用未齊時只顯示 gross，唔假設 fee 為零。
 
 詳見 [dashboard 使用與設計](docs/dashboard.md)。
+
+## Native Rust live runtime（Linux / Testnet）
+
+新入口 `native-live` 由 Rust 負責 Hyperliquid REST／WebSocket、資料 routing、single writer、timer、風控、簽名、送單及 recovery。行情和訂單事件不經 Python bridge；`--python-strategy` 只啟動隔離的 bounded SMA strategy worker。原有 Python／Binance／backtest 入口仍保留。
+
+```sh
+cargo build --locked --release --features native-runtime --bin native-live
+target/release/native-live probe --seconds 15
+target/release/native-live paper --python-strategy --seconds 900 --flatten --run-dir runs/native-paper-new
+```
+
+紙上成交不代表交易所成交。實際 Testnet 小額下單、原 session 恢復、環境變數及風險限制見 [native 操作指引](docs/rust-native-runtime-operations.md)。[驗收記錄](docs/rust-native-runtime-results.md) 分開列出 correctness 和性能結果；不要把 Rust implementation 本身當作低延遲證明。Private stream 目前觸發 REST refresh，沒有自動斷線後恢復交易或 live journal 輪換。
 
 ## Hyperliquid Perps Testnet
 

@@ -168,7 +168,7 @@ pub async fn run(
                 continue;
             }
             Message::Pong(_) => continue,
-            _ => return Err(fail("unexpected WebSocket frame")),
+            other => return Err(frame_error(&other)),
         };
         let event: Value = serde_json::from_str(&raw)?;
         match event["channel"].as_str() {
@@ -208,4 +208,53 @@ pub async fn run(
     }
     let _ = tokio::time::timeout(Duration::from_secs(2), ws.close(None)).await;
     Ok(())
+}
+
+fn frame_error(message: &Message) -> Box<dyn std::error::Error + Send + Sync> {
+    let detail = match message {
+        Message::Close(Some(frame)) => format!(
+            "WebSocket peer close code={} reason={}",
+            u16::from(frame.code),
+            frame.reason.chars().take(160).collect::<String>()
+        ),
+        Message::Close(None) => "WebSocket peer close with no status".into(),
+        Message::Binary(bytes) => {
+            format!("unsupported WebSocket binary frame: {} bytes", bytes.len())
+        }
+        _ => "unexpected WebSocket raw frame".into(),
+    };
+    fail(&detail)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use tokio_tungstenite::tungstenite::protocol::{CloseFrame, frame::coding::CloseCode};
+
+    #[test]
+    fn rejected_frames_distinguish_peer_close_and_do_not_log_binary_payloads() {
+        let close = Message::Close(Some(CloseFrame {
+            code: CloseCode::Away,
+            reason: "maintenance".into(),
+        }));
+        let error = frame_error(&close).to_string();
+        assert!(
+            error.contains("1001") && error.contains("maintenance"),
+            "{error}"
+        );
+        assert!(
+            frame_error(&Message::Close(None))
+                .to_string()
+                .contains("no status")
+        );
+        let binary = Message::Binary(b"private payload".to_vec().into());
+        let error = frame_error(&binary).to_string();
+        assert!(error.contains("binary") && error.contains("15"));
+        assert!(!error.contains("private payload"));
+        let close = Message::Close(Some(CloseFrame {
+            code: CloseCode::Normal,
+            reason: "x".repeat(1000).into(),
+        }));
+        assert!(frame_error(&close).to_string().len() < 256);
+    }
 }
