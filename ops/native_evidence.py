@@ -28,6 +28,10 @@ def analyze(root):
     hashes={r['report']['input_sha256'] for r in all_runs}
     action_sets={json.dumps(sorted(r['report']['actions'],key=lambda a:a['id']),sort_keys=True) for r in all_runs}
     valid=valid and len(hashes)==1 and len(action_sets)==1
+    # A/A and A/B baseline must use the same executable; do not pool candidate builds.
+    baseline=groups['aa0']+groups['aa1']+groups['ab-a']
+    valid=valid and len({r['provenance']['binary_sha256'] for r in baseline})==1
+    valid=valid and len({r['provenance']['binary_sha256'] for r in groups['ab-b']})<=1
     for r in all_runs:
         metric=r['report']['metrics']['full_action']['p99_ms']
         if not isinstance(metric,(int,float)) or not math.isfinite(metric) or metric<=0:

@@ -39,3 +39,18 @@ class NativeEvidenceTest(unittest.TestCase):
             self.assertEqual(result['comparison']['full_action_p99_ms']['verdict'],'INCONCLUSIVE')
             path=root/'ab-b-1'/'report.json';record=json.loads(path.read_text());record['valid']=False;path.write_text(json.dumps(record))
             self.assertEqual(evidence.analyze(root)['comparison']['full_action_p99_ms']['verdict'],'INSUFFICIENT')
+
+    def test_mixed_baseline_or_candidate_binaries_cannot_claim_improvement(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root=Path(directory)
+            for group,value in [('aa0',2),('aa1',2),('ab-a',2),('ab-b',1)]:
+                for index in range(5):self.fixture(root,group,index,value)
+            for group in ('ab-a','ab-b'):
+                path=root/(group+'-0')/'provenance.json'
+                original=path.read_text();record=json.loads(original)
+                record['binary_sha256']='unexpected-build'
+                path.write_text(json.dumps(record))
+                result=evidence.analyze(root)
+                self.assertFalse(result['compatible_complete_runs'])
+                self.assertEqual(result['comparison']['full_action_p99_ms']['verdict'],'INCONCLUSIVE')
+                path.write_text(original)
