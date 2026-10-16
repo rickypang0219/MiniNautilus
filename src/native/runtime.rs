@@ -29,6 +29,7 @@ use std::{
 pub struct Circuit {
     pub permit: AtomicU8,
     pub failed: AtomicBool,
+    source_generation: AtomicU64,
     reason: Mutex<Option<String>>,
 }
 impl Default for Circuit {
@@ -36,6 +37,7 @@ impl Default for Circuit {
         Self {
             permit: AtomicU8::new(0),
             failed: AtomicBool::new(false),
+            source_generation: AtomicU64::new(0),
             reason: Mutex::new(None),
         }
     }
@@ -62,6 +64,32 @@ impl Circuit {
         {
             *r = Some(reason.into());
         }
+    }
+    fn pause_source(&self) -> u64 {
+        let generation = self.source_generation.fetch_add(1, Ordering::AcqRel) + 1;
+        for value in [0, 1] {
+            if self
+                .permit
+                .compare_exchange(value, 4, Ordering::AcqRel, Ordering::Acquire)
+                .is_ok()
+            {
+                break;
+            }
+        }
+        generation
+    }
+    fn resume_source(&self, generation: u64) -> bool {
+        if self.source_generation.load(Ordering::Acquire) != generation {
+            return false;
+        }
+        let _ = self
+            .permit
+            .compare_exchange(4, 0, Ordering::AcqRel, Ordering::Acquire);
+        if self.source_generation.load(Ordering::Acquire) != generation {
+            self.close();
+            return false;
+        }
+        true
     }
     pub fn reason(&self) -> Option<String> {
         self.reason.lock().ok().and_then(|r| r.clone())
@@ -106,6 +134,7 @@ impl Telemetry {
 }
 #[derive(Debug)]
 struct Market {
+    generation: u64,
     bid: i64,
     ask: i64,
     observed_at: u64,
@@ -113,7 +142,12 @@ struct Market {
     received: Instant,
 }
 enum Control {
-    Ready,
+    Ready {
+        generation: u64,
+    },
+    Expired {
+        generation: u64,
+    },
     Wake,
     Done {
         epoch: u64,
@@ -277,6 +311,10 @@ struct Writer {
     busy: bool,
     reconcile: bool,
     stream_ready: bool,
+    source_generation: u64,
+    reconciled_generation: u64,
+    reconnect_pending: bool,
+    stale_market_discarded: u64,
     poll_requested: bool,
     target: Option<(i64, u64, Instant)>,
     processed: u64,
@@ -360,7 +398,24 @@ impl Writer {
     fn control(&mut self, message: Control) -> Result<()> {
         self.critical_count += 1;
         match message {
-            Control::Ready => self.stream_ready = true,
+            Control::Ready { generation } => {
+                if generation == self.source_generation {
+                    self.stream_ready = true;
+                    self.telemetry.emit(json!({"kind":"source_ready","generation":generation,"epoch":self.engine.core().epoch,"at_ms":wall_ms()}));
+                }
+            }
+            Control::Expired { generation } => {
+                if generation <= self.source_generation {
+                    return Err(fail("non-increasing source generation"));
+                }
+                self.source_generation = generation;
+                self.stream_ready = false;
+                self.reconnect_pending = true;
+                self.target = None;
+                self.telemetry.emit(
+                    json!({"kind":"source_expired","generation":generation,"at_ms":wall_ms()}),
+                );
+            }
             Control::Wake => self.poll_requested = true,
             Control::Done {
                 epoch,
@@ -394,12 +449,24 @@ impl Writer {
                 self.busy = false;
                 self.reconcile = false;
                 self.process(Event::Reconcile(snapshot), Instant::now())?;
+                if self.engine.core().health == Health::Healthy {
+                    self.reconciled_generation = self.source_generation;
+                    self.telemetry.emit(json!({"kind":"source_reconciled","generation":self.source_generation,"epoch":self.engine.core().epoch,"at_ms":wall_ms()}));
+                }
             }
             Control::Target {
                 request,
                 answer,
                 received,
             } => {
+                if self.reconnect_pending
+                    || request.epoch < self.engine.core().epoch
+                    || self.source_generation
+                        != self.circuit.source_generation.load(Ordering::Acquire)
+                {
+                    self.telemetry.emit(json!({"kind":"stale_strategy_discarded","epoch":request.epoch,"current_epoch":self.engine.core().epoch}));
+                    return Ok(());
+                }
                 strategy::validate_answer(&request, &answer, self.engine.core().epoch, wall_ms())?;
                 if let Some(target) = answer.target {
                     if request.bar.close_ms > wall_ms() || wall_ms() - request.bar.close_ms > 65000
@@ -420,7 +487,21 @@ impl Writer {
         }
         Ok(())
     }
+    fn advance_reconnect(&mut self) -> Result<()> {
+        if self.reconnect_pending && !self.busy {
+            // Consume the previous executor result in its original epoch first.
+            self.process(Event::Disconnect, Instant::now())?;
+            self.process(Event::Reconnect, Instant::now())?;
+            self.reconnect_pending = false;
+        }
+        Ok(())
+    }
     fn market(&mut self, message: Market) -> Result<()> {
+        if message.generation != self.source_generation {
+            self.stale_market_discarded += 1;
+            self.telemetry.emit(json!({"kind":"stale_market_discarded","generation":message.generation,"current_generation":self.source_generation}));
+            return Ok(());
+        }
         self.market_count += 1;
         self.process_with_time(
             Event::QuoteObserved {
@@ -439,6 +520,9 @@ impl Writer {
     }
     fn dispatch_target(&mut self) -> Result<()> {
         if self.busy
+            || self.reconnect_pending
+            || self.source_generation != self.circuit.source_generation.load(Ordering::Acquire)
+            || self.source_generation != self.reconciled_generation
             || !self.stream_ready
             || self.reconcile
             || self.poll_requested
@@ -447,7 +531,13 @@ impl Writer {
         {
             return Ok(());
         }
+        if !self.circuit.resume_source(self.source_generation) {
+            return Ok(());
+        }
         self.circuit.allow();
+        if self.circuit.permit.load(Ordering::Acquire) != 1 {
+            return Ok(());
+        }
         let Some((target, deadline, received)) = self.target else {
             return Ok(());
         };
@@ -606,7 +696,7 @@ fn candle_worker(
                 bar: bar.clone(),
             };
             let answer = strategy.calculate(&request)?;
-            strategy::validate_answer(&request, &answer, epoch.load(Ordering::Acquire), wall_ms())?;
+            strategy::validate_answer(&request, &answer, request.epoch, wall_ms())?;
             last = Some(bar.open_ms);
             cached.push_back(bar);
             if cached.len() > 503 {
@@ -696,6 +786,7 @@ pub fn run(dir: &Path, options: Options) -> Result<Value> {
                 let rt = tokio::runtime::Builder::new_current_thread()
                     .enable_all()
                     .build()?;
+                let mut generation = 0;
                 rt.block_on(stream::run(
                     false,
                     instrument,
@@ -710,6 +801,7 @@ pub fn run(dir: &Path, options: Options) -> Result<Value> {
                         } => circuit.publish(
                             &market_tx,
                             Market {
+                                generation,
                                 bid,
                                 ask,
                                 observed_at,
@@ -717,7 +809,13 @@ pub fn run(dir: &Path, options: Options) -> Result<Value> {
                                 received,
                             },
                         ),
-                        Observation::Ready => circuit.publish(&critical, Control::Ready),
+                        Observation::Ready => {
+                            circuit.publish(&critical, Control::Ready { generation })
+                        }
+                        Observation::Expired => {
+                            generation = circuit.pause_source();
+                            circuit.publish(&critical, Control::Expired { generation })
+                        }
                         Observation::PrivateWake => {
                             // Wakeups may coalesce; verified private facts themselves never travel on this queue.
                             let _ = critical.try_send(Control::Wake);
@@ -798,6 +896,10 @@ pub fn run(dir: &Path, options: Options) -> Result<Value> {
         busy: false,
         reconcile: false,
         stream_ready: false,
+        source_generation: 0,
+        reconciled_generation: 0,
+        reconnect_pending: false,
+        stale_market_discarded: 0,
         poll_requested: false,
         target: None,
         processed: 0,
@@ -841,6 +943,8 @@ pub fn run(dir: &Path, options: Options) -> Result<Value> {
                 writer.process(Event::Tick, Instant::now())?;
                 tick = Instant::now();
             }
+            writer.advance_reconnect()?;
+            epoch.store(writer.engine.core().epoch, Ordering::Release);
             writer.dispatch_target()?;
             if !writer.busy
                 && (writer.reconcile
@@ -900,7 +1004,7 @@ pub fn run(dir: &Path, options: Options) -> Result<Value> {
     if let Err(e) = &cleanup {
         circuit.trip(format!("cleanup unresolved: {e}"));
     }
-    let report = json!({"schema":1,"runtime":"rust-native","signed":options.signed,"python_strategy":options.python,"requested_seconds":options.seconds,"active_seconds":active_seconds,"processed":writer.processed,"market_events":writer.market_count,"critical_events":writer.critical_count,"market_queued_at_stop":market_rx.len(),"critical_queued_at_stop":critical_rx.len(),"position":engine.core().position,"orders":engine.core().orders.len(),"fills":engine.core().fills.len(),"health":engine.core().health,"failed":circuit.failed.load(Ordering::Acquire),"failure":circuit.reason(),"cleanup_verified":cleanup.is_ok(),"ledger":venue.as_ref().and_then(|v|v.last_ledger.as_ref()),"telemetry_dropped":telemetry.dropped.load(Ordering::Relaxed)});
+    let report = json!({"schema":1,"runtime":"rust-native","signed":options.signed,"python_strategy":options.python,"requested_seconds":options.seconds,"active_seconds":active_seconds,"processed":writer.processed,"market_events":writer.market_count,"source_reconnects":writer.source_generation,"stale_market_discarded":writer.stale_market_discarded,"critical_events":writer.critical_count,"market_queued_at_stop":market_rx.len(),"critical_queued_at_stop":critical_rx.len(),"position":engine.core().position,"orders":engine.core().orders.len(),"fills":engine.core().fills.len(),"health":engine.core().health,"failed":circuit.failed.load(Ordering::Acquire),"failure":circuit.reason(),"cleanup_verified":cleanup.is_ok(),"ledger":venue.as_ref().and_then(|v|v.last_ledger.as_ref()),"telemetry_dropped":telemetry.dropped.load(Ordering::Relaxed)});
     drop(writer.telemetry);
     drop(telemetry);
     logger
@@ -1210,6 +1314,10 @@ mod isolation_tests {
             busy: false,
             reconcile: false,
             stream_ready: true,
+            source_generation: 0,
+            reconciled_generation: 0,
+            reconnect_pending: false,
+            stale_market_discarded: 0,
             poll_requested: false,
             target: None,
             processed: 0,
@@ -1270,3 +1378,7 @@ mod isolation_tests {
         std::fs::remove_dir_all(dir).unwrap();
     }
 }
+
+#[cfg(test)]
+#[path = "expiry_tests.rs"]
+mod expiry_tests;

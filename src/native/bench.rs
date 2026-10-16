@@ -83,6 +83,10 @@ pub fn run(dir: &Path, manifest: Manifest) -> Result<Value> {
         busy: false,
         reconcile: false,
         stream_ready: true,
+        source_generation: 0,
+        reconciled_generation: 0,
+        reconnect_pending: false,
+        stale_market_discarded: 0,
         poll_requested: false,
         target: None,
         processed: 0,
@@ -137,6 +141,7 @@ pub fn run(dir: &Path, manifest: Manifest) -> Result<Value> {
                 );
                 let input = Input {
                     market: Market {
+                        generation: 0,
                         bid,
                         ask,
                         observed_at: wall_ms(),

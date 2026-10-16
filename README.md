@@ -64,7 +64,7 @@ target/release/native-live probe --seconds 15
 target/release/native-live paper --python-strategy --seconds 900 --flatten --run-dir runs/native-paper-new
 ```
 
-紙上成交不代表交易所成交。實際 Testnet 小額下單、原 session 恢復、環境變數及風險限制見 [native 操作指引](docs/rust-native-runtime-operations.md)。[驗收記錄](docs/rust-native-runtime-results.md) 分開列出 correctness 和性能結果；不要把 Rust implementation 本身當作低延遲證明。Private stream 目前觸發 REST refresh，沒有自動斷線後恢復交易或 live journal 輪換。
+紙上成交不代表交易所成交。實際 Testnet 小額下單、原 session 恢復、環境變數及風險限制見 [native 操作指引](docs/rust-native-runtime-operations.md)。[驗收記錄](docs/rust-native-runtime-results.md) 分開列出 correctness 和性能結果；不要把 Rust implementation 本身當作低延遲證明。Private stream 目前觸發 REST refresh；`1000/Expired` 會先關 gate 再重新訂閱及完整對帳，最多三次。其他斷線仍停止 session，live journal 輪換未啟用。
 
 ## Hyperliquid Perps Testnet
 

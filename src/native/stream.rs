@@ -110,6 +110,7 @@ pub enum Observation {
     },
     PrivateWake,
     Ready,
+    Expired,
 }
 /// This stream is a wakeup for REST-verified private facts, never a fabricated venue sequence.
 pub async fn run(
@@ -119,7 +120,50 @@ pub async fn run(
     stop: Arc<AtomicBool>,
     mut publish: impl FnMut(Observation, Instant) -> Result<()>,
 ) -> Result<()> {
-    let mut ws = tokio::time::timeout(Duration::from_secs(10), connect(mainnet)).await??;
+    for attempt in 0..=3 {
+        if stop.load(Ordering::Acquire) {
+            return Ok(());
+        }
+        if !run_connection(
+            mainnet,
+            instrument.clone(),
+            account.clone(),
+            stop.clone(),
+            &mut publish,
+        )
+        .await?
+        {
+            return Ok(());
+        }
+        // Only the documented, observed 1000/Expired lifecycle is recoverable.
+        // Notify the owner before opening a replacement; no private facts are inferred.
+        publish(Observation::Expired, Instant::now())?;
+        if attempt == 3 {
+            return Err(fail("WebSocket expiry reconnect budget exhausted"));
+        }
+        tokio::time::sleep(Duration::from_secs(1)).await;
+    }
+    unreachable!()
+}
+
+async fn run_connection(
+    mainnet: bool,
+    instrument: Instrument,
+    account: Option<String>,
+    stop: Arc<AtomicBool>,
+    publish: &mut impl FnMut(Observation, Instant) -> Result<()>,
+) -> Result<bool> {
+    let ws = tokio::time::timeout(Duration::from_secs(10), connect(mainnet)).await??;
+    subscribe_and_read(ws, instrument, account, stop, publish).await
+}
+
+async fn subscribe_and_read(
+    mut ws: WebSocketStream<MaybeTlsStream<TcpStream>>,
+    instrument: Instrument,
+    account: Option<String>,
+    stop: Arc<AtomicBool>,
+    publish: &mut impl FnMut(Observation, Instant) -> Result<()>,
+) -> Result<bool> {
     let mut subscriptions = vec![
         json!({"type":"l2Book","coin":instrument.symbol,"nSigFigs":null,"mantissa":null,"fast":false}),
     ];
@@ -168,6 +212,11 @@ pub async fn run(
                 continue;
             }
             Message::Pong(_) => continue,
+            Message::Close(Some(frame))
+                if u16::from(frame.code) == 1000 && frame.reason == "Expired" =>
+            {
+                return Ok(true);
+            }
             other => return Err(frame_error(&other)),
         };
         let event: Value = serde_json::from_str(&raw)?;
@@ -207,7 +256,7 @@ pub async fn run(
         }
     }
     let _ = tokio::time::timeout(Duration::from_secs(2), ws.close(None)).await;
-    Ok(())
+    Ok(false)
 }
 
 fn frame_error(message: &Message) -> Box<dyn std::error::Error + Send + Sync> {
@@ -256,5 +305,70 @@ mod tests {
             reason: "x".repeat(1000).into(),
         }));
         assert!(frame_error(&close).to_string().len() < 256);
+    }
+    #[test]
+    fn only_explicit_expiry_can_request_resubscription() {
+        let rt = tokio::runtime::Builder::new_current_thread()
+            .enable_all()
+            .build()
+            .unwrap();
+        rt.block_on(async {
+            for (reason, recoverable) in [("Expired", true), ("maintenance", false)] {
+                let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
+                let addr = listener.local_addr().unwrap();
+                let server = tokio::spawn(async move {
+                    let (socket, _) = listener.accept().await.unwrap();
+                    let mut peer = tokio_tungstenite::accept_async(socket).await.unwrap();
+                    let request: Value = serde_json::from_str(
+                        peer.next().await.unwrap().unwrap().to_text().unwrap(),
+                    )
+                    .unwrap();
+                    peer.send(Message::Text(
+                        json!({"channel":"subscriptionResponse","data":request})
+                            .to_string()
+                            .into(),
+                    ))
+                    .await
+                    .unwrap();
+                    peer.close(Some(CloseFrame {
+                        code: CloseCode::Normal,
+                        reason: reason.into(),
+                    }))
+                    .await
+                    .unwrap();
+                });
+                let socket = TcpStream::connect(addr).await.unwrap();
+                let (ws, _) = tokio_tungstenite::client_async(
+                    format!("ws://{addr}/ws"),
+                    MaybeTlsStream::Plain(socket),
+                )
+                .await
+                .unwrap();
+                let instrument = Instrument::from_meta(
+                    &json!({"universe":[{"name":"BTC","szDecimals":5}]}),
+                    "BTC",
+                )
+                .unwrap();
+                let mut ready = false;
+                let outcome = subscribe_and_read(
+                    ws,
+                    instrument,
+                    None,
+                    Arc::new(AtomicBool::new(false)),
+                    &mut |event, _| {
+                        ready |= matches!(event, Observation::Ready);
+                        Ok(())
+                    },
+                )
+                .await;
+                assert!(ready);
+                if recoverable {
+                    assert!(outcome.unwrap());
+                } else {
+                    assert!(outcome.unwrap_err().to_string().contains("maintenance"));
+                }
+                server.await.unwrap();
+            }
+        });
     }
 }

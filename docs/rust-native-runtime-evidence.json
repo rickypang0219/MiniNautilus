@@ -1,0 +1,1289 @@
+{
+  "schema": 1,
+  "benchmark_commit": "2db3faa5aaec0dc9cf0d9194d6eec4aaa9a73ba4",
+  "analyzer_commit": "6184319",
+  "scope": "Application raw frame to simulated execution handoff; excludes signing/admission/TLS/exchange wait; deterministic targets, no Python strategy worker",
+  "comparison": {
+    "schema": 1,
+    "compatible_complete_runs": true,
+    "counts": {
+      "aa0": 5,
+      "aa1": 5,
+      "ab-a": 5,
+      "ab-b": 5
+    },
+    "aa": {
+      "verdict": "INCONCLUSIVE",
+      "runs": 10,
+      "spread_ratio": 0.26465264498708846,
+      "min": 6.30291644,
+      "median": 6.65873534,
+      "max": 8.06516836
+    },
+    "comparison": {
+      "full_action_p99_ms": {
+        "verdict": "INCONCLUSIVE",
+        "baseline": {
+          "min": 6.49735276,
+          "median": 6.645302979999999,
+          "max": 6.96350008
+        },
+        "native": {
+          "min": 6.1112642,
+          "median": 6.181441019999999,
+          "max": 6.2886165599999995
+        },
+        "median_improvement_fraction": 0.06980298135330465
+      },
+      "cpu_ns_per_market": {
+        "verdict": "INCONCLUSIVE",
+        "baseline": {
+          "min": 274427.1005333333,
+          "median": 275607.3199333333,
+          "max": 277068.2737166667
+        },
+        "native": {
+          "min": 83281.38825,
+          "median": 83374.75129166666,
+          "max": 103027.19690833334
+        },
+        "median_improvement_fraction": 0.6974871664807953
+      },
+      "rss_peak_kib": {
+        "verdict": "INCONCLUSIVE",
+        "baseline": {
+          "min": 69984,
+          "median": 76384,
+          "max": 79756
+        },
+        "native": {
+          "min": 6412,
+          "median": 6528,
+          "max": 6552
+        },
+        "median_improvement_fraction": 0.9145370758273984
+      }
+    },
+    "order_p999": "NOT_MEASURED: fewer than 100000 order samples per run",
+    "scope": "Controlled raw frame to simulated transport; not exchange, TLS, signing or alpha latency",
+    "inventory": [
+      {
+        "run": "aa0-0",
+        "valid": true
+      },
+      {
+        "run": "aa0-1",
+        "valid": true
+      },
+      {
+        "run": "aa0-2",
+        "valid": true
+      },
+      {
+        "run": "aa0-3",
+        "valid": true
+      },
+      {
+        "run": "aa0-4",
+        "valid": true
+      },
+      {
+        "run": "aa1-0",
+        "valid": true
+      },
+      {
+        "run": "aa1-1",
+        "valid": true
+      },
+      {
+        "run": "aa1-2",
+        "valid": true
+      },
+      {
+        "run": "aa1-3",
+        "valid": true
+      },
+      {
+        "run": "aa1-4",
+        "valid": true
+      },
+      {
+        "run": "ab-a-0",
+        "valid": true
+      },
+      {
+        "run": "ab-a-1",
+        "valid": true
+      },
+      {
+        "run": "ab-a-2",
+        "valid": true
+      },
+      {
+        "run": "ab-a-3",
+        "valid": true
+      },
+      {
+        "run": "ab-a-4",
+        "valid": true
+      },
+      {
+        "run": "ab-b-0",
+        "valid": true
+      },
+      {
+        "run": "ab-b-1",
+        "valid": true
+      },
+      {
+        "run": "ab-b-2",
+        "valid": true
+      },
+      {
+        "run": "ab-b-3",
+        "valid": true
+      },
+      {
+        "run": "ab-b-4",
+        "valid": true
+      }
+    ]
+  },
+  "submit_stages": [
+    {
+      "run": "ab-b-0",
+      "count": 115,
+      "submit_request_p99_ms": 5.90778718,
+      "submit_sync_p99_ms": 5.8995289799999995,
+      "same_request_sync_share_median": 0.9980653487802352
+    },
+    {
+      "run": "ab-b-1",
+      "count": 115,
+      "submit_request_p99_ms": 5.72793194,
+      "submit_sync_p99_ms": 5.71825796,
+      "same_request_sync_share_median": 0.9981866747211766
+    },
+    {
+      "run": "ab-b-2",
+      "count": 115,
+      "submit_request_p99_ms": 5.7737513,
+      "submit_sync_p99_ms": 5.76525878,
+      "same_request_sync_share_median": 0.9980327177285403
+    },
+    {
+      "run": "ab-b-3",
+      "count": 115,
+      "submit_request_p99_ms": 5.8174639400000006,
+      "submit_sync_p99_ms": 5.80889456,
+      "same_request_sync_share_median": 0.9982065208231506
+    },
+    {
+      "run": "ab-b-4",
+      "count": 115,
+      "submit_request_p99_ms": 5.804980400000001,
+      "submit_sync_p99_ms": 5.79500582,
+      "same_request_sync_share_median": 0.9979687168199673
+    }
+  ],
+  "runs": [
+    {
+      "run": "aa0-0",
+      "report_sha256": "2cdb7bf66a4529d020ed7b38dfb3a10127b43f2ef31742da7ddb764bc75ca644",
+      "provenance_sha256": "85440c388c9aa917a274ad0a90d52d4e51ac8a170af0f60424cfc87d380c83ad",
+      "valid": true,
+      "counts": {
+        "offered": 120000,
+        "admitted": 120000,
+        "completed": 120000,
+        "rejected": 0,
+        "inflight": 0
+      },
+      "input_sha256": "58d72324fad75a568beda544ead454bbc183358efbd14fac3ae75a25aba3f8e1",
+      "metrics": {
+        "full_action": {
+          "count": 115,
+          "p50_ms": 2.945783,
+          "p99_ms": 6.45112966,
+          "p999_ms": null,
+          "p999_status": "NOT_MEASURED"
+        },
+        "market": {
+          "count": 115000,
+          "p50_ms": 0.1653995,
+          "p99_ms": 0.36850977999999956,
+          "p999_ms": 2.8603097320000606,
+          "p999_status": "MEASURED"
+        },
+        "queue": {
+          "count": 115000,
+          "p50_ms": 0.019749,
+          "p99_ms": 0.20518506999999994,
+          "p999_ms": 2.2086620310000153,
+          "p999_status": "MEASURED"
+        },
+        "scheduled": {
+          "count": 115000,
+          "p50_ms": 0.6504545,
+          "p99_ms": 1.2615943799999998,
+          "p999_ms": 3.4287654870000863,
+          "p999_status": "MEASURED"
+        },
+        "overrun": {
+          "count": 115000,
+          "p50_ms": 0.490652,
+          "p99_ms": 1.0522821599999994,
+          "p999_ms": 1.068892004,
+          "p999_status": "MEASURED"
+        }
+      },
+      "cpu_ns_per_market": 279567.52775,
+      "rss_peak_kib": 63228
+    },
+    {
+      "run": "aa0-1",
+      "report_sha256": "de71c9db5dd32a2d9a81340bb82f46b59f559370cf5991f3278f930c866d73c7",
+      "provenance_sha256": "6f0b100a345bb2737320e07b7085df88fe843e26e68678c872411a19bbccce66",
+      "valid": true,
+      "counts": {
+        "offered": 120000,
+        "admitted": 120000,
+        "completed": 120000,
+        "rejected": 0,
+        "inflight": 0
+      },
+      "input_sha256": "58d72324fad75a568beda544ead454bbc183358efbd14fac3ae75a25aba3f8e1",
+      "metrics": {
+        "full_action": {
+          "count": 115,
+          "p50_ms": 5.567825,
+          "p99_ms": 6.53186846,
+          "p999_ms": null,
+          "p999_status": "NOT_MEASURED"
+        },
+        "market": {
+          "count": 115000,
+          "p50_ms": 0.1639505,
+          "p99_ms": 0.4253052599999999,
+          "p999_ms": 5.197669909000004,
+          "p999_status": "MEASURED"
+        },
+        "queue": {
+          "count": 115000,
+          "p50_ms": 0.019754,
+          "p99_ms": 0.24327254999999917,
+          "p999_ms": 4.180630275000016,
+          "p999_status": "MEASURED"
+        },
+        "scheduled": {
+          "count": 115000,
+          "p50_ms": 0.687207,
+          "p99_ms": 1.28795704,
+          "p999_ms": 5.626413223000001,
+          "p999_status": "MEASURED"
+        },
+        "overrun": {
+          "count": 115000,
+          "p50_ms": 0.525165,
+          "p99_ms": 1.06190103,
+          "p999_ms": 1.069276006,
+          "p999_status": "MEASURED"
+        }
+      },
+      "cpu_ns_per_market": 280306.6505,
+      "rss_peak_kib": 65820
+    },
+    {
+      "run": "aa0-2",
+      "report_sha256": "8543368c002b331ff4f9b6d5d5601bf3584021904fc88b21af2ae1242cfc8e00",
+      "provenance_sha256": "9e71013942b9b2c9c92d2b1a7ec6db3fd52e04bf2c4e8ff895554967ba2ce34a",
+      "valid": true,
+      "counts": {
+        "offered": 120000,
+        "admitted": 120000,
+        "completed": 120000,
+        "rejected": 0,
+        "inflight": 0
+      },
+      "input_sha256": "58d72324fad75a568beda544ead454bbc183358efbd14fac3ae75a25aba3f8e1",
+      "metrics": {
+        "full_action": {
+          "count": 115,
+          "p50_ms": 5.670888,
+          "p99_ms": 6.80885612,
+          "p999_ms": null,
+          "p999_status": "NOT_MEASURED"
+        },
+        "market": {
+          "count": 115000,
+          "p50_ms": 0.164882,
+          "p99_ms": 0.47014312999999996,
+          "p999_ms": 5.365935294000009,
+          "p999_status": "MEASURED"
+        },
+        "queue": {
+          "count": 115000,
+          "p50_ms": 0.0196,
+          "p99_ms": 0.24696245999999925,
+          "p999_ms": 4.4110463440000744,
+          "p999_status": "MEASURED"
+        },
+        "scheduled": {
+          "count": 115000,
+          "p50_ms": 0.683036,
+          "p99_ms": 1.2925738999999994,
+          "p999_ms": 5.800689259000005,
+          "p999_status": "MEASURED"
+        },
+        "overrun": {
+          "count": 115000,
+          "p50_ms": 0.5204535,
+          "p99_ms": 1.06127605,
+          "p999_ms": 1.068644018,
+          "p999_status": "MEASURED"
+        }
+      },
+      "cpu_ns_per_market": 279482.764675,
+      "rss_peak_kib": 69828
+    },
+    {
+      "run": "aa0-3",
+      "report_sha256": "bd7caee2851a6206efca81cd08ae77e8a5a5758dbcb2fe687464b832c1d7f1a8",
+      "provenance_sha256": "7ac5eb5f9460531abba027a4d49ee46ce160acbe863bde10401ca5ed57e54cfe",
+      "valid": true,
+      "counts": {
+        "offered": 120000,
+        "admitted": 120000,
+        "completed": 120000,
+        "rejected": 0,
+        "inflight": 0
+      },
+      "input_sha256": "58d72324fad75a568beda544ead454bbc183358efbd14fac3ae75a25aba3f8e1",
+      "metrics": {
+        "full_action": {
+          "count": 115,
+          "p50_ms": 5.620046,
+          "p99_ms": 6.625896480000001,
+          "p999_ms": null,
+          "p999_status": "NOT_MEASURED"
+        },
+        "market": {
+          "count": 115000,
+          "p50_ms": 0.164502,
+          "p99_ms": 0.4713787699999996,
+          "p999_ms": 5.324210591000006,
+          "p999_status": "MEASURED"
+        },
+        "queue": {
+          "count": 115000,
+          "p50_ms": 0.019827,
+          "p99_ms": 0.2945476999999996,
+          "p999_ms": 4.347720025000022,
+          "p999_status": "MEASURED"
+        },
+        "scheduled": {
+          "count": 115000,
+          "p50_ms": 0.6711755,
+          "p99_ms": 1.325909549999999,
+          "p999_ms": 5.720128736000003,
+          "p999_status": "MEASURED"
+        },
+        "overrun": {
+          "count": 115000,
+          "p50_ms": 0.499616,
+          "p99_ms": 1.06403601,
+          "p999_ms": 1.069658003,
+          "p999_status": "MEASURED"
+        }
+      },
+      "cpu_ns_per_market": 279645.1318166667,
+      "rss_peak_kib": 69820
+    },
+    {
+      "run": "aa0-4",
+      "report_sha256": "a703a4e72c01f306e2c367ec466b41b9297debcfce6879edd2afafa1e5b62aea",
+      "provenance_sha256": "18abbd50747141379c4e0a0cf49fc944c8f6414765cc237e669a63273e15022c",
+      "valid": true,
+      "counts": {
+        "offered": 120000,
+        "admitted": 120000,
+        "completed": 120000,
+        "rejected": 0,
+        "inflight": 0
+      },
+      "input_sha256": "58d72324fad75a568beda544ead454bbc183358efbd14fac3ae75a25aba3f8e1",
+      "metrics": {
+        "full_action": {
+          "count": 115,
+          "p50_ms": 5.641328,
+          "p99_ms": 6.58776638,
+          "p999_ms": null,
+          "p999_status": "NOT_MEASURED"
+        },
+        "market": {
+          "count": 115000,
+          "p50_ms": 0.165392,
+          "p99_ms": 0.3816242899999988,
+          "p999_ms": 5.289811847000003,
+          "p999_status": "MEASURED"
+        },
+        "queue": {
+          "count": 115000,
+          "p50_ms": 0.019725,
+          "p99_ms": 0.225084,
+          "p999_ms": 4.2774036310000065,
+          "p999_status": "MEASURED"
+        },
+        "scheduled": {
+          "count": 115000,
+          "p50_ms": 0.657645,
+          "p99_ms": 1.2749271199999999,
+          "p999_ms": 5.662536090000019,
+          "p999_status": "MEASURED"
+        },
+        "overrun": {
+          "count": 115000,
+          "p50_ms": 0.494489,
+          "p99_ms": 1.06239501,
+          "p999_ms": 1.068731004,
+          "p999_status": "MEASURED"
+        }
+      },
+      "cpu_ns_per_market": 276412.80118333333,
+      "rss_peak_kib": 69880
+    },
+    {
+      "run": "aa1-0",
+      "report_sha256": "a5971a616a6e6a52e820b738c5772314520df4ba1db1c96b4a1e499dbbdc1839",
+      "provenance_sha256": "28ab9cc17ffed7f5a5276bff26aefe264e37bcef2719911a69b7f5d17904b5c6",
+      "valid": true,
+      "counts": {
+        "offered": 120000,
+        "admitted": 120000,
+        "completed": 120000,
+        "rejected": 0,
+        "inflight": 0
+      },
+      "input_sha256": "58d72324fad75a568beda544ead454bbc183358efbd14fac3ae75a25aba3f8e1",
+      "metrics": {
+        "full_action": {
+          "count": 115,
+          "p50_ms": 5.489127,
+          "p99_ms": 8.06516836,
+          "p999_ms": null,
+          "p999_status": "NOT_MEASURED"
+        },
+        "market": {
+          "count": 115000,
+          "p50_ms": 0.166798,
+          "p99_ms": 0.3850004399999998,
+          "p999_ms": 5.2174114270000285,
+          "p999_status": "MEASURED"
+        },
+        "queue": {
+          "count": 115000,
+          "p50_ms": 0.020019,
+          "p99_ms": 0.22765061999999914,
+          "p999_ms": 4.109720371000055,
+          "p999_status": "MEASURED"
+        },
+        "scheduled": {
+          "count": 115000,
+          "p50_ms": 0.673043,
+          "p99_ms": 1.2777991299999998,
+          "p999_ms": 5.516617424000052,
+          "p999_status": "MEASURED"
+        },
+        "overrun": {
+          "count": 115000,
+          "p50_ms": 0.5098625,
+          "p99_ms": 1.0557220600000001,
+          "p999_ms": 1.0704670150000002,
+          "p999_status": "MEASURED"
+        }
+      },
+      "cpu_ns_per_market": 279015.822425,
+      "rss_peak_kib": 69920
+    },
+    {
+      "run": "aa1-1",
+      "report_sha256": "bb040dca0fb61f5e44b1b669ba3fea90904a95dcae778b22653df757bd304b2d",
+      "provenance_sha256": "1a9bd3865c130f43e80d010e651e7571ada9105efca715b6640842410885b3b9",
+      "valid": true,
+      "counts": {
+        "offered": 120000,
+        "admitted": 120000,
+        "completed": 120000,
+        "rejected": 0,
+        "inflight": 0
+      },
+      "input_sha256": "58d72324fad75a568beda544ead454bbc183358efbd14fac3ae75a25aba3f8e1",
+      "metrics": {
+        "full_action": {
+          "count": 115,
+          "p50_ms": 5.552253,
+          "p99_ms": 6.6915742,
+          "p999_ms": null,
+          "p999_status": "NOT_MEASURED"
+        },
+        "market": {
+          "count": 115000,
+          "p50_ms": 0.160975,
+          "p99_ms": 0.37363926999999986,
+          "p999_ms": 5.247491059000016,
+          "p999_status": "MEASURED"
+        },
+        "queue": {
+          "count": 115000,
+          "p50_ms": 0.019554,
+          "p99_ms": 0.20987435999999823,
+          "p999_ms": 4.264688932000007,
+          "p999_status": "MEASURED"
+        },
+        "scheduled": {
+          "count": 115000,
+          "p50_ms": 0.691321,
+          "p99_ms": 1.2691174499999998,
+          "p999_ms": 5.645712424000002,
+          "p999_status": "MEASURED"
+        },
+        "overrun": {
+          "count": 115000,
+          "p50_ms": 0.514704,
+          "p99_ms": 1.05848805,
+          "p999_ms": 1.068800017,
+          "p999_status": "MEASURED"
+        }
+      },
+      "cpu_ns_per_market": 275107.2790916667,
+      "rss_peak_kib": 70024
+    },
+    {
+      "run": "aa1-2",
+      "report_sha256": "6a7030068719abdc408846ff26dcd4a8623bbb9caf24b4d6489b8e651457dc52",
+      "provenance_sha256": "2a522867cf790177c63b9f258fa09c23d6824f69cf3d1b8f0444b1e2143df24e",
+      "valid": true,
+      "counts": {
+        "offered": 120000,
+        "admitted": 120000,
+        "completed": 120000,
+        "rejected": 0,
+        "inflight": 0
+      },
+      "input_sha256": "58d72324fad75a568beda544ead454bbc183358efbd14fac3ae75a25aba3f8e1",
+      "metrics": {
+        "full_action": {
+          "count": 115,
+          "p50_ms": 5.540756,
+          "p99_ms": 6.71069256,
+          "p999_ms": null,
+          "p999_status": "NOT_MEASURED"
+        },
+        "market": {
+          "count": 115000,
+          "p50_ms": 0.1628745,
+          "p99_ms": 0.39183835999999983,
+          "p999_ms": 5.143571346000067,
+          "p999_status": "MEASURED"
+        },
+        "queue": {
+          "count": 115000,
+          "p50_ms": 0.020352,
+          "p99_ms": 0.21278629999999985,
+          "p999_ms": 4.144869620000006,
+          "p999_status": "MEASURED"
+        },
+        "scheduled": {
+          "count": 115000,
+          "p50_ms": 0.6791265,
+          "p99_ms": 1.26401404,
+          "p999_ms": 5.571518945000038,
+          "p999_status": "MEASURED"
+        },
+        "overrun": {
+          "count": 115000,
+          "p50_ms": 0.5140045,
+          "p99_ms": 1.0562158099999996,
+          "p999_ms": 1.068293002,
+          "p999_status": "MEASURED"
+        }
+      },
+      "cpu_ns_per_market": 277571.437125,
+      "rss_peak_kib": 69908
+    },
+    {
+      "run": "aa1-3",
+      "report_sha256": "d722d7108060fe3ec58cd2f5930009f7738c6d57363837abff3ba6cfceba1b84",
+      "provenance_sha256": "a79f9ba42237af4140ce99387803fd241e1905a7a78f7b587bde44d6d7409367",
+      "valid": true,
+      "counts": {
+        "offered": 120000,
+        "admitted": 120000,
+        "completed": 120000,
+        "rejected": 0,
+        "inflight": 0
+      },
+      "input_sha256": "58d72324fad75a568beda544ead454bbc183358efbd14fac3ae75a25aba3f8e1",
+      "metrics": {
+        "full_action": {
+          "count": 115,
+          "p50_ms": 4.072687,
+          "p99_ms": 6.30291644,
+          "p999_ms": null,
+          "p999_status": "NOT_MEASURED"
+        },
+        "market": {
+          "count": 115000,
+          "p50_ms": 0.1648065,
+          "p99_ms": 0.3933132499999999,
+          "p999_ms": 4.209406871000023,
+          "p999_status": "MEASURED"
+        },
+        "queue": {
+          "count": 115000,
+          "p50_ms": 0.019904,
+          "p99_ms": 0.2302585499999997,
+          "p999_ms": 3.301891769000038,
+          "p999_status": "MEASURED"
+        },
+        "scheduled": {
+          "count": 115000,
+          "p50_ms": 0.6958495,
+          "p99_ms": 1.28768204,
+          "p999_ms": 4.789105879000007,
+          "p999_status": "MEASURED"
+        },
+        "overrun": {
+          "count": 115000,
+          "p50_ms": 0.5337055,
+          "p99_ms": 1.05949102,
+          "p999_ms": 1.068889017,
+          "p999_status": "MEASURED"
+        }
+      },
+      "cpu_ns_per_market": 278452.11789166665,
+      "rss_peak_kib": 69980
+    },
+    {
+      "run": "aa1-4",
+      "report_sha256": "88e6594c601534c9fa6518b2f42acc74a9ddfc734626e01283474fc630bd797c",
+      "provenance_sha256": "71b0e5407d634f56520b89f57583d0a206663d5b1eb243e075c94fa26e40953f",
+      "valid": true,
+      "counts": {
+        "offered": 120000,
+        "admitted": 120000,
+        "completed": 120000,
+        "rejected": 0,
+        "inflight": 0
+      },
+      "input_sha256": "58d72324fad75a568beda544ead454bbc183358efbd14fac3ae75a25aba3f8e1",
+      "metrics": {
+        "full_action": {
+          "count": 115,
+          "p50_ms": 5.714956,
+          "p99_ms": 7.1046005999999995,
+          "p999_ms": null,
+          "p999_status": "NOT_MEASURED"
+        },
+        "market": {
+          "count": 115000,
+          "p50_ms": 0.164278,
+          "p99_ms": 0.38977934999999825,
+          "p999_ms": 5.361821582000002,
+          "p999_status": "MEASURED"
+        },
+        "queue": {
+          "count": 115000,
+          "p50_ms": 0.019797,
+          "p99_ms": 0.23310257999999812,
+          "p999_ms": 4.331653790000041,
+          "p999_status": "MEASURED"
+        },
+        "scheduled": {
+          "count": 115000,
+          "p50_ms": 0.6697495,
+          "p99_ms": 1.27496313,
+          "p999_ms": 5.706871953000004,
+          "p999_status": "MEASURED"
+        },
+        "overrun": {
+          "count": 115000,
+          "p50_ms": 0.508961,
+          "p99_ms": 1.0556002499999997,
+          "p999_ms": 1.068369001,
+          "p999_status": "MEASURED"
+        }
+      },
+      "cpu_ns_per_market": 276862.4943833333,
+      "rss_peak_kib": 69928
+    },
+    {
+      "run": "ab-a-0",
+      "report_sha256": "96a447704c54feb2aafa80ee0f3077c9b04b8e4d8d71a889d2087387c9a0df67",
+      "provenance_sha256": "62b08f178092ca50cccf7ce73d76d9718ca79de6cf7e80abf7fd31063bcfbf51",
+      "valid": true,
+      "counts": {
+        "offered": 120000,
+        "admitted": 120000,
+        "completed": 120000,
+        "rejected": 0,
+        "inflight": 0
+      },
+      "input_sha256": "58d72324fad75a568beda544ead454bbc183358efbd14fac3ae75a25aba3f8e1",
+      "metrics": {
+        "full_action": {
+          "count": 115,
+          "p50_ms": 5.590709,
+          "p99_ms": 6.645302979999999,
+          "p999_ms": null,
+          "p999_status": "NOT_MEASURED"
+        },
+        "market": {
+          "count": 115000,
+          "p50_ms": 0.1642695,
+          "p99_ms": 0.37250302,
+          "p999_ms": 5.186113459000071,
+          "p999_status": "MEASURED"
+        },
+        "queue": {
+          "count": 115000,
+          "p50_ms": 0.019725,
+          "p99_ms": 0.2231769599999995,
+          "p999_ms": 4.206361225,
+          "p999_status": "MEASURED"
+        },
+        "scheduled": {
+          "count": 115000,
+          "p50_ms": 0.6689485,
+          "p99_ms": 1.2694001099999999,
+          "p999_ms": 5.55181440500001,
+          "p999_status": "MEASURED"
+        },
+        "overrun": {
+          "count": 115000,
+          "p50_ms": 0.515383,
+          "p99_ms": 1.06081627,
+          "p999_ms": 1.0681920050000002,
+          "p999_status": "MEASURED"
+        }
+      },
+      "cpu_ns_per_market": 275320.29785833333,
+      "rss_peak_kib": 69984
+    },
+    {
+      "run": "ab-a-1",
+      "report_sha256": "40c6f6dfe82e8283fdaef06d00cf53cae6869c32b142eb051f0aa457b5e939ce",
+      "provenance_sha256": "814e206d3e3906ee2dfe8575eb88440fc42174ddbb2e640a8a135629894fd4a4",
+      "valid": true,
+      "counts": {
+        "offered": 120000,
+        "admitted": 120000,
+        "completed": 120000,
+        "rejected": 0,
+        "inflight": 0
+      },
+      "input_sha256": "58d72324fad75a568beda544ead454bbc183358efbd14fac3ae75a25aba3f8e1",
+      "metrics": {
+        "full_action": {
+          "count": 115,
+          "p50_ms": 5.526801,
+          "p99_ms": 6.520060320000001,
+          "p999_ms": null,
+          "p999_status": "NOT_MEASURED"
+        },
+        "market": {
+          "count": 115000,
+          "p50_ms": 0.1636625,
+          "p99_ms": 0.37458586999999954,
+          "p999_ms": 5.141002610000045,
+          "p999_status": "MEASURED"
+        },
+        "queue": {
+          "count": 115000,
+          "p50_ms": 0.019898,
+          "p99_ms": 0.2207381999999978,
+          "p999_ms": 4.0813795780000595,
+          "p999_status": "MEASURED"
+        },
+        "scheduled": {
+          "count": 115000,
+          "p50_ms": 0.651928,
+          "p99_ms": 1.2621525299999998,
+          "p999_ms": 5.493254496000051,
+          "p999_status": "MEASURED"
+        },
+        "overrun": {
+          "count": 115000,
+          "p50_ms": 0.4933385,
+          "p99_ms": 1.0351745599999997,
+          "p999_ms": 1.0683490020000002,
+          "p999_status": "MEASURED"
+        }
+      },
+      "cpu_ns_per_market": 277068.2737166667,
+      "rss_peak_kib": 76384
+    },
+    {
+      "run": "ab-a-2",
+      "report_sha256": "c6c06b9e86bf8ad4d224c836c08020b0c5ef13395ed28122ed31f006784e077e",
+      "provenance_sha256": "8db192fc208bd52a476f3f80eb053d3c913a41e0c55d65d607daa79eb529898b",
+      "valid": true,
+      "counts": {
+        "offered": 120000,
+        "admitted": 120000,
+        "completed": 120000,
+        "rejected": 0,
+        "inflight": 0
+      },
+      "input_sha256": "58d72324fad75a568beda544ead454bbc183358efbd14fac3ae75a25aba3f8e1",
+      "metrics": {
+        "full_action": {
+          "count": 115,
+          "p50_ms": 4.071016,
+          "p99_ms": 6.49735276,
+          "p999_ms": null,
+          "p999_status": "NOT_MEASURED"
+        },
+        "market": {
+          "count": 115000,
+          "p50_ms": 0.163392,
+          "p99_ms": 0.37444906999999994,
+          "p999_ms": 4.47097263600003,
+          "p999_status": "MEASURED"
+        },
+        "queue": {
+          "count": 115000,
+          "p50_ms": 0.0196425,
+          "p99_ms": 0.2121631799999999,
+          "p999_ms": 3.629461591000052,
+          "p999_status": "MEASURED"
+        },
+        "scheduled": {
+          "count": 115000,
+          "p50_ms": 0.693677,
+          "p99_ms": 1.27406307,
+          "p999_ms": 4.920595015000023,
+          "p999_status": "MEASURED"
+        },
+        "overrun": {
+          "count": 115000,
+          "p50_ms": 0.536603,
+          "p99_ms": 1.0659950200000001,
+          "p999_ms": 1.0698080280000002,
+          "p999_status": "MEASURED"
+        }
+      },
+      "cpu_ns_per_market": 275607.3199333333,
+      "rss_peak_kib": 76384
+    },
+    {
+      "run": "ab-a-3",
+      "report_sha256": "77932742d1b7003ae6117980ad82e6e1f8b8e9ab6a4428e95146da8ff19b8136",
+      "provenance_sha256": "845e822bde8423c6e79b3ce69f8bcb9cf95809d3bfb9c9073bcafafc93114f08",
+      "valid": true,
+      "counts": {
+        "offered": 120000,
+        "admitted": 120000,
+        "completed": 120000,
+        "rejected": 0,
+        "inflight": 0
+      },
+      "input_sha256": "58d72324fad75a568beda544ead454bbc183358efbd14fac3ae75a25aba3f8e1",
+      "metrics": {
+        "full_action": {
+          "count": 115,
+          "p50_ms": 5.535088,
+          "p99_ms": 6.96350008,
+          "p999_ms": null,
+          "p999_status": "NOT_MEASURED"
+        },
+        "market": {
+          "count": 115000,
+          "p50_ms": 0.164573,
+          "p99_ms": 0.3761805999999997,
+          "p999_ms": 5.227130690000007,
+          "p999_status": "MEASURED"
+        },
+        "queue": {
+          "count": 115000,
+          "p50_ms": 0.020089,
+          "p99_ms": 0.22595464999999915,
+          "p999_ms": 4.162520072000019,
+          "p999_status": "MEASURED"
+        },
+        "scheduled": {
+          "count": 115000,
+          "p50_ms": 0.6753265,
+          "p99_ms": 1.2630723199999998,
+          "p999_ms": 5.561986460000009,
+          "p999_status": "MEASURED"
+        },
+        "overrun": {
+          "count": 115000,
+          "p50_ms": 0.5174025,
+          "p99_ms": 1.04400015,
+          "p999_ms": 1.0641251020000004,
+          "p999_status": "MEASURED"
+        }
+      },
+      "cpu_ns_per_market": 276705.719525,
+      "rss_peak_kib": 79756
+    },
+    {
+      "run": "ab-a-4",
+      "report_sha256": "c8315d93e1a5c977223d87d9a494d90d860a58c4cf4691fd874816155efb40f5",
+      "provenance_sha256": "9d6f53830fe71cdb1d6fc52427c5cf5faf1ebdc9ef9be6d3eb78f816ced6f013",
+      "valid": true,
+      "counts": {
+        "offered": 120000,
+        "admitted": 120000,
+        "completed": 120000,
+        "rejected": 0,
+        "inflight": 0
+      },
+      "input_sha256": "58d72324fad75a568beda544ead454bbc183358efbd14fac3ae75a25aba3f8e1",
+      "metrics": {
+        "full_action": {
+          "count": 115,
+          "p50_ms": 5.714032,
+          "p99_ms": 6.83381884,
+          "p999_ms": null,
+          "p999_status": "NOT_MEASURED"
+        },
+        "market": {
+          "count": 115000,
+          "p50_ms": 0.162162,
+          "p99_ms": 0.3943275599999997,
+          "p999_ms": 5.355862210000004,
+          "p999_status": "MEASURED"
+        },
+        "queue": {
+          "count": 115000,
+          "p50_ms": 0.019953,
+          "p99_ms": 0.22881205999999996,
+          "p999_ms": 4.359722254000009,
+          "p999_status": "MEASURED"
+        },
+        "scheduled": {
+          "count": 115000,
+          "p50_ms": 0.686745,
+          "p99_ms": 1.266191,
+          "p999_ms": 5.732989189000001,
+          "p999_status": "MEASURED"
+        },
+        "overrun": {
+          "count": 115000,
+          "p50_ms": 0.5225085,
+          "p99_ms": 1.0472985799999996,
+          "p999_ms": 1.06786101,
+          "p999_status": "MEASURED"
+        }
+      },
+      "cpu_ns_per_market": 274427.1005333333,
+      "rss_peak_kib": 79744
+    },
+    {
+      "run": "ab-b-0",
+      "report_sha256": "c6e67a0cfa5243df2ca37e3552ce099aa7d43f06cd6c99e18777559bc7e034e5",
+      "provenance_sha256": "ed9e1cc6f85052886c95704a8947b71eb9f37ac1301f65e6fea35da3c6954127",
+      "valid": true,
+      "counts": {
+        "admitted": 120000,
+        "completed": 120000,
+        "inflight": 0,
+        "offered": 120000,
+        "rejected": 0
+      },
+      "input_sha256": "58d72324fad75a568beda544ead454bbc183358efbd14fac3ae75a25aba3f8e1",
+      "metrics": {
+        "full_action": {
+          "count": 115,
+          "p50_ms": 4.727888,
+          "p99_ms": 6.17001664,
+          "p999_ms": null,
+          "p999_status": "NOT_MEASURED"
+        },
+        "market": {
+          "count": 115000,
+          "p50_ms": 0.012064,
+          "p99_ms": 0.01794001999999999,
+          "p999_ms": 3.870784408000002,
+          "p999_status": "MEASURED"
+        },
+        "queue": {
+          "count": 115000,
+          "p50_ms": 0.005473,
+          "p99_ms": 0.006627,
+          "p999_ms": 2.8697770950000003,
+          "p999_status": "MEASURED"
+        },
+        "scheduled": {
+          "count": 115000,
+          "p50_ms": 0.066706,
+          "p99_ms": 0.07389101,
+          "p999_ms": 3.925434604000002,
+          "p999_status": "MEASURED"
+        },
+        "overrun": {
+          "count": 115000,
+          "p50_ms": 0.054498,
+          "p99_ms": 0.05731901999999999,
+          "p999_ms": 0.061951,
+          "p999_status": "MEASURED"
+        }
+      },
+      "cpu_ns_per_market": 83419.069075,
+      "rss_peak_kib": 6540
+    },
+    {
+      "run": "ab-b-1",
+      "report_sha256": "1b1238a8adcff12958f92a3431496706721f1e9429fae546482a6dae9a3bcdb9",
+      "provenance_sha256": "26b39cc6505903869271db89f576aeaa176f44b49f25b39a15285d812370067e",
+      "valid": true,
+      "counts": {
+        "admitted": 120000,
+        "completed": 120000,
+        "inflight": 0,
+        "offered": 120000,
+        "rejected": 0
+      },
+      "input_sha256": "58d72324fad75a568beda544ead454bbc183358efbd14fac3ae75a25aba3f8e1",
+      "metrics": {
+        "full_action": {
+          "count": 115,
+          "p50_ms": 4.854025,
+          "p99_ms": 6.18653928,
+          "p999_ms": null,
+          "p999_status": "NOT_MEASURED"
+        },
+        "market": {
+          "count": 115000,
+          "p50_ms": 0.012114,
+          "p99_ms": 0.018406019999999988,
+          "p999_ms": 4.24602955000006,
+          "p999_status": "MEASURED"
+        },
+        "queue": {
+          "count": 115000,
+          "p50_ms": 0.005474,
+          "p99_ms": 0.00662301999999999,
+          "p999_ms": 3.2449251940000585,
+          "p999_status": "MEASURED"
+        },
+        "scheduled": {
+          "count": 115000,
+          "p50_ms": 0.066775,
+          "p99_ms": 0.07494211999999993,
+          "p999_ms": 4.300605646000061,
+          "p999_status": "MEASURED"
+        },
+        "overrun": {
+          "count": 115000,
+          "p50_ms": 0.054511,
+          "p99_ms": 0.05752802999999999,
+          "p999_ms": 0.062695,
+          "p999_status": "MEASURED"
+        }
+      },
+      "cpu_ns_per_market": 83374.75129166666,
+      "rss_peak_kib": 6412
+    },
+    {
+      "run": "ab-b-2",
+      "report_sha256": "6b00cb84b4ad051a42ce78a49a7a9103335951dde91a4569d47190c71ec27b1a",
+      "provenance_sha256": "0baf0b41868c08548798358f2987c9d489ffcc5d5faaded546694e0cdf106ee1",
+      "valid": true,
+      "counts": {
+        "admitted": 120000,
+        "completed": 120000,
+        "inflight": 0,
+        "offered": 120000,
+        "rejected": 0
+      },
+      "input_sha256": "58d72324fad75a568beda544ead454bbc183358efbd14fac3ae75a25aba3f8e1",
+      "metrics": {
+        "full_action": {
+          "count": 115,
+          "p50_ms": 4.668146,
+          "p99_ms": 6.1112642,
+          "p999_ms": null,
+          "p999_status": "NOT_MEASURED"
+        },
+        "market": {
+          "count": 115000,
+          "p50_ms": 0.012143,
+          "p99_ms": 0.01808601999999999,
+          "p999_ms": 3.9484755990000675,
+          "p999_status": "MEASURED"
+        },
+        "queue": {
+          "count": 115000,
+          "p50_ms": 0.005462,
+          "p99_ms": 0.00681901999999999,
+          "p999_ms": 2.947443826000068,
+          "p999_status": "MEASURED"
+        },
+        "scheduled": {
+          "count": 115000,
+          "p50_ms": 0.0668,
+          "p99_ms": 0.07380802999999998,
+          "p999_ms": 4.003498543000068,
+          "p999_status": "MEASURED"
+        },
+        "overrun": {
+          "count": 115000,
+          "p50_ms": 0.054504,
+          "p99_ms": 0.05712104999999997,
+          "p999_ms": 0.061721001000000004,
+          "p999_status": "MEASURED"
+        }
+      },
+      "cpu_ns_per_market": 83336.25671666667,
+      "rss_peak_kib": 6524
+    },
+    {
+      "run": "ab-b-3",
+      "report_sha256": "bc4e35866324f95fd56b3b43b93e6eb7008fe68cce0c4412622d945c8c3aa538",
+      "provenance_sha256": "2712d495383b76b7c6ced3bf0ddd28d5178accf486485242f8f66112e3a0c200",
+      "valid": true,
+      "counts": {
+        "admitted": 120000,
+        "completed": 120000,
+        "inflight": 0,
+        "offered": 120000,
+        "rejected": 0
+      },
+      "input_sha256": "58d72324fad75a568beda544ead454bbc183358efbd14fac3ae75a25aba3f8e1",
+      "metrics": {
+        "full_action": {
+          "count": 115,
+          "p50_ms": 4.912931,
+          "p99_ms": 6.181441019999999,
+          "p999_ms": null,
+          "p999_status": "NOT_MEASURED"
+        },
+        "market": {
+          "count": 115000,
+          "p50_ms": 0.01225,
+          "p99_ms": 0.01875401999999999,
+          "p999_ms": 4.453256909000215,
+          "p999_status": "MEASURED"
+        },
+        "queue": {
+          "count": 115000,
+          "p50_ms": 0.005528,
+          "p99_ms": 0.0066570099999999945,
+          "p999_ms": 3.4523780800002113,
+          "p999_status": "MEASURED"
+        },
+        "scheduled": {
+          "count": 115000,
+          "p50_ms": 0.067152,
+          "p99_ms": 0.07545202,
+          "p999_ms": 4.508318502000214,
+          "p999_status": "MEASURED"
+        },
+        "overrun": {
+          "count": 115000,
+          "p50_ms": 0.054537,
+          "p99_ms": 0.059712009999999996,
+          "p999_ms": 0.06339103200000012,
+          "p999_status": "MEASURED"
+        }
+      },
+      "cpu_ns_per_market": 83281.38825,
+      "rss_peak_kib": 6528
+    },
+    {
+      "run": "ab-b-4",
+      "report_sha256": "15a1f60a46e5aa562b8a337ce4d831cccf3085611de946236974fc7634276d3a",
+      "provenance_sha256": "9af94a791f5e8f4c02395cbb0b4643f871fdf20bb857b1db0c159762a09b9d9d",
+      "valid": true,
+      "counts": {
+        "admitted": 120000,
+        "completed": 120000,
+        "inflight": 0,
+        "offered": 120000,
+        "rejected": 0
+      },
+      "input_sha256": "58d72324fad75a568beda544ead454bbc183358efbd14fac3ae75a25aba3f8e1",
+      "metrics": {
+        "full_action": {
+          "count": 115,
+          "p50_ms": 4.898742,
+          "p99_ms": 6.2886165599999995,
+          "p999_ms": null,
+          "p999_status": "NOT_MEASURED"
+        },
+        "market": {
+          "count": 115000,
+          "p50_ms": 0.018502,
+          "p99_ms": 0.06244456999999918,
+          "p999_ms": 4.475862685000018,
+          "p999_status": "MEASURED"
+        },
+        "queue": {
+          "count": 115000,
+          "p50_ms": 0.006616,
+          "p99_ms": 0.017316179999999907,
+          "p999_ms": 3.478421133000012,
+          "p999_status": "MEASURED"
+        },
+        "scheduled": {
+          "count": 115000,
+          "p50_ms": 0.040038,
+          "p99_ms": 0.2287991799999999,
+          "p999_ms": 4.496779597000021,
+          "p999_status": "MEASURED"
+        },
+        "overrun": {
+          "count": 115000,
+          "p50_ms": 0.021478,
+          "p99_ms": 0.15689209999999995,
+          "p999_ms": 0.2587681590000006,
+          "p999_status": "MEASURED"
+        }
+      },
+      "cpu_ns_per_market": 103027.19690833334,
+      "rss_peak_kib": 6552
+    }
+  ],
+  "live_attempts": [
+    {
+      "name": "aws-experiment-2/paper-900",
+      "report": {
+        "active_seconds": 684.036736416,
+        "cleanup_verified": true,
+        "critical_events": 699,
+        "critical_queued_at_stop": 0,
+        "failed": true,
+        "failure": "unexpected WebSocket frame",
+        "fills": 4,
+        "health": "Disconnected",
+        "ledger": null,
+        "market_events": 132,
+        "market_queued_at_stop": 0,
+        "orders": 4,
+        "position": 0,
+        "processed": 14350,
+        "python_strategy": true,
+        "requested_seconds": 900,
+        "runtime": "rust-native",
+        "schema": 1,
+        "signed": false,
+        "telemetry_dropped": 0
+      }
+    }
+  ],
+  "source": {
+    "bucket": "mininautilushost-artifacts82dd59a1-jimhxpumwqyb",
+    "prefix": "rust-native-20261015/mini-native-1792066730"
+  },
+  "limitations": [
+    "A/A spread exceeds 20%; no accepted relative improvement",
+    "115 action samples per run: order p99.9 not measured",
+    "Python RSS sums process high-water marks, an upper bound",
+    "Native live private stream wakes REST verification; no automatic reconnect/resume",
+    "First AWS paper failed; corrected-diagnostic retry pending"
+  ]
+}
