@@ -126,3 +126,11 @@ O 的 ≤20USD 是預算 gate，不是現有價格承諾；即使 correctness �
 驗收程式須拒絕缺欄、缺raw、錯hash、混build、零sample與不足run；不能用平均值覆蓋安全gate的max violation。所有新code走`verify.sh`；durability/recovery須replay；性能沿用凍結A/A及≥5/side交錯A/B，禁止事後更改分母。
 
 下一個 agent 先讀本文件、results及未完成gate，從L1 fault matrix開始。現在沒有批准用這份proposal的目標數字替換既有migration thresholds；兩套驗收須分開。
+
+## 本次 preparation 取得的證據（不等於 S gate 通過）
+
+2026-10-16 已讀取原研究 thread 最新兩 turns，核對 selected 270days/1.50 及來源路徑。另實際 fetch `rickypang0219/quant-research-agent-skill`：main `924fadb`、codex_refine `c812483`，兩者均未包含 `research/crypto_stat_arb` 或原資料／報告。原 source/data 仍待提供可讀位置，不能稱為重現。
+
+同日以**無密鑰、無下單**方式讀 Hyperliquid public-mainnet `/info`：`metaAndAssetCtxs`、`l2Book`、bounded `candleSnapshot`、bounded `fundingHistory` 四項皆 HTTP200。metadata 234 列含56列 explicit delisted，不能直接把全部列當可交易 universe；BTC 4h 回覆4 bars，其中3 closed、1未收市，需按 `T` 與 availability 過濾。funding回覆是公開rate history，並非私人account實際funding cashflow。沒有啟動7天shadow、沒有生成PCA signal、沒有驗證270天warmup完整性。
+
+小型機讀收據：[pca-shadow-preparation-evidence.json](pca-shadow-preparation-evidence.json)，含request windows、schema、raw hashes及source blockers。這些是connection/schema observations，不可填成 S.2/S.5/S.6 PASS。

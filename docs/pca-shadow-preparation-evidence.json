@@ -1,0 +1,130 @@
+{
+  "created_ms": 1792157230055,
+  "network": "public-mainnet-read-only",
+  "signer": false,
+  "requests": [
+    {
+      "name": "meta-context",
+      "request": {
+        "type": "metaAndAssetCtxs"
+      },
+      "started_ms": 1792157230055,
+      "http_status": 200,
+      "sha256": "8e3667294d6bf19ef057dd9eb0bd4abe52fef980ef7b648bf4052b89a9f63d04",
+      "bytes": 72319,
+      "completed_ms": 1792157230356,
+      "instruments": 234,
+      "contexts": 234,
+      "context_keys": [
+        "dayBaseVlm",
+        "dayNtlVlm",
+        "funding",
+        "impactPxs",
+        "markPx",
+        "midPx",
+        "openInterest",
+        "oraclePx",
+        "premium",
+        "prevDayPx"
+      ]
+    },
+    {
+      "name": "btc-book",
+      "request": {
+        "type": "l2Book",
+        "coin": "BTC"
+      },
+      "started_ms": 1792157230356,
+      "http_status": 200,
+      "sha256": "6d0334a6d9a3b8b3b59d8d8c5d553ac699b4dd0c2704c0f314dea5fd6e7621dc",
+      "bytes": 1570,
+      "completed_ms": 1792157230606,
+      "levels": [
+        20,
+        20
+      ],
+      "keys": [
+        "coin",
+        "levels",
+        "time"
+      ]
+    },
+    {
+      "name": "btc-candles",
+      "request": {
+        "type": "candleSnapshot",
+        "req": {
+          "coin": "BTC",
+          "interval": "4h",
+          "startTime": 1792114030055,
+          "endTime": 1792157230055
+        }
+      },
+      "started_ms": 1792157230606,
+      "http_status": 200,
+      "sha256": "46e5f6c7a3e0c42ef6b08c8c681deba15bc7fe48ebfbb804ace8fcd662d1371d",
+      "bytes": 561,
+      "completed_ms": 1792157230853,
+      "rows": 4,
+      "keys": [
+        "T",
+        "c",
+        "h",
+        "i",
+        "l",
+        "n",
+        "o",
+        "s",
+        "t",
+        "v"
+      ],
+      "first_time": 1792108800000,
+      "last_time": 1792152000000
+    },
+    {
+      "name": "btc-funding",
+      "request": {
+        "type": "fundingHistory",
+        "coin": "BTC",
+        "startTime": 1792146430055,
+        "endTime": 1792157230055
+      },
+      "started_ms": 1792157230853,
+      "http_status": 200,
+      "sha256": "f4f94fd68f9909815c88c46fcc127562b543449d6192010c1bdda6b51f61774a",
+      "bytes": 265,
+      "completed_ms": 1792157231074,
+      "rows": 3,
+      "keys": [
+        "coin",
+        "fundingRate",
+        "premium",
+        "time"
+      ],
+      "first_time": 1792148400021,
+      "last_time": 1792155600051
+    }
+  ],
+  "status": "PUBLIC_DATA_CONNECTIVITY_ONLY",
+  "strategy_source_status": "BLOCKED",
+  "original_thread": "codex://threads/019da666-2f5a-78c3-9b88-0284f58ac2b5",
+  "repository": "https://github.com/rickypang0219/quant-research-agent-skill",
+  "inspected_refs": {
+    "main": "924fadb461ec71acae5a8b164634dc9aeaeedeee",
+    "codex_refine": "c8124832bf59a16f5174998d6fbbcccb4e2f025d"
+  },
+  "missing": [
+    "research/crypto_stat_arb",
+    "original dependency lockfile",
+    "original data manifest and reported equity/weights"
+  ],
+  "observations": {
+    "metadata_rows": 234,
+    "explicitly_delisted": 56,
+    "btc_returned_candles": 4,
+    "btc_closed_candles": 3,
+    "btc_unclosed_candles": 1
+  },
+  "raw_local": "runs/rust-native-20261015/shadow-public-1792157230055468908",
+  "scope": "Read-only public mainnet HTTP snapshots; no shadow signals, no mainnet signer, no alpha conclusion"
+}
