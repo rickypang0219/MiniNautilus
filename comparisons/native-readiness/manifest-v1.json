@@ -139,7 +139,31 @@
       "original historical dataset/report provenance for reproduction",
       "Hyperliquid universe/mapping and required warmup data"
     ],
-    "portfolio_execution_dependency": "multi-instrument shared-collateral account core and independent oracle"
+    "portfolio_execution_dependency": "multi-instrument shared-collateral account core and independent oracle",
+    "selected_config_reconstructed_from_source_defaults": {
+      "n_factors": 1,
+      "pca_window": 1620,
+      "ar_window": 360,
+      "rebalance_hours": 6,
+      "entry_score": 1.5,
+      "max_positions": 20,
+      "target_gross": 1.0,
+      "fee_bps": 6.0,
+      "initial_equity_usdt": 100000.0,
+      "bar_hours": 4.0,
+      "min_half_life_bars": 4.0,
+      "max_half_life_bars": null,
+      "min_assets": 8,
+      "use_half_life_filter": true,
+      "exit_score": 0.35,
+      "stop_score": 4.0,
+      "max_turnover_per_rebalance": 0.05,
+      "target_annual_volatility": 0.2,
+      "factor_neutralize": true,
+      "cluster_count": 10,
+      "min_cluster_assets": 6
+    },
+    "original_report_config_status": "NOT_AVAILABLE: selected 270/1.50 comes from thread; remaining config reconstructed from pinned source defaults, not an original report receipt"
   },
   "required_gate_result_fields": [
     "gate_id",

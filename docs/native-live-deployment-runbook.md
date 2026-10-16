@@ -24,6 +24,8 @@ Before execution, verify every receipt hash, binary CPU architecture and dynamic
 
 Use Tokyo, no inbound ports, SSM administration, IMDSv2, encrypted disks and the same-region S3 gateway. Preserve the user's existing t4g host. Temporary acceptance instances are task-owned and terminated after original journals are archived and account cleanup is independently checked.
 
+A minimal [retained journal volume CloudFormation draft](../ops/aws/native-journal-volume.json) is prepared and AWS `ValidateTemplate` passed on2026-10-16. It creates only one encrypted gp3 volume (default8GiB), with DeletionPolicy/UpdateReplacePolicy Retain and MultiAttach disabled. It has **not been deployed**. Host installation, attachment, filesystem initialization, mount validation, IAM fencing and recovery drills remain separate required steps. Never format a recovered volume. The current temporary acceptance instance does not use this draft. At the previously documented Tokyo gp3 price the8GiB volume alone is aboutUSD0.768/month; refresh all prices and include the host/root disk/IPv4/observability before persistent deployment.
+
 For a persistent deployment, first implement the retained data-volume and host-replacement gates in proposal O. The existing `infra/` root EBS uses delete-on-termination. **Do not rely on it as the only live journal copy.** Store these together on the retained state volume:
 
 - Core `journal.jsonl` and any successor/cold-page files;
