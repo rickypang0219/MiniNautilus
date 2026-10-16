@@ -1,6 +1,6 @@
 # Native CI failure follow-up
 
-Created: 2026-10-16T19:57:00Z (UTC).
+Created: 2026-10-16T19:56:25+00:00 (UTC).
 
 Run [38957643132](https://github.com/rickypang0219/MiniNautilus/actions/runs/38957643132), commit `95635b3`, failed in `cargo test --locked --features native-runtime` with exit101. The API annotation contains only the exit code. The underlying failing test is **not established** and this incident is not marked fixed.
 

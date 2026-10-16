@@ -143,3 +143,5 @@ The controlled comparison ends at a simulated executor handoff and excludes TLS,
 Deployment preparation: [native live runbook](native-live-deployment-runbook.md), including signed preflight, original-session recovery, ABI/architecture checks and explicit pending operational drills.
 
 The deployment preparation also includes a minimal [retained-volume CloudFormation draft](../ops/aws/native-journal-volume.json), accepted by AWS ValidateTemplate. It is not deployed and has no automatic host attachment/service installation. Production blockers remain general lifecycle faults/restarts, safe live rotation beyond1,000 orders, retained-state host-loss/fencing/alerts/upgrade drills, and true portfolio strategy accounting. Those are specified in the next-phase proposal, not silently treated as delivered by a successful15-minute session.
+
+CI follow-up: one later native-feature CI attempt failed with exit101; original test details are currently blocked by the log-host network policy. Passing local/CI reruns do not identify its cause. See the [retained incident and next steps](native-ci-followup.md); this is an open qualification item, not a claimed runtime fix.
