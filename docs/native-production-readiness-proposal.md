@@ -95,7 +95,7 @@ O 的 ≤20USD 是預算 gate，不是現有價格承諾；即使 correctness �
 
 ## S：真實策略驗收（已選定 Cluster-PCA shadow）
 
-**問題。** SMA／強制交易只驗 infrastructure，不能用其 Testnet PnL 推論 alpha。原 [PCA proposal](pca-stat-arb-research-to-paper-proposal.md) 已找到聊天來源但未取得原程式／資料重現；該舊文的 Binance Futures execution scope 已不適用新的 Hyperliquid 方向。本文件僅更新 execution venue，沒有把未重現研究當完成。
+**問題。** SMA／強制交易只驗 infrastructure，不能用其 Testnet PnL 推論 alpha。原 [PCA proposal](pca-stat-arb-research-to-paper-proposal.md) 已找到聊天來源；本次其後取得使用者指定的 `b41cd0d` 程式並跑測試，但未取得原資料／報告重現；該舊文的 Binance Futures execution scope 已不適用新的 Hyperliquid 方向。本文件僅更新 execution venue，沒有把未重現研究當完成。
 
 **所需與步驟。**
 
@@ -129,8 +129,19 @@ O 的 ≤20USD 是預算 gate，不是現有價格承諾；即使 correctness �
 
 ## 本次 preparation 取得的證據（不等於 S gate 通過）
 
-2026-10-16 已讀取原研究 thread 最新兩 turns，核對 selected 270days/1.50 及來源路徑。另實際 fetch `rickypang0219/quant-research-agent-skill`：main `924fadb`、codex_refine `c812483`，兩者均未包含 `research/crypto_stat_arb` 或原資料／報告。原 source/data 仍待提供可讀位置，不能稱為重現。
+2026-10-16 已讀取原研究 thread 最新兩 turns，核對 selected 270days/1.50 及來源路徑。另實際 fetch `rickypang0219/quant-research-agent-skill`：main `924fadb`、codex_refine `c812483`，兩者均未包含 `research/crypto_stat_arb` 或原資料／報告。這是當時 remote tips 的觀察。**其後使用者提供 `b41cd0d767bfa0e32871ba29464d5f82817f8db6`，已成功fetch並取得原research modules及uv.lock；25個pytest及ruff皆通過。** 原data/reports未隨Git提供，故仍不能稱為重現。
 
 同日以**無密鑰、無下單**方式讀 Hyperliquid public-mainnet `/info`：`metaAndAssetCtxs`、`l2Book`、bounded `candleSnapshot`、bounded `fundingHistory` 四項皆 HTTP200。metadata 234 列含56列 explicit delisted，不能直接把全部列當可交易 universe；BTC 4h 回覆4 bars，其中3 closed、1未收市，需按 `T` 與 availability 過濾。funding回覆是公開rate history，並非私人account實際funding cashflow。沒有啟動7天shadow、沒有生成PCA signal、沒有驗證270天warmup完整性。
 
 小型機讀收據：[pca-shadow-preparation-evidence.json](pca-shadow-preparation-evidence.json)，含request windows、schema、raw hashes及source blockers。這些是connection/schema observations，不可填成 S.2/S.5/S.6 PASS。
+
+### 取得原碼後的新增 scope（已用小型 fixture 證實）
+
+來源 `b41cd0d` 包含兩條不同策略：train/forward引用的是calendar Cluster-PCA；另有adaptive-factor、BTC hedge、funding的event-driven版本。後者不是已選270days/1.50報告的同一策略。Shadow第一版維持Cluster-PCA身份，不把兩套收益／費用模型混合。舊handoff早於部分實作，不以其11 tests或未加funding等敘述代表這個commit。
+
+- `prepare_return_matrix` 以全期prices決定valid columns：future一筆非法price會將某symbol連過去時段一併移除；fixture由3 symbols變2。Shadow改為當期trailing validity及明確missing policy，先保留原版reproduction，再對因果版做future-perturbation test。
+- `resample_ohlc_frame` 聚合quote_volume後最終select卻丟掉該欄；fixture確認。2小時資料也會產生4h bucket。接shadow前保留quote volume，要求4個完整且互異的1h inputs與closed watermark，否則skip；不得把未完成bar送signal。
+- 270days設定實際是1620 return bars、AR360 bars；4h資料下rebalance為6 bars，即24h。底層欄位名`rebalance_hours`實際存bars。Shadow每4h記一個slot（含hold/skip），不擅改成每4h rebalance。
+- event-driven更新以`np.vstack`複製AR window，亦持有全panel；若日後採用此版本，須改bounded numeric ring及incremental input，另做parity。不能稱現在已是O(1) live cache。
+
+反例僅確認上述邊界問題，不是全研究code audit。沒有修改原research repo，沒有重跑完整historical backtest；測試及反例收據列入preparation JSON。

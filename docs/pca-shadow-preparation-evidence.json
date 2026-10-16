@@ -106,7 +106,7 @@
     }
   ],
   "status": "PUBLIC_DATA_CONNECTIVITY_ONLY",
-  "strategy_source_status": "BLOCKED",
+  "strategy_source_status": "SOURCE_LOCATED_AND_UNIT_TESTED_DATA_STILL_MISSING",
   "original_thread": "codex://threads/019da666-2f5a-78c3-9b88-0284f58ac2b5",
   "repository": "https://github.com/rickypang0219/quant-research-agent-skill",
   "inspected_refs": {
@@ -114,9 +114,9 @@
     "codex_refine": "c8124832bf59a16f5174998d6fbbcccb4e2f025d"
   },
   "missing": [
-    "research/crypto_stat_arb",
-    "original dependency lockfile",
-    "original data manifest and reported equity/weights"
+    "original OHLC/funding dataset manifests and raw data",
+    "original report equity/weights/config artifacts",
+    "Hyperliquid point-in-time universe and warmed shadow inputs"
   ],
   "observations": {
     "metadata_rows": 234,
@@ -126,5 +126,53 @@
     "btc_unclosed_candles": 1
   },
   "raw_local": "runs/rust-native-20261015/shadow-public-1792157230055468908",
-  "scope": "Read-only public mainnet HTTP snapshots; no shadow signals, no mainnet signer, no alpha conclusion"
+  "scope": "Read-only public mainnet HTTP snapshots; no shadow signals, no mainnet signer, no alpha conclusion",
+  "selected_research_commit": "b41cd0d767bfa0e32871ba29464d5f82817f8db6",
+  "source_supplied_by": "owner",
+  "research_validation": {
+    "pytest_passed": 25,
+    "pytest_failed": 0,
+    "ruff": "PASS",
+    "historical_result_reproduced": false
+  },
+  "research_file_sha256": {
+    "pyproject.toml": "c646578de036099397524bf88dfaa1b0cc3619f28fb7eb3eb40f57d9c6b2cd97",
+    "uv.lock": "3146a7f45b8d5039bef8ce294be6e9726d84ad949464e79aa5d9b387b5ce6a67",
+    "research/crypto_stat_arb/__init__.py": "b1a4518eef34ff670d4cd58a5ef9b3635b3e53c54b4e736b9b4aed839d11c574",
+    "research/crypto_stat_arb/binance_funding.py": "f6f24500757043db149020e4b5907843260aa6a930463f8898f864f44f179b01",
+    "research/crypto_stat_arb/binance_ohlc.py": "09a0eb51eda4d0576d37378fe0966f2c6bb40df807427f4dc2bb9aae0f723e8a",
+    "research/crypto_stat_arb/event_driven_backtest.py": "e2246259d12f23d67d355855797a03ce982cc961bab74fe8ea990e3e726d860d",
+    "research/crypto_stat_arb/pca_residual_backtest.py": "9fb68f51461df48b1e1b357b2b6161d4e015743b28a3d0806fc02ca6c05c289b",
+    "research/crypto_stat_arb/train_forward_validation.py": "aea06e65f167ea22b0c5eda770cd7029ec05168d7067fdfe5a869e96218dee99"
+  },
+  "boundary_probes": {
+    "source": "b41cd0d767bfa0e32871ba29464d5f82817f8db6",
+    "future_invalid_close_changes_earlier_universe": {
+      "before": [
+        "A",
+        "B",
+        "C"
+      ],
+      "after": [
+        "A",
+        "B"
+      ],
+      "confirmed": true
+    },
+    "resample_drops_quote_volume": {
+      "input_has_quote_volume": true,
+      "output_has_quote_volume": false
+    },
+    "incomplete_4h_bucket_emitted": {
+      "input_hours": 2,
+      "output_rows": 3
+    },
+    "cluster_config": {
+      "pca_return_bars": 1620,
+      "ar_return_bars": 360,
+      "rebalance_bars_despite_field_name_hours": 6,
+      "bar_hours": 4.0,
+      "entry": 1.5
+    }
+  }
 }
