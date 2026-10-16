@@ -25,13 +25,15 @@ jobs:
       - name: Native Rust tests
         run: |
           python - <<'PY'
+          import re
           import subprocess
           result = subprocess.run(
               ['cargo', 'test', '--locked', '--features', 'native-runtime'],
               stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True)
           print(result.stdout, end='')
           if result.returncode:
-              tail = result.stdout[-16000:].replace('%', '%25').replace('\r', '%0D').replace('\n', '%0A')
+              clean = re.sub(r'\x1b\[[0-?]*[ -/]*[@-~]', '', result.stdout)
+              tail = clean[-2400:].replace('%', '%25').replace('\r', '%0D').replace('\n', '%0A')
               print('::error title=Native Rust test failure::' + tail)
           raise SystemExit(result.returncode)
           PY
