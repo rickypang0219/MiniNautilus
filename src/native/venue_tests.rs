@@ -227,6 +227,44 @@ fn unknown_order_cannot_become_a_reconciliation_absence() {
     std::fs::remove_dir_all(dir).unwrap();
 }
 #[test]
+fn delayed_order_visibility_is_read_again_without_mutation() {
+    let visible = json!({"status":"order","order":{"status":"filled","order":{"oid":123,"cloid":"0x0123456789abcdef0000000000000001","coin":"BTC","side":"B","origSz":"0.0002","sz":"0","limitPx":"80000"}}});
+    let server = Server::script(
+        vec![
+            json!({"status":"unknownOid"}),
+            json!({"status":"unknownOid"}),
+            visible,
+        ],
+        None,
+    );
+    let dir = dir("delayed-visibility");
+    let mut v = server.venue(&dir);
+    assert_eq!(v.query(&intent()).unwrap()["status"], "filled");
+    assert!(v.owned_oids.contains(&123));
+    assert!(v.attempts.entries.is_empty());
+    assert_eq!(server.actions.load(Ordering::Acquire), 0);
+    drop(v);
+    std::fs::remove_dir_all(dir).unwrap();
+}
+
+#[test]
+fn unknown_visibility_does_not_hide_a_later_identity_mismatch() {
+    let wrong = json!({"status":"order","order":{"status":"filled","order":{"oid":123,"cloid":"0x0123456789abcdef0000000000000002","coin":"BTC","side":"B","origSz":"0.0002","sz":"0","limitPx":"80000"}}});
+    let server = Server::script(vec![json!({"status":"unknownOid"}), wrong], None);
+    let dir = dir("delayed-wrong-identity");
+    let mut v = server.venue(&dir);
+    assert!(
+        v.query(&intent())
+            .unwrap_err()
+            .to_string()
+            .contains("identity/terms mismatch")
+    );
+    assert!(v.owned_oids.is_empty());
+    assert_eq!(server.actions.load(Ordering::Acquire), 0);
+    drop(v);
+    std::fs::remove_dir_all(dir).unwrap();
+}
+#[test]
 fn cancel_after_fill_does_not_send_another_mutation() {
     let server = Server::start(
         json!({"status":"order","order":{"status":"filled","order":{"oid":123,"cloid":"0x0123456789abcdef0000000000000001","coin":"BTC","side":"B","origSz":"0.0002","sz":"0","limitPx":"80000"}}}),

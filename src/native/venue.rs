@@ -136,6 +136,9 @@ impl Http {
         })
     }
     pub fn post(&self, path: &str, payload: &Value) -> Result<Value> {
+        self.post_with_timeout(path, payload, Duration::from_secs(8))
+    }
+    fn post_with_timeout(&self, path: &str, payload: &Value, timeout: Duration) -> Result<Value> {
         let allowed_mutation = self.base == "https://api.hyperliquid-testnet.xyz";
         #[cfg(test)]
         let allowed_mutation = allowed_mutation || self.test_transport;
@@ -145,6 +148,7 @@ impl Http {
         let response = self
             .client
             .post(format!("{}{path}", self.base))
+            .timeout(timeout)
             .json(payload)
             .send()
             .map_err(|_| fail("HTTP transport; outcome may be unknown"))?;
@@ -381,13 +385,29 @@ impl Venue {
         Ok(v)
     }
     fn info(&mut self, kind: &str, args: Value) -> Result<Value> {
+        self.info_until(kind, args, None)
+    }
+    fn info_until(
+        &mut self,
+        kind: &str,
+        mut args: Value,
+        deadline: Option<Instant>,
+    ) -> Result<Value> {
         // Preserve the H1 pacing budget in the reference migration; network tuning is separate.
         let elapsed = self.last_request.elapsed();
         if elapsed < Duration::from_millis(100) {
             std::thread::sleep(Duration::from_millis(100) - elapsed);
         }
         self.last_request = Instant::now();
-        self.http.info(kind, args)
+        let timeout = match deadline {
+            Some(deadline) => deadline
+                .checked_duration_since(Instant::now())
+                .filter(|d| !d.is_zero())
+                .ok_or_else(|| fail("order visibility deadline; absence unresolved"))?,
+            None => Duration::from_secs(8),
+        };
+        args["type"] = kind.into();
+        self.http.post_with_timeout("/info", &args, timeout)
     }
     fn user(&self) -> Value {
         json!({"user":self.session.account})
@@ -576,13 +596,26 @@ impl Venue {
         Ok(())
     }
     pub fn query(&mut self, i: &Intent) -> Result<Value> {
-        let r = self.info(
-            "orderStatus",
-            json!({"user":self.session.account,"oid":self.session.cloid(i.id)}),
-        )?;
-        if r["status"] != "order" {
-            return Err(fail("unknown order; absence unresolved"));
-        }
+        // Acknowledgement and read-side visibility need not become observable together.
+        // Retry only this read of the original cloid; never infer absence or resend an action.
+        // The execution owner stays busy throughout, so no new strategy action is dispatched.
+        let deadline = Instant::now() + Duration::from_secs(5);
+        let r = loop {
+            let response = self.info_until(
+                "orderStatus",
+                json!({"user":self.session.account,"oid":self.session.cloid(i.id)}),
+                Some(deadline),
+            )?;
+            if response["status"] == "order" {
+                break response;
+            }
+            if response["status"] != "unknownOid" {
+                return Err(fail("invalid order status response"));
+            }
+            if Instant::now() >= deadline {
+                return Err(fail("unknown order; absence unresolved"));
+            }
+        };
         let result = &r["order"];
         let order = &result["order"];
         let instrument = &self.session.instrument;

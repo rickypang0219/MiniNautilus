@@ -1285,5 +1285,1194 @@
     "Python RSS sums process high-water marks, an upper bound",
     "Native live private stream wakes REST verification; no automatic reconnect/resume",
     "First AWS paper failed; corrected-diagnostic retry pending"
-  ]
+  ],
+  "follow_up_experiments": {
+    "experiment4": {
+      "commit": "8d58574ab259fb072e83fbae53409e54e7488adb",
+      "comparison": {
+        "schema": 1,
+        "compatible_complete_runs": true,
+        "counts": {
+          "aa0": 5,
+          "aa1": 5,
+          "ab-a": 5,
+          "ab-b": 5
+        },
+        "aa": {
+          "verdict": "PASS",
+          "runs": 10,
+          "spread_ratio": 0.10783610585943593,
+          "min": 6.32202776,
+          "median": 6.58825237,
+          "max": 7.03247924
+        },
+        "comparison": {
+          "full_action_p99_ms": {
+            "verdict": "INCONCLUSIVE",
+            "baseline": {
+              "min": 6.4416837000000005,
+              "median": 6.56478602,
+              "max": 6.70757094
+            },
+            "native": {
+              "min": 5.75863816,
+              "median": 6.13454758,
+              "max": 6.36972686
+            },
+            "median_improvement_fraction": 0.06553731358329928
+          },
+          "cpu_ns_per_market": {
+            "verdict": "IMPROVED",
+            "baseline": {
+              "min": 275652.0548583333,
+              "median": 279283.7895,
+              "max": 282845.83545
+            },
+            "native": {
+              "min": 87008.37309166667,
+              "median": 87102.45619166667,
+              "max": 88329.2901
+            },
+            "median_improvement_fraction": 0.6881220483737862
+          },
+          "rss_peak_kib": {
+            "verdict": "IMPROVED",
+            "baseline": {
+              "min": 70840,
+              "median": 78432,
+              "max": 79800
+            },
+            "native": {
+              "min": 6476,
+              "median": 6500,
+              "max": 6580
+            },
+            "median_improvement_fraction": 0.917125662994696
+          }
+        },
+        "order_p999": "NOT_MEASURED: fewer than 100000 order samples per run",
+        "scope": "Controlled raw frame to simulated transport; not exchange, TLS, signing or alpha latency",
+        "inventory": [
+          {
+            "path": "/opt/mini-native/repo/runs/aws-native/aa0-0",
+            "valid": true
+          },
+          {
+            "path": "/opt/mini-native/repo/runs/aws-native/aa0-1",
+            "valid": true
+          },
+          {
+            "path": "/opt/mini-native/repo/runs/aws-native/aa0-2",
+            "valid": true
+          },
+          {
+            "path": "/opt/mini-native/repo/runs/aws-native/aa0-3",
+            "valid": true
+          },
+          {
+            "path": "/opt/mini-native/repo/runs/aws-native/aa0-4",
+            "valid": true
+          },
+          {
+            "path": "/opt/mini-native/repo/runs/aws-native/aa1-0",
+            "valid": true
+          },
+          {
+            "path": "/opt/mini-native/repo/runs/aws-native/aa1-1",
+            "valid": true
+          },
+          {
+            "path": "/opt/mini-native/repo/runs/aws-native/aa1-2",
+            "valid": true
+          },
+          {
+            "path": "/opt/mini-native/repo/runs/aws-native/aa1-3",
+            "valid": true
+          },
+          {
+            "path": "/opt/mini-native/repo/runs/aws-native/aa1-4",
+            "valid": true
+          },
+          {
+            "path": "/opt/mini-native/repo/runs/aws-native/ab-a-0",
+            "valid": true
+          },
+          {
+            "path": "/opt/mini-native/repo/runs/aws-native/ab-a-1",
+            "valid": true
+          },
+          {
+            "path": "/opt/mini-native/repo/runs/aws-native/ab-a-2",
+            "valid": true
+          },
+          {
+            "path": "/opt/mini-native/repo/runs/aws-native/ab-a-3",
+            "valid": true
+          },
+          {
+            "path": "/opt/mini-native/repo/runs/aws-native/ab-a-4",
+            "valid": true
+          },
+          {
+            "path": "/opt/mini-native/repo/runs/aws-native/ab-b-0",
+            "valid": true
+          },
+          {
+            "path": "/opt/mini-native/repo/runs/aws-native/ab-b-1",
+            "valid": true
+          },
+          {
+            "path": "/opt/mini-native/repo/runs/aws-native/ab-b-2",
+            "valid": true
+          },
+          {
+            "path": "/opt/mini-native/repo/runs/aws-native/ab-b-3",
+            "valid": true
+          },
+          {
+            "path": "/opt/mini-native/repo/runs/aws-native/ab-b-4",
+            "valid": true
+          }
+        ]
+      },
+      "runs": {
+        "aa0-0": {
+          "metrics": {
+            "full_action": {
+              "count": 115,
+              "p50_ms": 2.990998,
+              "p99_ms": 6.32202776,
+              "p999_ms": null,
+              "p999_status": "NOT_MEASURED"
+            },
+            "market": {
+              "count": 115000,
+              "p50_ms": 0.166646,
+              "p99_ms": 0.36814345999999976,
+              "p999_ms": 3.820698465000048,
+              "p999_status": "MEASURED"
+            },
+            "queue": {
+              "count": 115000,
+              "p50_ms": 0.019972,
+              "p99_ms": 0.20651106999999994,
+              "p999_ms": 2.806488758000014,
+              "p999_status": "MEASURED"
+            },
+            "scheduled": {
+              "count": 115000,
+              "p50_ms": 0.655542,
+              "p99_ms": 1.2685901099999999,
+              "p999_ms": 4.277695522000086,
+              "p999_status": "MEASURED"
+            },
+            "overrun": {
+              "count": 115000,
+              "p50_ms": 0.491279,
+              "p99_ms": 1.05951605,
+              "p999_ms": 1.0688920050000001,
+              "p999_status": "MEASURED"
+            }
+          },
+          "cpu_ns_per_market": 279425.8219833333,
+          "rss_peak_kib": 65664,
+          "valid": true,
+          "input_sha256": "58d72324fad75a568beda544ead454bbc183358efbd14fac3ae75a25aba3f8e1",
+          "binary_sha256": "54e6d33ad497d3cf38c1d871b677a038151495e58a86a72fcf7f3ae3c090fde6"
+        },
+        "aa0-1": {
+          "metrics": {
+            "full_action": {
+              "count": 115,
+              "p50_ms": 5.547786,
+              "p99_ms": 6.699245439999999,
+              "p999_ms": null,
+              "p999_status": "NOT_MEASURED"
+            },
+            "market": {
+              "count": 115000,
+              "p50_ms": 0.162683,
+              "p99_ms": 0.39936316999999993,
+              "p999_ms": 5.154744858000026,
+              "p999_status": "MEASURED"
+            },
+            "queue": {
+              "count": 115000,
+              "p50_ms": 0.019644,
+              "p99_ms": 0.2363013899999982,
+              "p999_ms": 4.130893042000007,
+              "p999_status": "MEASURED"
+            },
+            "scheduled": {
+              "count": 115000,
+              "p50_ms": 0.6845395,
+              "p99_ms": 1.2837444399999998,
+              "p999_ms": 5.553883773000011,
+              "p999_status": "MEASURED"
+            },
+            "overrun": {
+              "count": 115000,
+              "p50_ms": 0.524652,
+              "p99_ms": 1.06066218,
+              "p999_ms": 1.0688070090000001,
+              "p999_status": "MEASURED"
+            }
+          },
+          "cpu_ns_per_market": 277486.2430416667,
+          "rss_peak_kib": 67084,
+          "valid": true,
+          "input_sha256": "58d72324fad75a568beda544ead454bbc183358efbd14fac3ae75a25aba3f8e1",
+          "binary_sha256": "54e6d33ad497d3cf38c1d871b677a038151495e58a86a72fcf7f3ae3c090fde6"
+        },
+        "aa0-2": {
+          "metrics": {
+            "full_action": {
+              "count": 115,
+              "p50_ms": 5.592929,
+              "p99_ms": 6.49617856,
+              "p999_ms": null,
+              "p999_status": "NOT_MEASURED"
+            },
+            "market": {
+              "count": 115000,
+              "p50_ms": 0.164735,
+              "p99_ms": 0.3786702099999999,
+              "p999_ms": 5.283459152000004,
+              "p999_status": "MEASURED"
+            },
+            "queue": {
+              "count": 115000,
+              "p50_ms": 0.01999,
+              "p99_ms": 0.22673278999999957,
+              "p999_ms": 4.176190295000005,
+              "p999_status": "MEASURED"
+            },
+            "scheduled": {
+              "count": 115000,
+              "p50_ms": 0.6541155,
+              "p99_ms": 1.2680728599999997,
+              "p999_ms": 5.633904888000019,
+              "p999_status": "MEASURED"
+            },
+            "overrun": {
+              "count": 115000,
+              "p50_ms": 0.494612,
+              "p99_ms": 1.05271903,
+              "p999_ms": 1.068624019,
+              "p999_status": "MEASURED"
+            }
+          },
+          "cpu_ns_per_market": 279133.42565833335,
+          "rss_peak_kib": 70580,
+          "valid": true,
+          "input_sha256": "58d72324fad75a568beda544ead454bbc183358efbd14fac3ae75a25aba3f8e1",
+          "binary_sha256": "54e6d33ad497d3cf38c1d871b677a038151495e58a86a72fcf7f3ae3c090fde6"
+        },
+        "aa0-3": {
+          "metrics": {
+            "full_action": {
+              "count": 115,
+              "p50_ms": 5.563425,
+              "p99_ms": 6.874543780000001,
+              "p999_ms": null,
+              "p999_status": "NOT_MEASURED"
+            },
+            "market": {
+              "count": 115000,
+              "p50_ms": 0.164066,
+              "p99_ms": 0.4054086899999981,
+              "p999_ms": 5.232512544000001,
+              "p999_status": "MEASURED"
+            },
+            "queue": {
+              "count": 115000,
+              "p50_ms": 0.019849,
+              "p99_ms": 0.2492472099999999,
+              "p999_ms": 4.234654770000018,
+              "p999_status": "MEASURED"
+            },
+            "scheduled": {
+              "count": 115000,
+              "p50_ms": 0.6906325,
+              "p99_ms": 1.2926932,
+              "p999_ms": 5.628315930000004,
+              "p999_status": "MEASURED"
+            },
+            "overrun": {
+              "count": 115000,
+              "p50_ms": 0.52822,
+              "p99_ms": 1.0583770700000001,
+              "p999_ms": 1.068910011,
+              "p999_status": "MEASURED"
+            }
+          },
+          "cpu_ns_per_market": 278854.42079166666,
+          "rss_peak_kib": 70620,
+          "valid": true,
+          "input_sha256": "58d72324fad75a568beda544ead454bbc183358efbd14fac3ae75a25aba3f8e1",
+          "binary_sha256": "54e6d33ad497d3cf38c1d871b677a038151495e58a86a72fcf7f3ae3c090fde6"
+        },
+        "aa0-4": {
+          "metrics": {
+            "full_action": {
+              "count": 115,
+              "p50_ms": 5.585783,
+              "p99_ms": 6.63879408,
+              "p999_ms": null,
+              "p999_status": "NOT_MEASURED"
+            },
+            "market": {
+              "count": 115000,
+              "p50_ms": 0.162954,
+              "p99_ms": 0.4714801499999994,
+              "p999_ms": 5.239936238000059,
+              "p999_status": "MEASURED"
+            },
+            "queue": {
+              "count": 115000,
+              "p50_ms": 0.019924,
+              "p99_ms": 0.2981561599999999,
+              "p999_ms": 4.18105679300001,
+              "p999_status": "MEASURED"
+            },
+            "scheduled": {
+              "count": 115000,
+              "p50_ms": 0.6898835,
+              "p99_ms": 1.3998136599999997,
+              "p999_ms": 5.594030854000007,
+              "p999_status": "MEASURED"
+            },
+            "overrun": {
+              "count": 115000,
+              "p50_ms": 0.5297495,
+              "p99_ms": 1.03164104,
+              "p999_ms": 1.078820289000001,
+              "p999_status": "MEASURED"
+            }
+          },
+          "cpu_ns_per_market": 280997.18611666665,
+          "rss_peak_kib": 70896,
+          "valid": true,
+          "input_sha256": "58d72324fad75a568beda544ead454bbc183358efbd14fac3ae75a25aba3f8e1",
+          "binary_sha256": "54e6d33ad497d3cf38c1d871b677a038151495e58a86a72fcf7f3ae3c090fde6"
+        },
+        "aa1-0": {
+          "metrics": {
+            "full_action": {
+              "count": 115,
+              "p50_ms": 5.500473,
+              "p99_ms": 6.59593624,
+              "p999_ms": null,
+              "p999_status": "NOT_MEASURED"
+            },
+            "market": {
+              "count": 115000,
+              "p50_ms": 0.1656005,
+              "p99_ms": 0.37408307999999946,
+              "p999_ms": 5.0678533220000395,
+              "p999_status": "MEASURED"
+            },
+            "queue": {
+              "count": 115000,
+              "p50_ms": 0.020052,
+              "p99_ms": 0.21493313999999994,
+              "p999_ms": 4.0754117830000105,
+              "p999_status": "MEASURED"
+            },
+            "scheduled": {
+              "count": 115000,
+              "p50_ms": 0.654773,
+              "p99_ms": 1.26599105,
+              "p999_ms": 5.478469350000016,
+              "p999_status": "MEASURED"
+            },
+            "overrun": {
+              "count": 115000,
+              "p50_ms": 0.49546,
+              "p99_ms": 1.0417545899999998,
+              "p999_ms": 1.0685960060000002,
+              "p999_status": "MEASURED"
+            }
+          },
+          "cpu_ns_per_market": 280518.0785,
+          "rss_peak_kib": 70820,
+          "valid": true,
+          "input_sha256": "58d72324fad75a568beda544ead454bbc183358efbd14fac3ae75a25aba3f8e1",
+          "binary_sha256": "54e6d33ad497d3cf38c1d871b677a038151495e58a86a72fcf7f3ae3c090fde6"
+        },
+        "aa1-1": {
+          "metrics": {
+            "full_action": {
+              "count": 115,
+              "p50_ms": 5.503082,
+              "p99_ms": 6.50016178,
+              "p999_ms": null,
+              "p999_status": "NOT_MEASURED"
+            },
+            "market": {
+              "count": 115000,
+              "p50_ms": 0.165568,
+              "p99_ms": 0.3730687599999996,
+              "p999_ms": 5.163775510000036,
+              "p999_status": "MEASURED"
+            },
+            "queue": {
+              "count": 115000,
+              "p50_ms": 0.019997,
+              "p99_ms": 0.22611870999999908,
+              "p999_ms": 4.142225513000013,
+              "p999_status": "MEASURED"
+            },
+            "scheduled": {
+              "count": 115000,
+              "p50_ms": 0.68621,
+              "p99_ms": 1.2693723199999998,
+              "p999_ms": 5.574325370000037,
+              "p999_status": "MEASURED"
+            },
+            "overrun": {
+              "count": 115000,
+              "p50_ms": 0.5043835,
+              "p99_ms": 1.06111001,
+              "p999_ms": 1.068735006,
+              "p999_status": "MEASURED"
+            }
+          },
+          "cpu_ns_per_market": 276921.55171666667,
+          "rss_peak_kib": 70876,
+          "valid": true,
+          "input_sha256": "58d72324fad75a568beda544ead454bbc183358efbd14fac3ae75a25aba3f8e1",
+          "binary_sha256": "54e6d33ad497d3cf38c1d871b677a038151495e58a86a72fcf7f3ae3c090fde6"
+        },
+        "aa1-2": {
+          "metrics": {
+            "full_action": {
+              "count": 115,
+              "p50_ms": 5.446714,
+              "p99_ms": 6.5805685,
+              "p999_ms": null,
+              "p999_status": "NOT_MEASURED"
+            },
+            "market": {
+              "count": 115000,
+              "p50_ms": 0.1648755,
+              "p99_ms": 0.37707386999999953,
+              "p999_ms": 5.098496051000043,
+              "p999_status": "MEASURED"
+            },
+            "queue": {
+              "count": 115000,
+              "p50_ms": 0.020017,
+              "p99_ms": 0.22712742999999977,
+              "p999_ms": 4.079473337000001,
+              "p999_status": "MEASURED"
+            },
+            "scheduled": {
+              "count": 115000,
+              "p50_ms": 0.6620205,
+              "p99_ms": 1.2631430700000001,
+              "p999_ms": 5.42830358600001,
+              "p999_status": "MEASURED"
+            },
+            "overrun": {
+              "count": 115000,
+              "p50_ms": 0.503041,
+              "p99_ms": 1.0331073199999998,
+              "p999_ms": 1.06790901,
+              "p999_status": "MEASURED"
+            }
+          },
+          "cpu_ns_per_market": 278861.61868333333,
+          "rss_peak_kib": 70828,
+          "valid": true,
+          "input_sha256": "58d72324fad75a568beda544ead454bbc183358efbd14fac3ae75a25aba3f8e1",
+          "binary_sha256": "54e6d33ad497d3cf38c1d871b677a038151495e58a86a72fcf7f3ae3c090fde6"
+        },
+        "aa1-3": {
+          "metrics": {
+            "full_action": {
+              "count": 115,
+              "p50_ms": 5.55318,
+              "p99_ms": 7.03247924,
+              "p999_ms": null,
+              "p999_status": "NOT_MEASURED"
+            },
+            "market": {
+              "count": 115000,
+              "p50_ms": 0.165518,
+              "p99_ms": 0.37306486999999955,
+              "p999_ms": 5.216518926000019,
+              "p999_status": "MEASURED"
+            },
+            "queue": {
+              "count": 115000,
+              "p50_ms": 0.019957,
+              "p99_ms": 0.2278833599999998,
+              "p999_ms": 4.169750652000018,
+              "p999_status": "MEASURED"
+            },
+            "scheduled": {
+              "count": 115000,
+              "p50_ms": 0.669874,
+              "p99_ms": 1.2717226899999996,
+              "p999_ms": 5.565540959000069,
+              "p999_status": "MEASURED"
+            },
+            "overrun": {
+              "count": 115000,
+              "p50_ms": 0.5146425,
+              "p99_ms": 1.06011006,
+              "p999_ms": 1.0681400280000002,
+              "p999_status": "MEASURED"
+            }
+          },
+          "cpu_ns_per_market": 275747.29035,
+          "rss_peak_kib": 70924,
+          "valid": true,
+          "input_sha256": "58d72324fad75a568beda544ead454bbc183358efbd14fac3ae75a25aba3f8e1",
+          "binary_sha256": "54e6d33ad497d3cf38c1d871b677a038151495e58a86a72fcf7f3ae3c090fde6"
+        },
+        "aa1-4": {
+          "metrics": {
+            "full_action": {
+              "count": 115,
+              "p50_ms": 5.300624,
+              "p99_ms": 6.48240658,
+              "p999_ms": null,
+              "p999_status": "NOT_MEASURED"
+            },
+            "market": {
+              "count": 115000,
+              "p50_ms": 0.165519,
+              "p99_ms": 0.37565838999999923,
+              "p999_ms": 4.7031393150000325,
+              "p999_status": "MEASURED"
+            },
+            "queue": {
+              "count": 115000,
+              "p50_ms": 0.02021,
+              "p99_ms": 0.21691954999999968,
+              "p999_ms": 3.913486818000057,
+              "p999_status": "MEASURED"
+            },
+            "scheduled": {
+              "count": 115000,
+              "p50_ms": 0.6637,
+              "p99_ms": 1.26377513,
+              "p999_ms": 5.271813646000003,
+              "p999_status": "MEASURED"
+            },
+            "overrun": {
+              "count": 115000,
+              "p50_ms": 0.5042185,
+              "p99_ms": 1.03424006,
+              "p999_ms": 1.067881017,
+              "p999_status": "MEASURED"
+            }
+          },
+          "cpu_ns_per_market": 278922.43895833334,
+          "rss_peak_kib": 70848,
+          "valid": true,
+          "input_sha256": "58d72324fad75a568beda544ead454bbc183358efbd14fac3ae75a25aba3f8e1",
+          "binary_sha256": "54e6d33ad497d3cf38c1d871b677a038151495e58a86a72fcf7f3ae3c090fde6"
+        },
+        "ab-a-0": {
+          "metrics": {
+            "full_action": {
+              "count": 115,
+              "p50_ms": 5.519452,
+              "p99_ms": 6.470930940000001,
+              "p999_ms": null,
+              "p999_status": "NOT_MEASURED"
+            },
+            "market": {
+              "count": 115000,
+              "p50_ms": 0.1643395,
+              "p99_ms": 0.3749392599999999,
+              "p999_ms": 5.206971717000014,
+              "p999_status": "MEASURED"
+            },
+            "queue": {
+              "count": 115000,
+              "p50_ms": 0.01983,
+              "p99_ms": 0.22871116999999994,
+              "p999_ms": 4.122332983000008,
+              "p999_status": "MEASURED"
+            },
+            "scheduled": {
+              "count": 115000,
+              "p50_ms": 0.6865515,
+              "p99_ms": 1.26995317,
+              "p999_ms": 5.53033442600006,
+              "p999_status": "MEASURED"
+            },
+            "overrun": {
+              "count": 115000,
+              "p50_ms": 0.505563,
+              "p99_ms": 1.06161405,
+              "p999_ms": 1.0689750310000001,
+              "p999_status": "MEASURED"
+            }
+          },
+          "cpu_ns_per_market": 276221.7080666667,
+          "rss_peak_kib": 70840,
+          "valid": true,
+          "input_sha256": "58d72324fad75a568beda544ead454bbc183358efbd14fac3ae75a25aba3f8e1",
+          "binary_sha256": "54e6d33ad497d3cf38c1d871b677a038151495e58a86a72fcf7f3ae3c090fde6"
+        },
+        "ab-a-1": {
+          "metrics": {
+            "full_action": {
+              "count": 115,
+              "p50_ms": 5.483757,
+              "p99_ms": 6.6975729799999995,
+              "p999_ms": null,
+              "p999_status": "NOT_MEASURED"
+            },
+            "market": {
+              "count": 115000,
+              "p50_ms": 0.1637115,
+              "p99_ms": 0.4746068099999996,
+              "p999_ms": 5.056963883000023,
+              "p999_status": "MEASURED"
+            },
+            "queue": {
+              "count": 115000,
+              "p50_ms": 0.020074,
+              "p99_ms": 0.3003953099999998,
+              "p999_ms": 4.062693459000002,
+              "p999_status": "MEASURED"
+            },
+            "scheduled": {
+              "count": 115000,
+              "p50_ms": 0.69651,
+              "p99_ms": 1.4393159699999996,
+              "p999_ms": 5.469147520000041,
+              "p999_status": "MEASURED"
+            },
+            "overrun": {
+              "count": 115000,
+              "p50_ms": 0.5308495,
+              "p99_ms": 1.07539703,
+              "p999_ms": 1.124453008,
+              "p999_status": "MEASURED"
+            }
+          },
+          "cpu_ns_per_market": 282845.83545,
+          "rss_peak_kib": 78432,
+          "valid": true,
+          "input_sha256": "58d72324fad75a568beda544ead454bbc183358efbd14fac3ae75a25aba3f8e1",
+          "binary_sha256": "54e6d33ad497d3cf38c1d871b677a038151495e58a86a72fcf7f3ae3c090fde6"
+        },
+        "ab-a-2": {
+          "metrics": {
+            "full_action": {
+              "count": 115,
+              "p50_ms": 5.374538,
+              "p99_ms": 6.4416837000000005,
+              "p999_ms": null,
+              "p999_status": "NOT_MEASURED"
+            },
+            "market": {
+              "count": 115000,
+              "p50_ms": 0.161515,
+              "p99_ms": 0.3978684099999998,
+              "p999_ms": 5.020396304000001,
+              "p999_status": "MEASURED"
+            },
+            "queue": {
+              "count": 115000,
+              "p50_ms": 0.019966,
+              "p99_ms": 0.23719366999999963,
+              "p999_ms": 3.953458815000007,
+              "p999_status": "MEASURED"
+            },
+            "scheduled": {
+              "count": 115000,
+              "p50_ms": 0.6932475,
+              "p99_ms": 1.28490413,
+              "p999_ms": 5.417932440000028,
+              "p999_status": "MEASURED"
+            },
+            "overrun": {
+              "count": 115000,
+              "p50_ms": 0.5296035,
+              "p99_ms": 1.05924,
+              "p999_ms": 1.0684990120000002,
+              "p999_status": "MEASURED"
+            }
+          },
+          "cpu_ns_per_market": 279396.3902083333,
+          "rss_peak_kib": 78432,
+          "valid": true,
+          "input_sha256": "58d72324fad75a568beda544ead454bbc183358efbd14fac3ae75a25aba3f8e1",
+          "binary_sha256": "54e6d33ad497d3cf38c1d871b677a038151495e58a86a72fcf7f3ae3c090fde6"
+        },
+        "ab-a-3": {
+          "metrics": {
+            "full_action": {
+              "count": 115,
+              "p50_ms": 5.681862,
+              "p99_ms": 6.70757094,
+              "p999_ms": null,
+              "p999_status": "NOT_MEASURED"
+            },
+            "market": {
+              "count": 115000,
+              "p50_ms": 0.162951,
+              "p99_ms": 0.47018509999999997,
+              "p999_ms": 5.381851850000018,
+              "p999_status": "MEASURED"
+            },
+            "queue": {
+              "count": 115000,
+              "p50_ms": 0.020047,
+              "p99_ms": 0.29499308999999996,
+              "p999_ms": 4.345283689000003,
+              "p999_status": "MEASURED"
+            },
+            "scheduled": {
+              "count": 115000,
+              "p50_ms": 0.6577615,
+              "p99_ms": 1.3345972899999998,
+              "p999_ms": 5.76151852000001,
+              "p999_status": "MEASURED"
+            },
+            "overrun": {
+              "count": 115000,
+              "p50_ms": 0.496383,
+              "p99_ms": 1.064173,
+              "p999_ms": 1.069771007,
+              "p999_status": "MEASURED"
+            }
+          },
+          "cpu_ns_per_market": 279283.7895,
+          "rss_peak_kib": 79800,
+          "valid": true,
+          "input_sha256": "58d72324fad75a568beda544ead454bbc183358efbd14fac3ae75a25aba3f8e1",
+          "binary_sha256": "54e6d33ad497d3cf38c1d871b677a038151495e58a86a72fcf7f3ae3c090fde6"
+        },
+        "ab-a-4": {
+          "metrics": {
+            "full_action": {
+              "count": 115,
+              "p50_ms": 5.550687,
+              "p99_ms": 6.56478602,
+              "p999_ms": null,
+              "p999_status": "NOT_MEASURED"
+            },
+            "market": {
+              "count": 115000,
+              "p50_ms": 0.159322,
+              "p99_ms": 0.4612968399999985,
+              "p999_ms": 5.157318956000031,
+              "p999_status": "MEASURED"
+            },
+            "queue": {
+              "count": 115000,
+              "p50_ms": 0.019488,
+              "p99_ms": 0.27096921999999984,
+              "p999_ms": 4.146860388000001,
+              "p999_status": "MEASURED"
+            },
+            "scheduled": {
+              "count": 115000,
+              "p50_ms": 0.696518,
+              "p99_ms": 1.3338575299999997,
+              "p999_ms": 5.51026222400004,
+              "p999_status": "MEASURED"
+            },
+            "overrun": {
+              "count": 115000,
+              "p50_ms": 0.5352795,
+              "p99_ms": 1.06220106,
+              "p999_ms": 1.1086229050000036,
+              "p999_status": "MEASURED"
+            }
+          },
+          "cpu_ns_per_market": 275652.0548583333,
+          "rss_peak_kib": 79708,
+          "valid": true,
+          "input_sha256": "58d72324fad75a568beda544ead454bbc183358efbd14fac3ae75a25aba3f8e1",
+          "binary_sha256": "54e6d33ad497d3cf38c1d871b677a038151495e58a86a72fcf7f3ae3c090fde6"
+        },
+        "ab-b-0": {
+          "metrics": {
+            "full_action": {
+              "count": 115,
+              "p50_ms": 4.381834,
+              "p99_ms": 6.36972686,
+              "p999_ms": null,
+              "p999_status": "NOT_MEASURED"
+            },
+            "market": {
+              "count": 115000,
+              "p50_ms": 0.013122,
+              "p99_ms": 0.019906069999999963,
+              "p999_ms": 3.808538459000017,
+              "p999_status": "MEASURED"
+            },
+            "queue": {
+              "count": 115000,
+              "p50_ms": 0.005922,
+              "p99_ms": 0.007194,
+              "p999_ms": 2.79657724300002,
+              "p999_status": "MEASURED"
+            },
+            "scheduled": {
+              "count": 115000,
+              "p50_ms": 0.067859,
+              "p99_ms": 0.0772561899999999,
+              "p999_ms": 3.863376721000018,
+              "p999_status": "MEASURED"
+            },
+            "overrun": {
+              "count": 115000,
+              "p50_ms": 0.054581,
+              "p99_ms": 0.059606009999999994,
+              "p999_ms": 0.06514201300000005,
+              "p999_status": "MEASURED"
+            }
+          },
+          "cpu_ns_per_market": 87918.30940833333,
+          "rss_peak_kib": 6560,
+          "valid": true,
+          "input_sha256": "58d72324fad75a568beda544ead454bbc183358efbd14fac3ae75a25aba3f8e1",
+          "binary_sha256": "4b75122cd1a31691dcf7b77e3434c751666bf0ea2c539423f55cfc21643ad3a7"
+        },
+        "ab-b-1": {
+          "metrics": {
+            "full_action": {
+              "count": 115,
+              "p50_ms": 4.776671,
+              "p99_ms": 5.912752820000001,
+              "p999_ms": null,
+              "p999_status": "NOT_MEASURED"
+            },
+            "market": {
+              "count": 115000,
+              "p50_ms": 0.01315,
+              "p99_ms": 0.018792059999999968,
+              "p999_ms": 4.054223181000062,
+              "p999_status": "MEASURED"
+            },
+            "queue": {
+              "count": 115000,
+              "p50_ms": 0.005937,
+              "p99_ms": 0.007076,
+              "p999_ms": 3.0535245100000594,
+              "p999_status": "MEASURED"
+            },
+            "scheduled": {
+              "count": 115000,
+              "p50_ms": 0.067898,
+              "p99_ms": 0.07580213999999992,
+              "p999_ms": 4.109846404000059,
+              "p999_status": "MEASURED"
+            },
+            "overrun": {
+              "count": 115000,
+              "p50_ms": 0.054637,
+              "p99_ms": 0.05831201999999999,
+              "p999_ms": 0.06360701400000006,
+              "p999_status": "MEASURED"
+            }
+          },
+          "cpu_ns_per_market": 87008.37309166667,
+          "rss_peak_kib": 6476,
+          "valid": true,
+          "input_sha256": "58d72324fad75a568beda544ead454bbc183358efbd14fac3ae75a25aba3f8e1",
+          "binary_sha256": "4b75122cd1a31691dcf7b77e3434c751666bf0ea2c539423f55cfc21643ad3a7"
+        },
+        "ab-b-2": {
+          "metrics": {
+            "full_action": {
+              "count": 115,
+              "p50_ms": 4.975013,
+              "p99_ms": 6.28725988,
+              "p999_ms": null,
+              "p999_status": "NOT_MEASURED"
+            },
+            "market": {
+              "count": 115000,
+              "p50_ms": 0.013333,
+              "p99_ms": 0.020338059999999967,
+              "p999_ms": 4.371441250000113,
+              "p999_status": "MEASURED"
+            },
+            "queue": {
+              "count": 115000,
+              "p50_ms": 0.005934,
+              "p99_ms": 0.007137,
+              "p999_ms": 3.3707979380001114,
+              "p999_status": "MEASURED"
+            },
+            "scheduled": {
+              "count": 115000,
+              "p50_ms": 0.06808,
+              "p99_ms": 0.07744710999999994,
+              "p999_ms": 4.426580085000111,
+              "p999_status": "MEASURED"
+            },
+            "overrun": {
+              "count": 115000,
+              "p50_ms": 0.054591,
+              "p99_ms": 0.05853101999999999,
+              "p999_ms": 0.06462900400000002,
+              "p999_status": "MEASURED"
+            }
+          },
+          "cpu_ns_per_market": 88329.2901,
+          "rss_peak_kib": 6488,
+          "valid": true,
+          "input_sha256": "58d72324fad75a568beda544ead454bbc183358efbd14fac3ae75a25aba3f8e1",
+          "binary_sha256": "4b75122cd1a31691dcf7b77e3434c751666bf0ea2c539423f55cfc21643ad3a7"
+        },
+        "ab-b-3": {
+          "metrics": {
+            "full_action": {
+              "count": 115,
+              "p50_ms": 4.2382,
+              "p99_ms": 5.75863816,
+              "p999_ms": null,
+              "p999_status": "NOT_MEASURED"
+            },
+            "market": {
+              "count": 115000,
+              "p50_ms": 0.0122,
+              "p99_ms": 0.019677159999999916,
+              "p999_ms": 3.6725124330000782,
+              "p999_status": "MEASURED"
+            },
+            "queue": {
+              "count": 115000,
+              "p50_ms": 0.005539,
+              "p99_ms": 0.007295009999999995,
+              "p999_ms": 2.672706230000074,
+              "p999_status": "MEASURED"
+            },
+            "scheduled": {
+              "count": 115000,
+              "p50_ms": 0.066932,
+              "p99_ms": 0.07711845999999976,
+              "p999_ms": 3.728303390000075,
+              "p999_status": "MEASURED"
+            },
+            "overrun": {
+              "count": 115000,
+              "p50_ms": 0.054559,
+              "p99_ms": 0.05916800999999999,
+              "p999_ms": 0.06514205700000023,
+              "p999_status": "MEASURED"
+            }
+          },
+          "cpu_ns_per_market": 87102.45619166667,
+          "rss_peak_kib": 6580,
+          "valid": true,
+          "input_sha256": "58d72324fad75a568beda544ead454bbc183358efbd14fac3ae75a25aba3f8e1",
+          "binary_sha256": "4b75122cd1a31691dcf7b77e3434c751666bf0ea2c539423f55cfc21643ad3a7"
+        },
+        "ab-b-4": {
+          "metrics": {
+            "full_action": {
+              "count": 115,
+              "p50_ms": 5.070763,
+              "p99_ms": 6.13454758,
+              "p999_ms": null,
+              "p999_status": "NOT_MEASURED"
+            },
+            "market": {
+              "count": 115000,
+              "p50_ms": 0.01228,
+              "p99_ms": 0.018824099999999948,
+              "p999_ms": 4.614240466000002,
+              "p999_status": "MEASURED"
+            },
+            "queue": {
+              "count": 115000,
+              "p50_ms": 0.005547,
+              "p99_ms": 0.007223009999999995,
+              "p999_ms": 3.6130925970000023,
+              "p999_status": "MEASURED"
+            },
+            "scheduled": {
+              "count": 115000,
+              "p50_ms": 0.06705,
+              "p99_ms": 0.07614604999999998,
+              "p999_ms": 4.6689005570000015,
+              "p999_status": "MEASURED"
+            },
+            "overrun": {
+              "count": 115000,
+              "p50_ms": 0.05458,
+              "p99_ms": 0.05855701999999999,
+              "p999_ms": 0.063881003,
+              "p999_status": "MEASURED"
+            }
+          },
+          "cpu_ns_per_market": 87064.41148333333,
+          "rss_peak_kib": 6500,
+          "valid": true,
+          "input_sha256": "58d72324fad75a568beda544ead454bbc183358efbd14fac3ae75a25aba3f8e1",
+          "binary_sha256": "4b75122cd1a31691dcf7b77e3434c751666bf0ea2c539423f55cfc21643ad3a7"
+        }
+      },
+      "submit_stages": {
+        "ab-b-0": {
+          "samples": 115,
+          "median_same_request_sync_fraction": 0.9973142139233269
+        },
+        "ab-b-1": {
+          "samples": 115,
+          "median_same_request_sync_fraction": 0.9980830824824164
+        },
+        "ab-b-2": {
+          "samples": 115,
+          "median_same_request_sync_fraction": 0.9977583757122286
+        },
+        "ab-b-3": {
+          "samples": 115,
+          "median_same_request_sync_fraction": 0.9977418653626295
+        },
+        "ab-b-4": {
+          "samples": 115,
+          "median_same_request_sync_fraction": 0.998185453215473
+        }
+      },
+      "artifact_sha256": {
+        "aa0-0.tar.gz": "43928e727d695284f00d78591dc2c7d2ac7139dc20c88468440a5109669b6574",
+        "aa0-1.tar.gz": "99e6849b933eb85bc22cc6189aecbabba4c17632adfdc31b6c1b19ed8e43b7f6",
+        "aa0-2.tar.gz": "7fb654cde5b549f04c70de1f25c3f56dd50aa43afe1fbdc535e73933b673b6db",
+        "aa0-3.tar.gz": "72115a2ea496d7f8960ea8b22c956466f2861440c911b241135421000c91e986",
+        "aa0-4.tar.gz": "4fe22fbc7bc579ba27b4dfb5e52810435566fefcd6fb91e56bd3f30c0f63548f",
+        "aa1-0.tar.gz": "de41234e6544a3fd708180a487765ad7d6be74e134ab2401f49de8e69a92844c",
+        "aa1-1.tar.gz": "cf655678ef66905aa48fc037a35c062ea3fb070024c47b76f8c68b879dcb164d",
+        "aa1-2.tar.gz": "bd117999312be7e89b8a47e717c4d422f2731fd21f2b7570e9558e3505ba9304",
+        "aa1-3.tar.gz": "153d62eb958b9e063c9390adf9c045787d11c9c5e07d9733d4143f16af87b752",
+        "aa1-4.tar.gz": "bc4d13a972f908547411b70e70f58980d93aec75843d6f1d57868888bbeda2d9",
+        "ab-a-0.tar.gz": "7aaa7c5149cc9e0ef101fae3a7ed2cc105341d543ab69c1f692de724a487dc3b",
+        "ab-a-1.tar.gz": "ce1bd53add13028c9522f9a40f267e85298b48291b3a26b2195e274924032695",
+        "ab-a-2.tar.gz": "e3dcca782f23c8f48e22b9714e74aecee3373d1314079f32469b2f611d317e4e",
+        "ab-a-3.tar.gz": "79cc4f285c4cdf35fcaed63bbae9dac1930241f845e7d7971652b8bcd209fa05",
+        "ab-a-4.tar.gz": "a5912fa478fe613c2879102e371edc2727e0662ff38fcf714235ad8158192647",
+        "ab-b-0.tar.gz": "cf4395a4da91b20084be133e03ebadc868446df32646f4ab119b4ac5a8c5193a",
+        "ab-b-1.tar.gz": "0fa1ef33b15d0434efeaa3e007cff4c2c05cf736f1bbc67cc781292764aec0ef",
+        "ab-b-2.tar.gz": "b72d0066a3923e4e505455b86464aea15b9c4cea24da13fc206438efb5924c6b",
+        "ab-b-3.tar.gz": "51e10d5ce5412330763be2c2ef4f5c4694ee7580ceebdad4515354c75c744bc0",
+        "ab-b-4.tar.gz": "b95ac702c1bdc087f911157b2ca8a330b9753761b159497fb661971d0a22b259",
+        "local-verification-5.tar.gz": "14ccc6de6523e972ba45580624c1caaa8168a099a579b9db1da3f75a78c9f5b9",
+        "paper-900.tar.gz": "f491a894a0d636ec851f696a26698d0cba90bb0209ac9faf2c0322f445b7fdcd",
+        "testnet-900.tar.gz": "9fa30fede082e5000bcaca06828a5b6188e5b3a53215544cc4d7c10cf85fc98d"
+      },
+      "live": {
+        "paper-900": {
+          "active_seconds": 900.003230206,
+          "cleanup_verified": true,
+          "critical_events": 921,
+          "critical_queued_at_stop": 0,
+          "failed": false,
+          "failure": null,
+          "fills": 4,
+          "health": "Disconnected",
+          "ledger": null,
+          "market_events": 174,
+          "market_queued_at_stop": 0,
+          "orders": 4,
+          "position": 0,
+          "processed": 18875,
+          "python_strategy": true,
+          "requested_seconds": 900,
+          "runtime": "rust-native",
+          "schema": 1,
+          "signed": false,
+          "source_reconnects": 1,
+          "stale_market_discarded": 0,
+          "telemetry_dropped": 0
+        },
+        "testnet-900": {
+          "active_seconds": 121.81547922,
+          "cleanup_verified": true,
+          "critical_events": 134,
+          "critical_queued_at_stop": 0,
+          "failed": true,
+          "failure": "unknown order; absence unresolved",
+          "fills": 4,
+          "health": "Healthy",
+          "ledger": {
+            "cash_change": "-0.012685",
+            "entry": "0",
+            "fees": "0.024605",
+            "funding": "0",
+            "position": "0",
+            "realized": "0.01192"
+          },
+          "market_events": 24,
+          "market_queued_at_stop": 0,
+          "orders": 3,
+          "position": 0,
+          "processed": 2443,
+          "python_strategy": true,
+          "requested_seconds": 900,
+          "runtime": "rust-native",
+          "schema": 1,
+          "signed": true,
+          "source_reconnects": 0,
+          "stale_market_discarded": 0,
+          "telemetry_dropped": 0
+        }
+      },
+      "rss_live": {
+        "paper": {
+          "samples": 889,
+          "min_kib": 29456,
+          "max_kib": 30460
+        },
+        "testnet": {
+          "samples": 124,
+          "min_kib": 14576,
+          "max_kib": 32064
+        }
+      },
+      "resources": {
+        "token": "mini-native-1792156825",
+        "region": "ap-northeast-1",
+        "bucket": "mininautilushost-artifacts82dd59a1-jimhxpumwqyb",
+        "prefix": "rust-native-20261015/mini-native-1792156825",
+        "instance": "i-03ce080b840ba2119",
+        "volumes": [
+          "vol-074c313c9c6c99670"
+        ],
+        "terminated": true,
+        "secret_parameter": "/mininautilus/temporary/mini-native-1792156825",
+        "compute_hourly_usd": 0.11235,
+        "automatic_termination_minutes": 100,
+        "build": {
+          "path": "runs/rust-native-20261015/bundle-5.tar.gz",
+          "commit": "8d58574ab259fb072e83fbae53409e54e7488adb",
+          "sha256": "fd07f00a114eae5bf338dda4568f71910190ca8b9de531a8ef56f09357833912",
+          "bytes": 4643470
+        },
+        "started_epoch": 1792156831.0705342,
+        "command": "6b199f58-ff12-46af-ad51-30152824d5e3",
+        "command_status": "Success",
+        "volume_cleanup": {
+          "vol-074c313c9c6c99670": "deleted"
+        },
+        "secret_parameter_deleted": true,
+        "finished_epoch": 1792160677.6250284
+      }
+    }
+  },
+  "current_status": {
+    "controlled_build": "8d58574ab259fb072e83fbae53409e54e7488adb",
+    "aa": "PASS",
+    "cpu": "IMPROVED_SCOPED",
+    "rss": "IMPROVED_SCOPED",
+    "simulated_action_p99": "INCONCLUSIVE_EFFECT_BELOW_10_PERCENT",
+    "signed_complete_handoff": "NOT_MEASURED",
+    "paper900": "PASS",
+    "signed900": "FAIL_121.815479220_SECONDS_RECOVERED",
+    "visibility_fix": "LOCAL_VERIFY_PASS_FRESH_AWS_PENDING",
+    "live_deploy": "SUPERVISED_TESTNET_PREPARATION_ONLY"
+  }
 }

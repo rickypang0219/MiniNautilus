@@ -1,7 +1,7 @@
 # Rust native migration: acceptance record
 
 Created: 2026-10-15T21:21:55+09:00 (Asia/Tokyo).
-Implementation under test: `2db3faa`; proposal: [frozen scope](rust-native-runtime-proposal.md).
+Original controlled comparison: `2db3faa`; expiry recovery build: `8d58574`; proposal: [frozen scope](rust-native-runtime-proposal.md).
 
 ## Confirmed corrections
 
@@ -62,9 +62,39 @@ The native five-run queue p99 maximum was 0.01732 ms and simulated action p99 ma
 
 Per-submit trace attribution (115 retained submits/run) finds median **99.80–99.82% of each individual submit request** in the sync stage. Submit request p99 ranges 5.7279–5.9078 ms; sync p99 5.7183–5.8995 ms. The share is computed from paired stages of each request, not a sum or ratio of unrelated percentiles. This explains why removing Python routing costs barely changes the durable order path. No durability relaxation was made.
 
-AWS paper acceptance **FAIL**: stopped after 684.0367 s with `unexpected WebSocket frame`, four simulated fills, position0, no queued messages, no telemetry drops, cleanup verified. It did not reach 900 s; signed Testnet was therefore **NOT_RUN**. The original error lacks frame type/close status, so an exchange close cannot honestly be distinguished from another unsupported frame retrospectively. A regression test now requires bounded close-code/reason diagnostics and binary-frame length without payload disclosure; all such frames still stop admission. A fresh paper/signed acceptance is pending with that diagnostic change.
+AWS paper acceptance **FAIL**: stopped after 684.0367 s with `unexpected WebSocket frame`, four simulated fills, position0, no queued messages, no telemetry drops, cleanup verified. It did not reach 900 s; signed Testnet was therefore **NOT_RUN**. The original error lacks frame type/close status, so an exchange close cannot honestly be distinguished from another unsupported frame retrospectively. A regression test now requires bounded close-code/reason diagnostics and binary-frame length without payload disclosure; all such frames still stop admission. The following experiment isolated the expiry cause; see the lifecycle follow-up below.
 
 The experiment controller downloaded original evidence and confirmed instance `i-0ff2cbc6e041fda4c` terminated, EBS `vol-0e599b8eb1c2413a6` deleted and its temporary SecureString parameter deleted. The original t4g.micro was not touched.
+
+## Lifecycle follow-up: diagnosed expiry and fresh release acceptance
+
+Experiment 3 (`553c824`, S3 prefix `rust-native-20261015/mini-native-1792085193`) stopped after **678.800630215s**, this time with explicit **WebSocket close 1000 / Expired**. Three simulated orders/fills, flat and cleanup verified; signed acceptance NOT_RUN. Original artifacts remain under `aws-experiment-3/`; instance `i-07c30e0a44acfff3e`, EBS `vol-01f833ad52cfc9d47` and temporary secret were confirmed removed. The first run's generic error does not retrospectively prove its close reason.
+
+`8d58574` adds bounded expiry renewal, synchronous admission pause, source generations and draining in-flight results in their original epoch before reconciliation. New subscriptions plus matching successful reconciliation are required; stale market/strategy results cannot reopen admission. Other errors still fail closed, and the budget is three renewals per invocation. See [expiry recovery contract and tests](rust-native-runtime-expiry-recovery.md). No Core or financial journal semantics changed.
+
+Full local verify and optimized release build passed. Repeated original replay: position0 / gross PnL12. The negative test with the synchronous pause removed fails; restoring it passes. GitHub Actions run [38907752684](https://github.com/rickypang0219/MiniNautilus/actions/runs/38907752684) passed with both native and default feature suites.
+
+Experiment 4 is bound to `8d58574ab259fb072e83fbae53409e54e7488adb`, bundle SHA256 `fd07f00a114eae5bf338dda4568f71910190ca8b9de531a8ef56f09357833912`, prefix `rust-native-20261015/mini-native-1792156825`. Order frozen before launch: paper900 → A/A 10 runs → interleaved A/B 10 runs → signed900. The same manifest/thresholds remain unchanged. No concurrent performance and live workloads.
+
+Fresh paper: **PASS, 900.003230206s**, one expiry renewal, four simulated orders/fills, final position0, cleanup verified, queued messages0 and telemetry drops0. Trace records generation1 expiry at 1792157503858ms, matching reconciliation at 1792157503859ms and replacement subscriptions at 1792157504917ms. These wall timestamps establish observed ordering, not a formal monotonic gate-latency measurement. All 20 controlled runs subsequently completed with matching identities/accounting. **A/A PASS**: p99 range 6.3220–7.0325ms, median6.5883ms, spread10.7836% ≤20%. Five-run medians:
+
+| Scoped metric | Python reference | Native | Verdict |
+|---|---:|---:|---|
+| Simulated action p99 | 6.56479ms | 6.13455ms | INCONCLUSIVE: 6.55% effect is below10% |
+| CPU/completed market event | 279.284µs | 87.102µs | IMPROVED: −68.81%, nonoverlapping ranges |
+| RSS peak indicator | 76.594MiB | 6.348MiB | IMPROVED: −91.71%, nonoverlapping ranges; same upper-bound caveat as above |
+| Market receive→writer p99 | 0.46130ms | 0.01968ms | Secondary observation, separate from action latency |
+| Market queue p99 | 0.27097ms | 0.00719ms | Secondary observation |
+
+Native per-submit median sync/request share remains 99.731–99.819%. Order p99.9 and complete signed transport-handoff remain NOT_MEASURED; this controlled workload excludes venue/signing/TLS. Numbers belong to `8d58574`, not a later binary.
+
+**Signed acceptance FAIL** after121.815479220s with `unknown order; absence unresolved`, before any expiry. Original-session recovery succeeded (and final independent recovery took1.3064s); final ledger has4 fills, fees0.024605USDC, realized0.01192USDC, funding0, cash change−0.012685USDC, position0. Fresh independent account inspection on2026-10-16 found positions0/open-orders0/local trading processes0. This does not relabel the short run PASS. The SSM supervisor returned Success after successful recovery, so its exit status alone was not an acceptance verdict.
+
+Instance `i-03ce080b840ba2119` terminated; EBS `vol-074c313c9c6c99670` and temporary SecureString deleted. The user's existing small host was untouched.
+
+The native query path previously stopped on the first `unknownOid`. A RED/GREEN test reproduces unknown→unknown→valid original order. The follow-up change retries **only original-cloid reads**, under a5s absolute deadline including request time/pacing; no mutation is resent and no absence is inferred. The execution owner remains busy, preventing another strategy action. Permanent unknown, malformed response and wrong identity still fail closed. Full verify passed; a fresh signed900 acceptance is pending. This change affects REST visibility handling, which is excluded from the controlled workload; it does not remeasure or relabel the earlier performance binary.
+
+Local verification archive `local-verification-5.tar.gz`, SHA256 `14ccc6de6523e972ba45580624c1caaa8168a099a579b9db1da3f75a78c9f5b9`, contains tests, negative experiment, replay, frozen controller/supervisor and public shadow preflight, under the experiment4 prefix.
 
 ## Acceptance matrix
 
@@ -75,10 +105,10 @@ The experiment controller downloaded original evidence and confirmed instance `i
 | RN-A3 protocol | PASS for covered fixtures and real diagnostic | Pinned SDK signing vectors, action-journal corruption/reuse, binding/mode/cap rejection tests, real four-fill diagnostic |
 | RN-A4 fault recovery | PASS for covered cases | Deterministic lost-response/no-resend, cancellation visibility, expired intent, unknown absence tests; real exit86 original-session recovery |
 | RN-A5 optional work isolation | PASS for tested delay/overflow scenarios | One-second delayed strategy/full telemetry private-progress test, absolute response deadline and stale-result tests |
-| RN-A6 live integration | FAIL / NOT_RUN | Local diagnostics passed; AWS paper stopped at 684 s; signed soak not started; corrected-diagnostic retry pending |
-| RN-P0 quiet reference | INCONCLUSIVE | Ten valid A/A runs; 26.465% spread exceeds 20% |
+| RN-A6 live integration | PARTIAL / FAIL | Expiry-corrected paper900 PASS; signed121.8s FAIL, successful original recovery; visibility fix under fresh acceptance |
+| RN-P0 quiet reference | PASS in experiment4 | Ten valid A/A runs; 10.784% spread ≤20%; earlier failed A/A retained |
 | RN-P1 complete signed local handoff | NOT_MEASURED | Available comparison excludes signing/admission/socket handoff, so its scoped result cannot satisfy this whole gate |
-| RN-P2 tail/resource guardrails | INCONCLUSIVE / NOT_MEASURED | CPU/RSS/market tails observed lower, but A/A fails; order p99.9 remains NOT_MEASURED |
+| RN-P2 tail/resource guardrails | PARTIAL / NOT_MEASURED | Scoped CPU/RSS IMPROVED in experiment4; full signed path and order p99.9 remain NOT_MEASURED |
 | RN-P3 absolute complete path | NOT_MEASURED | Queue and simulated action budgets can be reported separately; signing/admission are missing from that workload |
 | RN-P4 workload accounting | PASS for controlled workload | All 20 runs complete with identical input/action identities and zero rejected/inflight |
 
@@ -86,6 +116,12 @@ The local report analyzer was strengthened at `6184319`: mixed baseline/candidat
 
 ## Boundaries that remain explicit
 
-Rust now owns ingestion, routing, the durable writer, timers, admission/signing/execution and recovery. Python is optional strategy only. Private WebSocket observations wake verified REST refresh; they do not yet directly apply native venue accounting facts. Automatic reconnect-and-resume trading, live Hyperliquid rotation, multi-instrument collateral, mainnet and PCA alpha deployment remain outside this delivered slice.
+Rust now owns ingestion, routing, the durable writer, timers, admission/signing/execution and recovery. Python is optional strategy only. Private WebSocket observations wake verified REST refresh; they do not yet directly apply native venue accounting facts. General reconnect-and-resume trading, live Hyperliquid rotation, multi-instrument collateral, mainnet and PCA alpha deployment remain outside this delivered slice. The exact expiry-only renewal described above is now implemented; it is not general network recovery.
 
-The controlled comparison ends at a simulated executor handoff and excludes TLS, signing and account RPC. Thus even a passing comparison cannot establish the proposal's complete signed transport-handoff RN-P1/RN-P3 gate. Order p99.9 is NOT_MEASURED because each run has fewer than 100,000 orders. A/A instability means INCONCLUSIVE, irrespective of attractive medians.
+The controlled comparison ends at a simulated executor handoff and excludes TLS, signing and account RPC. Thus even a passing comparison cannot establish the proposal's complete signed transport-handoff RN-P1/RN-P3 gate. Order p99.9 is NOT_MEASURED because each run has fewer than 100,000 orders. Earlier A/A instability made that experiment INCONCLUSIVE. Experiment4 passes A/A, allowing its scoped CPU/RSS conclusions; its action effect still falls below10%.
+
+## Next milestone preparation
+
+[Native production readiness proposal](native-production-readiness-proposal.md) specifies lifecycle fault coverage and safe session rotation, persistent journal/host replacement and deployment drills, and the owner-selected Cluster-PCA shadow path. It has dated scope, implementation steps and numerical AWS gates. These new targets are future acceptance, not changes to this migration's frozen thresholds.
+
+Deployment preparation: [native live runbook](native-live-deployment-runbook.md), including signed preflight, original-session recovery, ABI/architecture checks and explicit pending operational drills.
