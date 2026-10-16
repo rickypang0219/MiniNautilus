@@ -2461,6 +2461,199 @@
         "secret_parameter_deleted": true,
         "finished_epoch": 1792160677.6250284
       }
+    },
+    "experiment5": {
+      "build": {
+        "path": "runs/rust-native-20261015/bundle-6.tar.gz",
+        "commit": "5ee07f2aec4e2f1bd9b428646718c8e3da87a023",
+        "sha256": "548e145ef8a90a21d3d88bca7ed8f1efa2428e22927979dddc0dc3a8610a8d63",
+        "bytes": 4667979
+      },
+      "report": {
+        "active_seconds": 900.005929342,
+        "cleanup_verified": true,
+        "critical_events": 931,
+        "critical_queued_at_stop": 0,
+        "failed": false,
+        "failure": null,
+        "fills": 5,
+        "health": "Healthy",
+        "ledger": {
+          "cash_change": "-0.058726",
+          "entry": "0",
+          "fees": "0.058526",
+          "funding": "0",
+          "position": "0",
+          "realized": "-0.0002"
+        },
+        "market_events": 172,
+        "market_queued_at_stop": 0,
+        "orders": 5,
+        "position": 0,
+        "processed": 18039,
+        "python_strategy": true,
+        "requested_seconds": 900,
+        "runtime": "rust-native",
+        "schema": 1,
+        "signed": true,
+        "source_reconnects": 1,
+        "stale_market_discarded": 0,
+        "telemetry_dropped": 0
+      },
+      "lifecycle": [
+        {
+          "at_ms": 1792179046908,
+          "epoch": 1,
+          "generation": 0,
+          "kind": "source_ready"
+        },
+        {
+          "at_ms": 1792179047270,
+          "epoch": 1,
+          "generation": 0,
+          "kind": "source_reconciled"
+        },
+        {
+          "at_ms": 1792179703566,
+          "generation": 1,
+          "kind": "source_expired"
+        },
+        {
+          "at_ms": 1792179704471,
+          "epoch": 2,
+          "generation": 1,
+          "kind": "source_reconciled"
+        },
+        {
+          "at_ms": 1792179704664,
+          "epoch": 2,
+          "generation": 1,
+          "kind": "source_ready"
+        }
+      ],
+      "post_renewal_submits": [
+        {
+          "at_ms": 1792179781180,
+          "seq": 14716,
+          "epoch": 2,
+          "position": -20,
+          "health": "Healthy"
+        },
+        {
+          "at_ms": 1792179901273,
+          "seq": 17124,
+          "epoch": 2,
+          "position": 20,
+          "health": "Healthy"
+        }
+      ],
+      "rss": {
+        "samples": 896,
+        "min_kib": 15148,
+        "max_kib": 32236,
+        "median_kib": 32104.0
+      },
+      "artifacts": {
+        "testnet-900.tar.gz": "ff32106e759bcd8149fbcd650970d82a385b6cc630d92353b2caa530b8487eb9",
+        "local-verification-6.tar.gz": "b05845c92077b6906f6b4f0880f1badedf88cb07f35057164584be48a14a66cb"
+      },
+      "resources": {
+        "token": "mini-native-1792178996",
+        "region": "ap-northeast-1",
+        "bucket": "mininautilushost-artifacts82dd59a1-jimhxpumwqyb",
+        "prefix": "rust-native-20261015/mini-native-1792178996",
+        "instance": "i-0dd2d835b0767992b",
+        "volumes": [
+          "vol-02b136a02e5db78d2"
+        ],
+        "terminated": true,
+        "secret_parameter": "/mininautilus/temporary/mini-native-1792178996",
+        "compute_hourly_usd": 0.11235,
+        "automatic_termination_minutes": 35,
+        "build": {
+          "path": "runs/rust-native-20261015/bundle-6.tar.gz",
+          "commit": "5ee07f2aec4e2f1bd9b428646718c8e3da87a023",
+          "sha256": "548e145ef8a90a21d3d88bca7ed8f1efa2428e22927979dddc0dc3a8610a8d63",
+          "bytes": 4667979
+        },
+        "started_epoch": 1792179002.139281,
+        "command": "e382a5a6-7b5b-471e-8678-f04fa6c917d2",
+        "command_status": "Success",
+        "volume_cleanup": {
+          "vol-02b136a02e5db78d2": "deleted"
+        },
+        "secret_parameter_deleted": true,
+        "finished_epoch": 1792180015.8562124
+      },
+      "independent_account_check": {
+        "at_ms": 1792180041406,
+        "positions": [],
+        "open_orders": 0,
+        "active_trading_pids": [],
+        "account_state_time": 1792180040699
+      },
+      "final_resource_check": {
+        "remaining_task_instances": []
+      },
+      "replay": {
+        "position": 0,
+        "orders": 5,
+        "fills": 5,
+        "raw_sha256": "993ee75493492b4bc86e569d3f7786750ad69b3eb1b9e339795b9ed84435aa3a"
+      },
+      "verdict": "PASS_900_SECOND_SIGNED_TESTNET_SCOPE"
+    },
+    "experiment3": {
+      "resources": {
+        "token": "mini-native-1792085193",
+        "region": "ap-northeast-1",
+        "bucket": "mininautilushost-artifacts82dd59a1-jimhxpumwqyb",
+        "prefix": "rust-native-20261015/mini-native-1792085193",
+        "instance": "i-07c30e0a44acfff3e",
+        "volumes": [
+          "vol-01f833ad52cfc9d47"
+        ],
+        "terminated": true,
+        "secret_parameter": "/mininautilus/temporary/mini-native-1792085193",
+        "compute_hourly_usd": 0.11235,
+        "automatic_termination_minutes": 50,
+        "build": {
+          "path": "runs/rust-native-20261015/native-bundle-4.tar.gz",
+          "commit": "553c824e6cff0bb618cbcbcde21841abd156aa73",
+          "sha256": "ca4527b73fa22b671566b84211aa8306e8738c17a4e9b64315c9d9b82ea3be61",
+          "bytes": 4625310
+        },
+        "started_epoch": 1792085199.4376447,
+        "command": "479822fa-8f8c-4e66-ba5d-811ed912d10e",
+        "command_status": "Failed",
+        "volume_cleanup": {
+          "vol-01f833ad52cfc9d47": "deleted"
+        },
+        "secret_parameter_deleted": true,
+        "finished_epoch": 1792085960.1121342
+      },
+      "paper_report": {
+        "active_seconds": 678.800630215,
+        "cleanup_verified": true,
+        "critical_events": 689,
+        "critical_queued_at_stop": 0,
+        "failed": true,
+        "failure": "WebSocket peer close code=1000 reason=Expired",
+        "fills": 3,
+        "health": "Disconnected",
+        "ledger": null,
+        "market_events": 131,
+        "market_queued_at_stop": 0,
+        "orders": 3,
+        "position": 0,
+        "processed": 14273,
+        "python_strategy": true,
+        "requested_seconds": 900,
+        "runtime": "rust-native",
+        "schema": 1,
+        "signed": false,
+        "telemetry_dropped": 0
+      }
     }
   },
   "current_status": {
@@ -2471,8 +2664,14 @@
     "simulated_action_p99": "INCONCLUSIVE_EFFECT_BELOW_10_PERCENT",
     "signed_complete_handoff": "NOT_MEASURED",
     "paper900": "PASS",
-    "signed900": "FAIL_121.815479220_SECONDS_RECOVERED",
-    "visibility_fix": "LOCAL_VERIFY_PASS_FRESH_AWS_PENDING",
-    "live_deploy": "SUPERVISED_TESTNET_PREPARATION_ONLY"
+    "signed900": "PASS_900.005929342_SECONDS_EXPERIMENT5",
+    "visibility_fix": "LOCAL_VERIFY_AND_AWS_SIGNED900_PASS_OLD_RAW_RESPONSE_UNAVAILABLE",
+    "live_deploy": "SUPERVISED_TESTNET_PREPARATION_ONLY",
+    "signed_build": "5ee07f2aec4e2f1bd9b428646718c8e3da87a023",
+    "paper_build": "8d58574ab259fb072e83fbae53409e54e7488adb",
+    "task_resource_cleanup": "VERIFIED_NO_REMAINING_TASK_INSTANCES",
+    "venue_final": "FLAT_OPEN_ORDERS_ZERO_INDEPENDENT_CHECK",
+    "strategy": "CLUSTER_PCA_SHADOW_SELECTED_PREPARATION_ONLY",
+    "mainnet": "NOT_ENABLED"
   }
 }

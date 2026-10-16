@@ -92,9 +92,25 @@ Native per-submit median sync/request share remains 99.731–99.819%. Order p99.
 
 Instance `i-03ce080b840ba2119` terminated; EBS `vol-074c313c9c6c99670` and temporary SecureString deleted. The user's existing small host was untouched.
 
-The native query path previously stopped on the first `unknownOid`. A RED/GREEN test reproduces unknown→unknown→valid original order. The follow-up change retries **only original-cloid reads**, under a5s absolute deadline including request time/pacing; no mutation is resent and no absence is inferred. The execution owner remains busy, preventing another strategy action. Permanent unknown, malformed response and wrong identity still fail closed. Full verify passed; a fresh signed900 acceptance is pending. This change affects REST visibility handling, which is excluded from the controlled workload; it does not remeasure or relabel the earlier performance binary.
+The native query path previously stopped on the first non-`order` response. The old failure did not retain the raw status, so its exact value cannot be established retrospectively; `unknownOid` is a reproducible visibility-lag case covered by the correction, not a proven reconstruction of that old response. A RED/GREEN test reproduces unknown→unknown→valid original order. The follow-up change retries **only original-cloid reads**, under a5s absolute deadline including request time/pacing; no mutation is resent and no absence is inferred. The execution owner remains busy, preventing another strategy action. Permanent unknown, malformed response and wrong identity still fail closed. Full verify passed; the fresh signed900 acceptance below passed. This change affects REST visibility handling, which is excluded from the controlled workload; it does not remeasure or relabel the earlier performance binary.
 
 Local verification archive `local-verification-5.tar.gz`, SHA256 `14ccc6de6523e972ba45580624c1caaa8168a099a579b9db1da3f75a78c9f5b9`, contains tests, negative experiment, replay, frozen controller/supervisor and public shadow preflight, under the experiment4 prefix.
+
+## Corrected signed release: experiment5
+
+Signed build `5ee07f2aec4e2f1bd9b428646718c8e3da87a023`, bundle SHA256 `548e145ef8a90a21d3d88bca7ed8f1efa2428e22927979dddc0dc3a8610a8d63`; immutable evidence prefix `s3://mininautilushost-artifacts82dd59a1-jimhxpumwqyb/rust-native-20261015/mini-native-1792178996/`. This bounded follow-up tests the REST visibility correction. The controlled comparison remains bound to experiment4's `8d58574`; no later binary is relabeled as that measurement.
+
+**Signed900 PASS**: active900.005929342s, exit0,5 owned orders/5 unique fills,172 market observations, no queued messages at stop, no telemetry drops and no runtime failure. One real `1000/Expired` renewal occurred: generation1 expiry at1792179703566ms, successful reconciliation at1792179704471ms and new subscriptions confirmed at1792179704664ms. Core advanced to epoch2; subsequent submits at1792179781180ms and1792179901273ms demonstrate trading after renewal. These are wall-time trace ordering observations, not a formal monotonic10ms gate-latency proof.
+
+Runtime process-tree RSS had896 samples, peak**32,236KiB /31.480MiB**, below384MiB. The initially sampled minimum precedes full child initialization; it must not be used to infer a leak. Fifteen minutes is a fast-fail integration gate, not a long-term memory bound.
+
+Shutdown cleanup and an additional original-session recovery both succeeded; the latter took1.686279740s. Independent venue inspection after termination confirmed positions0/open orders0, with no local trading processes. Offline inspection of the actual recovered journal independently reproduced position0,5 orders/5 fills. Session accounting: realized−0.0002USDC, fees0.058526USDC, funding0, cash change−0.058726USDC. This diagnostic SMA session is not alpha performance; real funding settlement remains NOT_MEASURED here.
+
+The supervisor now retains a failed signed exit as failure even when recovery succeeds. This corrects the experiment4 orchestration ambiguity without altering its original report. No failed attempt was dropped or relabeled.
+
+Task instance `i-0dd2d835b0767992b` terminated, EBS `vol-02b136a02e5db78d2` deleted and temporary SecureString deleted. A fresh AWS inventory found zero remaining task instances. Existing user host was preserved. Raw signed archive SHA256: `ff32106e759bcd8149fbcd650970d82a385b6cc630d92353b2caa530b8487eb9`. Local verification/source-preparation archive `local-verification-6.tar.gz` SHA256: `b05845c92077b6906f6b4f0880f1badedf88cb07f35057164584be48a14a66cb`, under the same prefix.
+
+Full `scripts/verify.sh` finished VERIFY OK, including183 Python tests; native venue tests7/7 passed, including the RED/GREEN visibility regression, permanent unresolved-order preservation and wrong-identity rejection. Original replay remains position0/grossPnL12. CI [38955374834](https://github.com/rickypang0219/MiniNautilus/actions/runs/38955374834) passed on the tested signed source commit.
 
 ## Acceptance matrix
 
@@ -105,7 +121,7 @@ Local verification archive `local-verification-5.tar.gz`, SHA256 `14ccc6de6523e9
 | RN-A3 protocol | PASS for covered fixtures and real diagnostic | Pinned SDK signing vectors, action-journal corruption/reuse, binding/mode/cap rejection tests, real four-fill diagnostic |
 | RN-A4 fault recovery | PASS for covered cases | Deterministic lost-response/no-resend, cancellation visibility, expired intent, unknown absence tests; real exit86 original-session recovery |
 | RN-A5 optional work isolation | PASS for tested delay/overflow scenarios | One-second delayed strategy/full telemetry private-progress test, absolute response deadline and stale-result tests |
-| RN-A6 live integration | PARTIAL / FAIL | Expiry-corrected paper900 PASS; signed121.8s FAIL, successful original recovery; visibility fix under fresh acceptance |
+| RN-A6 live integration | PASS for the recorded integration slice | Earlier real4-fill/crash drills; paper900 on8d58574; corrected signed900 on5ee07f2, real expiry/resume, peak31.480MiB and final flat/open0; original failed runs retained |
 | RN-P0 quiet reference | PASS in experiment4 | Ten valid A/A runs; 10.784% spread ≤20%; earlier failed A/A retained |
 | RN-P1 complete signed local handoff | NOT_MEASURED | Available comparison excludes signing/admission/socket handoff, so its scoped result cannot satisfy this whole gate |
 | RN-P2 tail/resource guardrails | PARTIAL / NOT_MEASURED | Scoped CPU/RSS IMPROVED in experiment4; full signed path and order p99.9 remain NOT_MEASURED |
@@ -125,3 +141,5 @@ The controlled comparison ends at a simulated executor handoff and excludes TLS,
 [Native production readiness proposal](native-production-readiness-proposal.md) specifies lifecycle fault coverage and safe session rotation, persistent journal/host replacement and deployment drills, and the owner-selected Cluster-PCA shadow path. It has dated scope, implementation steps and numerical AWS gates. These new targets are future acceptance, not changes to this migration's frozen thresholds.
 
 Deployment preparation: [native live runbook](native-live-deployment-runbook.md), including signed preflight, original-session recovery, ABI/architecture checks and explicit pending operational drills.
+
+The deployment preparation also includes a minimal [retained-volume CloudFormation draft](../ops/aws/native-journal-volume.json), accepted by AWS ValidateTemplate. It is not deployed and has no automatic host attachment/service installation. Production blockers remain general lifecycle faults/restarts, safe live rotation beyond1,000 orders, retained-state host-loss/fencing/alerts/upgrade drills, and true portfolio strategy accounting. Those are specified in the next-phase proposal, not silently treated as delivered by a successful15-minute session.

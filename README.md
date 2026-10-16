@@ -66,6 +66,8 @@ target/release/native-live paper --python-strategy --seconds 900 --flatten --run
 
 紙上成交不代表交易所成交。實際 Testnet 小額下單、原 session 恢復、環境變數及風險限制見 [native 操作指引](docs/rust-native-runtime-operations.md)。[驗收記錄](docs/rust-native-runtime-results.md) 分開列出 correctness 和性能結果；不要把 Rust implementation 本身當作低延遲證明。Private stream 目前觸發 REST refresh；`1000/Expired` 會先關 gate 再重新訂閱及完整對帳，最多三次。其他斷線仍停止 session，live journal 輪換未啟用。
 
+Live 部署前的 artifact／ABI 核對、原 session 恢復及升級步驟見 [deployment runbook](docs/native-live-deployment-runbook.md)。生命週期、持久 journal／失機演練，以及已選定的 Cluster-PCA 無下單 shadow，見 [下一階段 scope 與量化驗收](docs/native-production-readiness-proposal.md) 及 [機讀 manifest](comparisons/native-readiness/manifest-v1.json)；這些待驗收項目不代表已能無人值守實盤。
+
 ## Hyperliquid Perps Testnet
 
 下一個執行 venue 使用 Hyperliquid：沿用 Rust durable single writer、actor、bounded SMA cache，支援一個專用帳戶、一個 USDC perp 的 long/short、取消、USDC 費用／funding 對帳及恢復。Mainnet 下單關閉。詳見 [操作指引](docs/hyperliquid-testnet.md) 和 [migration scope／驗收](docs/hyperliquid-migration-proposal.md)。PCA 多交易對策略仍是獨立階段。

@@ -174,5 +174,69 @@
       "bar_hours": 4.0,
       "entry": 1.5
     }
+  },
+  "evidence_archives": {
+    "public_market_snapshots": {
+      "uri": "s3://mininautilushost-artifacts82dd59a1-jimhxpumwqyb/rust-native-20261015/mini-native-1792156825/local-verification-5.tar.gz",
+      "sha256": "14ccc6de6523e972ba45580624c1caaa8168a099a579b9db1da3f75a78c9f5b9",
+      "contents": [
+        "verify-expiry-final.log",
+        "release-expiry-final.log",
+        "release-baseline-final.log",
+        "replay-expiry-final.log",
+        "expiry-final-green.log",
+        "expiry-latch-fault-red-2.log",
+        "expiry-latch-fault-red.log",
+        "expiry-clippy.log",
+        "bundle-5.json",
+        "aws_experiment_4.py",
+        "remote_experiment_4.py",
+        "start_live_sampler_4.py",
+        "shadow-public-1792157230055468908",
+        "account-preflight-1792020205999.json",
+        "account-preflight-1792020244458.json",
+        "account-preflight-1792156796883.json",
+        "account-preflight-1792019803754.json",
+        "account-preflight-1792085025804.json",
+        "account-preflight-1792066693201.json",
+        "account-preflight-1792066703488.json",
+        "account-preflight-1792020135346.json",
+        "account-preflight-1792066548316.json",
+        "account-preflight-1792066720239.json"
+      ]
+    },
+    "research_checks_and_boundary_probes": {
+      "uri": "s3://mininautilushost-artifacts82dd59a1-jimhxpumwqyb/rust-native-20261015/mini-native-1792178996/local-verification-6.tar.gz",
+      "sha256": "b05845c92077b6906f6b4f0880f1badedf88cb07f35057164584be48a14a66cb",
+      "contents": [
+        "verify-visibility-final.log",
+        "release-visibility-final.log",
+        "replay-visibility-final.log",
+        "visibility-red.log",
+        "visibility-green.log",
+        "research-setup-b41cd0d.log",
+        "research-tests-b41cd0d.log",
+        "research-ruff-b41cd0d.log",
+        "research-boundary-probe.py",
+        "research-boundary-probe.json",
+        "native-journal-template-validation.json",
+        "bundle-6.json",
+        "aws_experiment_5.py",
+        "remote_experiment_5.py",
+        "start_live_sampler_5.py",
+        "account-preflight-1792020205999.json",
+        "account-preflight-1792178696451.json",
+        "account-preflight-1792020244458.json",
+        "account-preflight-1792156796883.json",
+        "account-preflight-1792019803754.json",
+        "account-preflight-1792085025804.json",
+        "account-preflight-1792066693201.json",
+        "account-preflight-1792066703488.json",
+        "account-preflight-1792020135346.json",
+        "account-preflight-1792066548316.json",
+        "account-preflight-1792066720239.json",
+        "account-preflight-1792178996150.json"
+      ]
+    }
   }
 }
