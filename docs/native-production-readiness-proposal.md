@@ -145,3 +145,5 @@ O 的 ≤20USD 是預算 gate，不是現有價格承諾；即使 correctness �
 - event-driven更新以`np.vstack`複製AR window，亦持有全panel；若日後採用此版本，須改bounded numeric ring及incremental input，另做parity。不能稱現在已是O(1) live cache。
 
 反例僅確認上述邊界問題，不是全研究code audit。沒有修改原research repo，沒有重跑完整historical backtest；測試及反例收據列入preparation JSON。
+
+後續可凍結的機讀參數：[native-readiness manifest v1](../comparisons/native-readiness/manifest-v1.json)。它是DRAFT/NOT_EXECUTED，數字對應本proposal；未有新run填入PASS。部署操作步驟另見[native live runbook](native-live-deployment-runbook.md)。
