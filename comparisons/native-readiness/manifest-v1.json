@@ -91,7 +91,13 @@
         "proof_integrity"
       ],
       "cache_assumptions_must_be_documented_before_execution": true
-    }
+    },
+    "additional_soft_triggers": {
+      "active_journal_bytes": 67108864,
+      "segment_age_seconds": 1800,
+      "policy": "first_trigger_stops_new_risk_and_requests_quiescence; preserve/drain critical facts, do not discard fills to meet size target"
+    },
+    "qualification_flatten_policy": "Must explicitly freeze bounded operational flatten for24h infrastructure run or report stopped qualification; real PCA requires separate non-flat carry acceptance"
   },
   "operations": {
     "model": "single_active_host_controlled_replacement",
@@ -177,7 +183,8 @@
       "min_cluster_assets": 6
     },
     "original_report_config_status": "NOT_AVAILABLE: selected 270/1.50 comes from thread; remaining config reconstructed from pinned source defaults, not an original report receipt",
-    "rebalance_anchor_status": "UNRESOLVED: infer and freeze a UTC slot from original data/timing; never restart-relative or based on current cache length"
+    "rebalance_anchor_status": "UNRESOLVED: infer and freeze a UTC slot from original data/timing; never restart-relative or based on current cache length",
+    "runtime_integration": "NOT_IMPLEMENTED: separate Rust public recorder/cache and Python refit/signal workers; preserve SMA8KiB/1.2s regression; portfolio protocol is a later version"
   },
   "required_gate_result_fields": [
     "gate_id",
@@ -201,5 +208,8 @@
     "BLOCKED",
     "NOT_MEASURED",
     "INCONCLUSIVE"
-  ]
+  ],
+  "proposal_revision": "1.1",
+  "updated_utc": "2026-10-16T20:44:28+00:00",
+  "tested_runtime_reference": "f95a88b57efc372deefe8770c11e0d7f4ff07f34"
 }

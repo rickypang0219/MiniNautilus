@@ -2716,6 +2716,154 @@
       },
       "archive_sha256": "234049fadaf098d4a71b152f88f897b10264626ed9f756e89f18d2391c86083c",
       "verdict": "FAIL_681.150499047_SECONDS_RECOVERED"
+    },
+    "experiment7": {
+      "build": {
+        "path": "runs/rust-native-20261015/bundle-11.tar.gz",
+        "commit": "f95a88b57efc372deefe8770c11e0d7f4ff07f34",
+        "sha256": "08591ab1502d7c6dc105ee3ebe8479c79137a082ff66781789e73b2982a1b411",
+        "bytes": 4680333
+      },
+      "report": {
+        "active_seconds": 900.001560705,
+        "cleanup_verified": true,
+        "critical_events": 933,
+        "critical_queued_at_stop": 0,
+        "failed": false,
+        "failure": null,
+        "fills": 6,
+        "health": "Healthy",
+        "ledger": {
+          "cash_change": "-0.059771",
+          "entry": "0",
+          "fees": "0.073171",
+          "funding": "0",
+          "position": "0",
+          "realized": "0.0134"
+        },
+        "market_events": 171,
+        "market_queued_at_stop": 0,
+        "orders": 6,
+        "position": 0,
+        "processed": 18032,
+        "python_strategy": true,
+        "requested_seconds": 900,
+        "runtime": "rust-native",
+        "schema": 1,
+        "signed": true,
+        "source_reconnects": 1,
+        "stale_market_discarded": 0,
+        "telemetry_dropped": 0
+      },
+      "lifecycle": [
+        {
+          "at_ms": 1792182386252,
+          "epoch": 1,
+          "generation": 0,
+          "kind": "source_ready"
+        },
+        {
+          "at_ms": 1792182386596,
+          "epoch": 1,
+          "generation": 0,
+          "kind": "source_reconciled"
+        },
+        {
+          "at_ms": 1792183029541,
+          "generation": 1,
+          "kind": "source_expired"
+        },
+        {
+          "at_ms": 1792183030602,
+          "epoch": 2,
+          "generation": 1,
+          "kind": "source_ready"
+        },
+        {
+          "at_ms": 1792183030757,
+          "epoch": 2,
+          "generation": 1,
+          "kind": "source_reconciled"
+        }
+      ],
+      "post_renewal_submits": [
+        {
+          "at_ms": 1792183081585,
+          "seq": 13949,
+          "epoch": 2,
+          "position": -20,
+          "health": "Healthy"
+        }
+      ],
+      "writer_submits_during_observed_renewal_barrier": 0,
+      "resources": {
+        "token": "mini-native-1792182335",
+        "region": "ap-northeast-1",
+        "bucket": "mininautilushost-artifacts82dd59a1-jimhxpumwqyb",
+        "prefix": "rust-native-20261015/mini-native-1792182335",
+        "instance": "i-076cbc942b20b521b",
+        "volumes": [
+          "vol-0018692482efd28a9"
+        ],
+        "terminated": true,
+        "secret_parameter": "/mininautilus/temporary/mini-native-1792182335",
+        "compute_hourly_usd": 0.11235,
+        "automatic_termination_minutes": 35,
+        "build": {
+          "path": "runs/rust-native-20261015/bundle-11.tar.gz",
+          "commit": "f95a88b57efc372deefe8770c11e0d7f4ff07f34",
+          "sha256": "08591ab1502d7c6dc105ee3ebe8479c79137a082ff66781789e73b2982a1b411",
+          "bytes": 4680333
+        },
+        "started_epoch": 1792182341.3884351,
+        "command": "2785343c-9315-4d03-a2c7-e7e02f3ecbbf",
+        "command_status": "Success",
+        "volume_cleanup": {
+          "vol-0018692482efd28a9": "deleted"
+        },
+        "secret_parameter_deleted": true,
+        "finished_epoch": 1792183340.6920133
+      },
+      "rss_by_mode": {
+        "testnet": {
+          "samples": 882,
+          "min_kib": 15144,
+          "max_kib": 32308,
+          "median_kib": 32164.0
+        }
+      },
+      "replay": {
+        "position": 0,
+        "orders": 6,
+        "fills": 6,
+        "epoch": 5,
+        "sha256": "f5d345ebdd977d5bea97bbb7fcdf1feb0dd2f7da802b1576e956d18fbdfbe57d"
+      },
+      "inventory": [
+        {
+          "name": "testnet-900",
+          "exit": 0
+        },
+        {
+          "name": "final-recovery",
+          "exit": 0
+        }
+      ],
+      "artifacts": {
+        "local-verification-12.tar.gz": "60aa0533aca8f93307974acc175fd1d6c133be8a8423d39d5a0890940da9c23f",
+        "testnet-900.tar.gz": "3185de951a1cd7a6fd1e1859035a81d6822a1eace390f680f6f9f5006fd3b270"
+      },
+      "verdict": "PASS_900_SECOND_SIGNED_SCOPE",
+      "independent_account_check": {
+        "at_ms": 1792183346323,
+        "positions": [],
+        "open_orders": 0,
+        "active_trading_pids": [],
+        "account_state_time": 1792183345754
+      },
+      "final_resource_check": {
+        "remaining_task_instances": []
+      }
     }
   },
   "current_status": {
@@ -2726,16 +2874,17 @@
     "simulated_action_p99": "INCONCLUSIVE_EFFECT_BELOW_10_PERCENT",
     "signed_complete_handoff": "NOT_MEASURED",
     "paper900": "PASS",
-    "signed900": "EXPERIMENT5_PASS_RETAINED_LATEST_EXPERIMENT6_FAIL_FILL_VISIBILITY",
+    "signed900": "PASS_900.001560705_SECONDS_EXPERIMENT7",
     "visibility_fix": "LOCAL_VERIFY_AND_AWS_SIGNED900_PASS_OLD_RAW_RESPONSE_UNAVAILABLE",
     "live_deploy": "SUPERVISED_TESTNET_PREPARATION_ONLY",
-    "signed_build": "5ee07f2aec4e2f1bd9b428646718c8e3da87a023",
+    "signed_build": "f95a88b57efc372deefe8770c11e0d7f4ff07f34",
     "paper_build": "8d58574ab259fb072e83fbae53409e54e7488adb",
     "task_resource_cleanup": "VERIFIED_NO_REMAINING_TASK_INSTANCES",
     "venue_final": "FLAT_OPEN_ORDERS_ZERO_INDEPENDENT_CHECK",
     "strategy": "CLUSTER_PCA_SHADOW_SELECTED_PREPARATION_ONLY",
     "mainnet": "NOT_ENABLED",
-    "fill_visibility_fix": "RED_GREEN_AND_FULL_VERIFY_PASS_FRESH_SIGNED_PENDING"
+    "fill_visibility_fix": "RED_GREEN_FULL_VERIFY_CI_AND_SIGNED900_PASS",
+    "ci": "PASS_SOURCE_f95a88b_RUN_38962119498"
   },
   "historical_limitations_experiment2": [
     "A/A spread exceeds 20%; no accepted relative improvement",
@@ -2768,6 +2917,12 @@
       "run": 38959672921,
       "status": "PASS"
     },
-    "raw_annotations_sha256": "b1fea78d8b0d6a194ef828b56243eb7b63cbae22934e43f4f06744c8c6a14fb9"
+    "raw_annotations_sha256": "b1fea78d8b0d6a194ef828b56243eb7b63cbae22934e43f4f06744c8c6a14fb9",
+    "status": "CAPTURED_REOPEN_FAILURE_REPRODUCED_AND_FIXED",
+    "latest_source_ci": {
+      "run": 38962119498,
+      "commit": "f95a88b57efc372deefe8770c11e0d7f4ff07f34",
+      "status": "PASS"
+    }
   }
 }

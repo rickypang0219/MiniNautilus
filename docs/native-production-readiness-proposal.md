@@ -1,7 +1,9 @@
-# Native runtime：生命週期、營運保護、真實策略驗收 v1.0
+# Native runtime：生命週期、營運保護、真實策略驗收 v1.1
 
 Created: **2026-10-16T13:22:00Z** (UTC).
 Strategy selection: **使用者於 2026-10-16 確認 Cluster-PCA stat-arb，先無下單 shadow**。這不代表已批准主網或已有策略驗收結果。
+
+Updated: **2026-10-16T20:44:28+00:00**.
 
 Status: **PREPARATION / NOT ACCEPTED**。這是後續 implementation scope；數字是預先訂定的驗收目標，不是已取得的成果。
 
@@ -53,11 +55,13 @@ Status: **PREPARATION / NOT ACCEPTED**。這是後續 implementation scope；數
 **所需與步驟。**
 
 1. 重用 `DurableEngine::rotate_into_retaining_paged` 和現有 Closed/Genesis crash points。確認既有 cold-page trust approval 的適用範圍；不得把 root/path 驗證擴大成未批准的完整性削弱。
-2. 預先設定 soft threshold **800 orders**、hard ceiling **1,000**。800 後停止新風險；預留 200 是安全餘量，不是允許 200 次 blind flatten retry。無靜止點 60s 後進停止／人工處理。
+2. 預先設定 soft trigger：**800 orders 或 active journal64MiB 或 segment age30min，先到者觸發**；hard order ceiling仍為**1,000**。即使少交易，Tick/quote亦會增長journal，因此只看訂單數不能限制啟動replay成本。觸發後停止新風險；預留 200 是安全餘量，不是允許 200 次 blind flatten retry。無靜止點 60s 後進停止／人工處理。
 3. 保留全域遞增 ID floor、nonce high-water、account/agent binding、session lineage、歷史 fees/funding/cash carry；所有這些須先 durable 才發布 current-session pointer。
 4. **不得只 rotate Core journal。** Venue 的 `owned_oids`、fill lookup、基準 NAV／funding start、action attempt 去重也要以 segment watermark 協調。邊界 timestamp 相同的 fills/funding 必須去重，避免從新 start-time 漏掉舊單遲到事實。
 5. successor 出現前 predecessor Closed 已 durable 的 crash，要 deterministic 完成同一 successor；已 Closed 不再寫回。冷歷史保留可查核及離線 scrub，不刪掉原始會計證據。
 6. 合併 journal/session/current-pointer crash matrix；恢復後驗證唯一 active successor，再 reconcile 才 open gate。
+
+首版flat-only輪換有操作限制：持續持倉的SMA不保證自然flat。24h infrastructure qualification須在看結果前明確選定有界operational-flatten政策，將額外成交/成本單列；若維持預設等待而無靜止點，應停止告警，不能宣稱24h連續交易通過。真實PCA portfolio不得繼承這個infra平倉政策；其execution前需另驗證non-flat opening-position/cost-basis/funding carry，或證明策略本身會提供符合時限的靜止點。
 
 **輪換前須處理的歷史成本。** 現有 `Venue::poll` 逐張查全部 session orders，包含已 terminal；`reconcile` 亦重查歷史。按現有100ms pacing，800次orderStatus僅間隔已至少79.9s（來源碼下界推算，非實測），超過30s private freshness budget。單加800單輪換門檻不夠。建立含原始terms、oid/cloid、完整fills、proof hash的**已驗證 terminal facts cache**，常規poll僅查active/uncertain。完整對帳仍須檢查foreign fills、changed duplicates、獨立cash/position/funding及cache完整性；不能以cache存在便跳過帳本。先寫明沿用的terminal immutability假設及cache invalidation；不滿足假設／cache缺失時完整驗證或fail closed，不能放寬freshness門檻。輪換後透過已驗證cold lookup保留retired dedup證據。
 
@@ -98,6 +102,8 @@ O 的 ≤20USD 是預算 gate，不是現有價格承諾；即使 correctness �
 ## S：真實策略驗收（已選定 Cluster-PCA shadow）
 
 **問題。** SMA／強制交易只驗 infrastructure，不能用其 Testnet PnL 推論 alpha。原 [PCA proposal](pca-stat-arb-research-to-paper-proposal.md) 已找到聊天來源；本次其後取得使用者指定的 `b41cd0d` 程式並跑測試，但未取得原資料／報告重現；該舊文的 Binance Futures execution scope 已不適用新的 Hyperliquid 方向。本文件僅更新 execution venue，沒有把未重現研究當完成。
+
+目前 `--python-strategy` 是固定BTC/1m SMA路徑，並非可直接載入PCA的plugin介面。既有每次8KiB／1.2s request限制須保留SMA回歸保障。PCA shadow先建立**Rust公共資料recorder＋bounded warm-up/cache＋Python model worker**，不接execution；大panel用有hash/watermark的本地snapshot引用，不把完整歷史灌進每次request。30s模型refit在cold worker完成後才發布immutable snapshot，與快速signal呼叫分開。之後portfolio execution使用明確版本化協定及deadline，不直接把SMA timeout加大當作完成整合。
 
 **所需與步驟。**
 
