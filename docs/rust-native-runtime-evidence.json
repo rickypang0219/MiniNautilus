@@ -1279,13 +1279,6 @@
     "bucket": "mininautilushost-artifacts82dd59a1-jimhxpumwqyb",
     "prefix": "rust-native-20261015/mini-native-1792066730"
   },
-  "limitations": [
-    "A/A spread exceeds 20%; no accepted relative improvement",
-    "115 action samples per run: order p99.9 not measured",
-    "Python RSS sums process high-water marks, an upper bound",
-    "Native live private stream wakes REST verification; no automatic reconnect/resume",
-    "First AWS paper failed; corrected-diagnostic retry pending"
-  ],
   "follow_up_experiments": {
     "experiment4": {
       "commit": "8d58574ab259fb072e83fbae53409e54e7488adb",
@@ -2673,5 +2666,22 @@
     "venue_final": "FLAT_OPEN_ORDERS_ZERO_INDEPENDENT_CHECK",
     "strategy": "CLUSTER_PCA_SHADOW_SELECTED_PREPARATION_ONLY",
     "mainnet": "NOT_ENABLED"
-  }
+  },
+  "historical_limitations_experiment2": [
+    "A/A spread exceeds 20%; no accepted relative improvement",
+    "115 action samples per run: order p99.9 not measured",
+    "Python RSS sums process high-water marks, an upper bound",
+    "Native live private stream wakes REST verification; no automatic reconnect/resume",
+    "First AWS paper failed; corrected-diagnostic retry pending"
+  ],
+  "record_context": "Top-level comparison/runs preserve experiment2 on2db3faa. Current conclusions use current_status and follow_up_experiments; do not pool hosts/builds.",
+  "limitations": [
+    "Complete signed socket/transport handoff and order p99.9 remain NOT_MEASURED",
+    "Experiment4 controlled performance is bound to8d58574, signed acceptance to5ee07f2; no claim of measuring a later executable",
+    "Python reference RSS sums separate high-water marks; not simultaneous live RSS",
+    "Expiry-only finite renewal; general reconnect/restart policy and live journal rotation remain pending",
+    "15-minute integration is not cross-day qualification or a long-term memory bound",
+    "Cluster-PCA source/unit checks and data preflight only; original historical results and7-day shadow not reproduced",
+    "Retained journal CloudFormation draft validated but not deployed; host-loss/fencing/alerts/upgrade drills pending"
+  ]
 }
