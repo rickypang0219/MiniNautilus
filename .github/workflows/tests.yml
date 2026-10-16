@@ -22,7 +22,19 @@ jobs:
       - run: cargo clippy --locked --all-targets -- -D warnings
       - run: cargo test --locked
       - run: cargo clippy --locked --all-targets --features native-runtime -- -D warnings
-      - run: cargo test --locked --features native-runtime
+      - name: Native Rust tests
+        run: |
+          python - <<'PY'
+          import subprocess
+          result = subprocess.run(
+              ['cargo', 'test', '--locked', '--features', 'native-runtime'],
+              stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True)
+          print(result.stdout, end='')
+          if result.returncode:
+              tail = result.stdout[-16000:].replace('%', '%25').replace('\r', '%0D').replace('\n', '%0A')
+              print('::error title=Native Rust test failure::' + tail)
+          raise SystemExit(result.returncode)
+          PY
       - run: cargo build --locked
       - run: python ops/runtime_bench.py --build
       - run: cargo build --locked --release --example compare_engine
