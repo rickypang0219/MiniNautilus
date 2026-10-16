@@ -78,7 +78,20 @@
     "live_seconds_per_run": 900,
     "minimum_rotations_per_live_run": 1,
     "drill_soft_threshold": 4,
-    "drill_threshold_is_not_production_800_validation": true
+    "drill_threshold_is_not_production_800_validation": true,
+    "terminal_cache_fixture": {
+      "verified_terminal_orders": 800,
+      "active_orders": 4,
+      "regular_poll_order_status_queries_max": 4,
+      "full_reconciliation_and_scrub_separate": true,
+      "required_checks_retained": [
+        "foreign_fills",
+        "changed_duplicates",
+        "cash_position_funding",
+        "proof_integrity"
+      ],
+      "cache_assumptions_must_be_documented_before_execution": true
+    }
   },
   "operations": {
     "model": "single_active_host_controlled_replacement",
@@ -163,7 +176,8 @@
       "cluster_count": 10,
       "min_cluster_assets": 6
     },
-    "original_report_config_status": "NOT_AVAILABLE: selected 270/1.50 comes from thread; remaining config reconstructed from pinned source defaults, not an original report receipt"
+    "original_report_config_status": "NOT_AVAILABLE: selected 270/1.50 comes from thread; remaining config reconstructed from pinned source defaults, not an original report receipt",
+    "rebalance_anchor_status": "UNRESOLVED: infer and freeze a UTC slot from original data/timing; never restart-relative or based on current cache length"
   },
   "required_gate_result_fields": [
     "gate_id",

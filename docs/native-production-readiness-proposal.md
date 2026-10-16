@@ -59,13 +59,15 @@ Status: **PREPARATION / NOT ACCEPTED**。這是後續 implementation scope；數
 5. successor 出現前 predecessor Closed 已 durable 的 crash，要 deterministic 完成同一 successor；已 Closed 不再寫回。冷歷史保留可查核及離線 scrub，不刪掉原始會計證據。
 6. 合併 journal/session/current-pointer crash matrix；恢復後驗證唯一 active successor，再 reconcile 才 open gate。
 
+**輪換前須處理的歷史成本。** 現有 `Venue::poll` 逐張查全部 session orders，包含已 terminal；`reconcile` 亦重查歷史。按現有100ms pacing，800次orderStatus僅間隔已至少79.9s（來源碼下界推算，非實測），超過30s private freshness budget。單加800單輪換門檻不夠。建立含原始terms、oid/cloid、完整fills、proof hash的**已驗證 terminal facts cache**，常規poll僅查active/uncertain。完整對帳仍須檢查foreign fills、changed duplicates、獨立cash/position/funding及cache完整性；不能以cache存在便跳過帳本。先寫明沿用的terminal immutability假設及cache invalidation；不滿足假設／cache缺失時完整驗證或fail closed，不能放寬freshness門檻。輪換後透過已驗證cold lookup保留retired dedup證據。
+
 **L2 acceptance。**
 
 | Gate | 數字及判定 | 證據 |
 |---|---|---|
 | L2.1 長歷史 | 固定 seed replay **10,000 orders**、≥12 次輪換；ID/nonce 重用0、遺失/重複 fills0、最終 ledger 差0 | chain inventory、ledger oracle |
 | L2.2 crash windows | cold publication、Closed fsync、Genesis fsync、dir fsync、pointer swap 前後，每點 **3 次**；全部唯一 successor 或 fail closed，不能猜測 | fault receipt、recovered chain hashes |
-| L2.3 上限 | active orders≤1,000；任一輪換不得繞過 terminal/flat/owned-account 條件；非 flat timeout 100% 不新增風險 | admission/rotation traces |
+| L2.3 上限 | active orders≤1,000；任一輪換不得繞過 terminal/flat/owned-account 條件；非 flat timeout 100% 不新增風險；800個已驗證terminal＋4 active fixture下，常規poll每cycle orderStatus≤4（完整scrub/reconcile另計），對帳差仍0 | admission/rotation traces、RPC計數 |
 | L2.4 資源 | 指定 2vCPU EC2、1000 events/s 模擬負載，10,000 orders 下 runtime process-tree RSS≤256MiB；最後5個穩態 segment 的各自 peak 最大−最小≤32MiB；recovery 本機驗證≤10s，REST另計 | 1s RSS、segment IDs、recovery stage times |
 | L2.5 AWS live | 兩次各≥900s Testnet；各≥1次有實際 owned orders 的輪換。測試可預先將 soft threshold 降至4作同一路徑 drill，不宣稱測到800；hard-cap fixture另測 | venue receipts、rotation chain、原始失敗 |
 
@@ -141,7 +143,7 @@ O 的 ≤20USD 是預算 gate，不是現有價格承諾；即使 correctness �
 
 - `prepare_return_matrix` 以全期prices決定valid columns：future一筆非法price會將某symbol連過去時段一併移除；fixture由3 symbols變2。Shadow改為當期trailing validity及明確missing policy，先保留原版reproduction，再對因果版做future-perturbation test。
 - `resample_ohlc_frame` 聚合quote_volume後最終select卻丟掉該欄；fixture確認。2小時資料也會產生4h bucket。接shadow前保留quote volume，要求4個完整且互異的1h inputs與closed watermark，否則skip；不得把未完成bar送signal。
-- 270days設定實際是1620 return bars、AR360 bars；4h資料下rebalance為6 bars，即24h。底層欄位名`rebalance_hours`實際存bars。Shadow每4h記一個slot（含hold/skip），不擅改成每4h rebalance。
+- 270days設定實際是1620 return bars、AR360 bars；4h資料下rebalance為6 bars，即24h。底層欄位名`rebalance_hours`實際存bars。Shadow每4h記一個slot（含hold/skip），不擅改成每4h rebalance。rebalance phase須按原始時間語義凍結為manifest中的UTC anchor；不得從程序啟動或cache長度起算，缺bar的skip不推移下一個scheduled slot。
 - event-driven更新以`np.vstack`複製AR window，亦持有全panel；若日後採用此版本，須改bounded numeric ring及incremental input，另做parity。不能稱現在已是O(1) live cache。
 
 反例僅確認上述邊界問題，不是全研究code audit。沒有修改原research repo，沒有重跑完整historical backtest；測試及反例收據列入preparation JSON。

@@ -12,6 +12,7 @@ struct Server {
     base: String,
     stop: Arc<AtomicBool>,
     actions: Arc<AtomicUsize>,
+    fill_reads: Arc<AtomicUsize>,
     worker: Option<thread::JoinHandle<()>>,
 }
 impl Server {
@@ -19,11 +20,20 @@ impl Server {
         Self::script(vec![order_response], None)
     }
     fn script(order_responses: Vec<Value>, mutation_response: Option<Value>) -> Self {
+        Self::with_fills(order_responses, mutation_response, vec![json!([])])
+    }
+    fn with_fills(
+        order_responses: Vec<Value>,
+        mutation_response: Option<Value>,
+        fill_pages: Vec<Value>,
+    ) -> Self {
         let listener = TcpListener::bind("127.0.0.1:0").unwrap();
         listener.set_nonblocking(true).unwrap();
         let base = format!("http://{}", listener.local_addr().unwrap());
         let stop = Arc::new(AtomicBool::new(false));
         let actions = Arc::new(AtomicUsize::new(0));
+        let fill_reads = Arc::new(AtomicUsize::new(0));
+        let reads = fill_reads.clone();
         let stopped = stop.clone();
         let count = actions.clone();
         let worker = thread::spawn(move || {
@@ -76,6 +86,10 @@ impl Server {
                             response
                         }
                         Some("openOrders") => json!([]),
+                        Some("userFillsByTime") => {
+                            let n = reads.fetch_add(1, Ordering::AcqRel);
+                            fill_pages[n.min(fill_pages.len() - 1)].clone()
+                        }
                         other => panic!("unexpected request {other:?}"),
                     }
                 };
@@ -87,6 +101,7 @@ impl Server {
             base,
             stop,
             actions,
+            fill_reads,
             worker: Some(worker),
         }
     }
@@ -150,6 +165,84 @@ fn intent() -> Intent {
         limit: 800000,
         based_on_seq: 1,
         valid_until: wall_ms() + 3000,
+    }
+}
+
+#[test]
+fn polling_rechecks_fill_visibility_without_losing_immutable_facts() {
+    for case in ["late", "missing", "changed"] {
+        let at = wall_ms();
+        let filled = json!({"status":"order","order":{"status":"filled","order":{"oid":123,"cloid":"0x0123456789abcdef0000000000000001","coin":"BTC","side":"B","origSz":"0.0002","sz":"0","limitPx":"80000"}}});
+        let complete =
+            json!({"time":at,"oid":123,"coin":"BTC","side":"B","tid":1,"sz":"0.0002","px":"80000"});
+        let mut partial = complete.clone();
+        partial["sz"] = "0.0001".into();
+        let pages = match case {
+            "late" => vec![json!([]), json!([complete])],
+            "missing" => vec![json!([])],
+            _ => vec![json!([partial]), json!([complete])],
+        };
+        let server = Server::with_fills(vec![filled], None, pages);
+        let dir = dir(&format!("poll-{case}"));
+        let mut v = server.venue(&dir);
+        v.session.started_ms = at - 1;
+        let mut core = Core::new(super::super::runtime::config()).unwrap();
+        for (n, event) in [
+            Event::Heartbeat { epoch: 0 },
+            Event::Quote {
+                bid: 800000,
+                ask: 800000,
+            },
+            Event::Submit(intent()),
+        ]
+        .into_iter()
+        .enumerate()
+        {
+            let event = match event {
+                Event::Submit(mut i) => {
+                    i.based_on_seq = n as u64;
+                    Event::Submit(i)
+                }
+                event => event,
+            };
+            core.apply(&Envelope {
+                seq: n as u64 + 1,
+                at,
+                event,
+            })
+            .unwrap();
+        }
+        let result = v.poll(&core);
+        match case {
+            "late" => {
+                let reports = result.unwrap();
+                assert!(matches!(
+                    &reports[..],
+                    [Report::Fill(Fill {
+                        qty: 20,
+                        order_id: 1,
+                        ..
+                    })]
+                ));
+                assert_eq!(server.fill_reads.load(Ordering::Acquire), 2);
+            }
+            "missing" => {
+                assert!(result.is_err());
+                assert_eq!(server.fill_reads.load(Ordering::Acquire), 3);
+            }
+            _ => assert!(
+                result
+                    .unwrap_err()
+                    .to_string()
+                    .contains("changed duplicate")
+            ),
+        }
+        assert_eq!(core.orders[&1].lifecycle, Lifecycle::Pending);
+        assert!(core.fills.is_empty());
+        assert_eq!(server.actions.load(Ordering::Acquire), 0);
+        assert!(v.attempts.entries.is_empty());
+        drop(v);
+        std::fs::remove_dir_all(dir).unwrap();
     }
 }
 #[test]

@@ -703,10 +703,27 @@ impl Venue {
         if core.orders.is_empty() {
             return Ok(vec![]);
         }
-        let all = self.history("userFillsByTime")?;
+        let mut observed = Vec::new();
+        for attempt in 0..3 {
+            observed.extend(self.history("userFillsByTime")?);
+            // Preserve every observed fact across reads; a changed duplicate is fatal.
+            let all = unique(&observed, false)?;
+            match self.poll_orders(core, &all) {
+                // Only missing cumulative fill visibility is retryable here.
+                Err(error)
+                    if attempt < 2
+                        && error
+                            .downcast_ref::<std::io::Error>()
+                            .is_some_and(|e| e.kind() == std::io::ErrorKind::WouldBlock) => {}
+                result => return result,
+            }
+        }
+        unreachable!()
+    }
+    fn poll_orders(&mut self, core: &Core, all: &[Value]) -> Result<Vec<Report>> {
         let mut reports = Vec::new();
         for o in core.orders.values() {
-            let (remote, fills, _) = self.collect(&o.intent, &all)?;
+            let (remote, fills, _) = self.collect(&o.intent, all)?;
             for f in fills {
                 if core.fills.get(&f.execution_id) != Some(&f) {
                     reports.push(Report::Fill(f));
@@ -862,8 +879,22 @@ pub fn collect_order(
         });
     }
     let remaining = units(dec(&remote["order"]["sz"])?, instrument.lot())?;
-    if remaining < 0 || remaining > i.qty || filled > i.qty || filled != i.qty - remaining {
-        return Err(fail("cumulative fill history mismatch"));
+    if remaining < 0 || remaining > i.qty || filled > i.qty || filled > i.qty - remaining {
+        return Err(fail(&format!(
+            "cumulative fill history mismatch: order={} qty={} remaining={remaining} observed={filled}",
+            i.id, i.qty
+        )));
+    }
+    if filled < i.qty - remaining {
+        return Err(std::io::Error::new(
+            std::io::ErrorKind::WouldBlock,
+            format!(
+                "cumulative fill history incomplete: order={} expected={} observed={filled}",
+                i.id,
+                i.qty - remaining
+            ),
+        )
+        .into());
     }
     let lifecycle = lifecycle(text(&remote["status"])?, filled)?;
     if (lifecycle == Lifecycle::Filled && filled != i.qty)

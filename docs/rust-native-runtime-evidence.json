@@ -2647,6 +2647,75 @@
         "signed": false,
         "telemetry_dropped": 0
       }
+    },
+    "experiment6": {
+      "build": {
+        "path": "runs/rust-native-20261015/bundle-8.tar.gz",
+        "commit": "946aa3e01db5ef414ca6be4b0199adf5b913dd7e",
+        "sha256": "4946ef90e24c15be4a130e9cb5716e1d241704ab7c0a464020a2b07d49fbe6dc",
+        "bytes": 4677221
+      },
+      "resources": {
+        "token": "mini-native-1792181151",
+        "region": "ap-northeast-1",
+        "bucket": "mininautilushost-artifacts82dd59a1-jimhxpumwqyb",
+        "prefix": "rust-native-20261015/mini-native-1792181151",
+        "instance": "i-0a8d4b9c5f3d9b1a4",
+        "volumes": [
+          "vol-046e2a2bd03971334"
+        ],
+        "terminated": true,
+        "secret_parameter": "/mininautilus/temporary/mini-native-1792181151",
+        "compute_hourly_usd": 0.11235,
+        "automatic_termination_minutes": 35,
+        "build": {
+          "path": "runs/rust-native-20261015/bundle-8.tar.gz",
+          "commit": "946aa3e01db5ef414ca6be4b0199adf5b913dd7e",
+          "sha256": "4946ef90e24c15be4a130e9cb5716e1d241704ab7c0a464020a2b07d49fbe6dc",
+          "bytes": 4677221
+        },
+        "started_epoch": 1792181157.5218143,
+        "command": "1dcd8a2c-b2fe-4aa6-9ce6-97a1bc29128a",
+        "command_status": "Failed",
+        "volume_cleanup": {
+          "vol-046e2a2bd03971334": "deleted"
+        },
+        "secret_parameter_deleted": true,
+        "finished_epoch": 1792181939.8951633
+      },
+      "report": {
+        "active_seconds": 681.150499047,
+        "cleanup_verified": true,
+        "critical_events": 702,
+        "critical_queued_at_stop": 0,
+        "failed": true,
+        "failure": "cumulative fill history mismatch",
+        "fills": 4,
+        "health": "Healthy",
+        "ledger": {
+          "cash_change": "-0.044498",
+          "entry": "0",
+          "fees": "0.043898",
+          "funding": "0",
+          "position": "0",
+          "realized": "-0.0006"
+        },
+        "market_events": 129,
+        "market_queued_at_stop": 0,
+        "orders": 4,
+        "position": 0,
+        "processed": 13652,
+        "python_strategy": true,
+        "requested_seconds": 900,
+        "runtime": "rust-native",
+        "schema": 1,
+        "signed": true,
+        "source_reconnects": 0,
+        "stale_market_discarded": 0,
+        "telemetry_dropped": 0
+      },
+      "archive_sha256": "234049fadaf098d4a71b152f88f897b10264626ed9f756e89f18d2391c86083c",
+      "verdict": "FAIL_681.150499047_SECONDS_RECOVERED"
     }
   },
   "current_status": {
@@ -2657,7 +2726,7 @@
     "simulated_action_p99": "INCONCLUSIVE_EFFECT_BELOW_10_PERCENT",
     "signed_complete_handoff": "NOT_MEASURED",
     "paper900": "PASS",
-    "signed900": "PASS_900.005929342_SECONDS_EXPERIMENT5",
+    "signed900": "EXPERIMENT5_PASS_RETAINED_LATEST_EXPERIMENT6_FAIL_FILL_VISIBILITY",
     "visibility_fix": "LOCAL_VERIFY_AND_AWS_SIGNED900_PASS_OLD_RAW_RESPONSE_UNAVAILABLE",
     "live_deploy": "SUPERVISED_TESTNET_PREPARATION_ONLY",
     "signed_build": "5ee07f2aec4e2f1bd9b428646718c8e3da87a023",
@@ -2665,7 +2734,8 @@
     "task_resource_cleanup": "VERIFIED_NO_REMAINING_TASK_INSTANCES",
     "venue_final": "FLAT_OPEN_ORDERS_ZERO_INDEPENDENT_CHECK",
     "strategy": "CLUSTER_PCA_SHADOW_SELECTED_PREPARATION_ONLY",
-    "mainnet": "NOT_ENABLED"
+    "mainnet": "NOT_ENABLED",
+    "fill_visibility_fix": "RED_GREEN_AND_FULL_VERIFY_PASS_FRESH_SIGNED_PENDING"
   },
   "historical_limitations_experiment2": [
     "A/A spread exceeds 20%; no accepted relative improvement",
@@ -2683,5 +2753,21 @@
     "15-minute integration is not cross-day qualification or a long-term memory bound",
     "Cluster-PCA source/unit checks and data preflight only; original historical results and7-day shadow not reproduced",
     "Retained journal CloudFormation draft validated but not deployed; host-loss/fencing/alerts/upgrade drills pending"
-  ]
+  ],
+  "ci_lock_lifetime": {
+    "fixed_commit": "946aa3e01db5ef414ca6be4b0199adf5b913dd7e",
+    "captured_failed_run": 38958850906,
+    "assertions": [
+      "attempts_survive_restart_reject_resend_torn_and_corrupt_records",
+      "action_expiry_cannot_outlive_intent_or_move_after_restart"
+    ],
+    "error": "WouldBlock at reopen after owner drop",
+    "deterministic_regression": "owner_drop_releases_attempt_lock_despite_inherited_descriptor",
+    "proof": "RED before explicit unlock Drop; GREEN after; original12-test boundary suite20 reps\u00d712 threads PASS",
+    "fixed_source_ci": {
+      "run": 38959672921,
+      "status": "PASS"
+    },
+    "raw_annotations_sha256": "b1fea78d8b0d6a194ef828b56243eb7b63cbae22934e43f4f06744c8c6a14fb9"
+  }
 }
