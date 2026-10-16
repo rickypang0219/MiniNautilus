@@ -128,6 +128,13 @@ pub struct Attempts {
     chain: String,
     poisoned: bool,
 }
+impl Drop for Attempts {
+    fn drop(&mut self) {
+        // A concurrent fork may retain this open file description until exec.
+        // Release at logical owner teardown instead of waiting for its last fd.
+        let _ = self.file.unlock();
+    }
+}
 impl Attempts {
     pub fn open(path: &Path) -> Result<Self> {
         let file = OpenOptions::new()
@@ -231,4 +238,39 @@ pub fn account_lock(account: &str) -> Result<File> {
     let file = OpenOptions::new().create(true).append(true).open(path)?;
     file.try_lock()?;
     Ok(file)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn owner_drop_releases_attempt_lock_despite_inherited_descriptor() {
+        let dir =
+            std::env::temp_dir().join(format!("native-attempt-inheritance-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&dir);
+        std::fs::create_dir(&dir).unwrap();
+        let path = dir.join("actions.jsonl");
+        let action = Action::cancel(3, "0x0123456789abcdef0000000000000001".into());
+        let mut owner = Attempts::open(&path).unwrap();
+        owner.prepare("cancel-1", &action, 10000).unwrap();
+        // fork-before-exec retains the same open file description until CLOEXEC.
+        let inherited = owner.file.try_clone().unwrap();
+        assert!(
+            Attempts::open(&path).is_err(),
+            "live owner must remain exclusive"
+        );
+        drop(owner);
+        let mut next = Attempts::open(&path).unwrap();
+        assert!(next.prepare("cancel-1", &action, 10001).is_err());
+        assert!(Attempts::open(&path).is_err());
+        drop(inherited);
+        assert!(
+            Attempts::open(&path).is_err(),
+            "old descriptor cannot release new owner"
+        );
+        drop(next);
+        drop(Attempts::open(&path).unwrap());
+        std::fs::remove_dir_all(dir).unwrap();
+    }
 }

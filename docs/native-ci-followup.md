@@ -1,15 +1,22 @@
-# Native CI failure follow-up
+# Native CI lock-lifetime follow-up
 
 Created: 2026-10-16T19:56:25+00:00 (UTC).
+Updated: 2026-10-16T20:04:56+00:00 (UTC).
 
-Run [38957643132](https://github.com/rickypang0219/MiniNautilus/actions/runs/38957643132), commit `95635b3`, failed in `cargo test --locked --features native-runtime` with exit101. The API annotation contains only the exit code. The underlying failing test is **not established** and this incident is not marked fixed.
+## Captured failure and deterministic reproduction
 
-The signed runtime source passed full local verify, CI [38955374834](https://github.com/rickypang0219/MiniNautilus/actions/runs/38955374834) and the900s AWS acceptance. The subsequent result-document commit also passed CI [38957575191](https://github.com/rickypang0219/MiniNautilus/actions/runs/38957575191). Those successes do not erase the failed run.
+Run [38958850906](https://github.com/rickypang0219/MiniNautilus/actions/runs/38958850906), commit `259fdfa`, exposed the complete error through the shortened annotation. `attempts_survive_restart_reject_resend_torn_and_corrupt_records` and `action_expiry_cannot_outlive_intent_or_move_after_restart` failed at immediate reopen with **WouldBlock**, after the previous logical owner had left scope. These are lock-lifetime failures, not demonstrated latency regressions or an excuse to disable tests.
 
-Local investigation retained six repetitions of the20-test native unit suite with8 test threads and three complete native-feature suite runs, all passing. This does not identify the original cause and must not be called a repaired flake.
+An open-file-description lock can outlive the logical owner if another descriptor remains, including during a concurrent fork-before-exec until CLOEXEC. Native boundary tests concurrently start Python processes. `owner_drop_releases_attempt_lock_despite_inherited_descriptor` holds an equivalent cloned descriptor alive: without the fix it deterministically fails at reopen with WouldBlock. This reproduces the lock-lifetime mechanism; the old CI process descriptor table was not captured.
 
-Full log retrieval is blocked by the environment proxy: HTTPS CONNECT to `results-receiver.actions.githubusercontent.com` returns403. No TLS verification, authentication or network policy was bypassed. A network draft preserving all previous custom domains and adding that exact host was saved; environment review/save and publication are required before retrying the affected download.
+`Attempts::Drop` now explicitly unlocks at logical owner teardown. File ownership stays private. Live owners remain exclusive; an old descriptor closing later cannot unlock the next owner; persisted nonce/action de-duplication and torn/corrupt-record rejection remain intact. The new test asserts each of those conditions. No lock assertion, journal check, timing limit or test was removed/loosened.
 
-Commit `ad357ed` makes native Cargo failures additionally available through GitHub check annotations, following the existing Python-test pattern. It invokes the same command, keeps the same assertions and exit code, prints complete output, and adds an escaped last16000-character failure annotation. It does not skip tests, change timing limits or turn failures into successes.
+RED/GREEN passed, and the unchanged12-test native boundary suite passed **20 repetitions with12 threads** after the fix. Full verify, new release build, fresh CI and a new900-second signed AWS run are the remaining release checks; their final evidence belongs in [runtime results](rust-native-runtime-results.md). Earlier live acceptance stays bound to its original binary.
 
-Next agent: once log access is available, retrieve the original failed run, identify the exact assertion/error and reproduce it before fixing. If the failure recurs, read the new structured annotation through the GitHub API. Keep this item open until the original cause is known or explicitly dispositioned; do not infer host noise solely from passing reruns. The live-deployment proposal's operational qualification remains separate from the completed short Testnet acceptance.
+## Historical evidence and diagnostic improvement
+
+Earlier [38957643132](https://github.com/rickypang0219/MiniNautilus/actions/runs/38957643132) (`95635b3`) failed in the native test step with exit101. Its original detailed log is unavailable, so the exact original assertion cannot be retroactively established. Run38958531035 also failed; the first annotation wrapper was truncated. Passing runs38955374834,38957575191 and38958081922 are retained and do not erase failures. Before the deterministic reproduction, six20-test native unit repeats and three full native-feature repeats passed locally; they were insufficient to diagnose the race.
+
+HTTPS CONNECT to `results-receiver.actions.githubusercontent.com` returns403 in this environment. No TLS/authentication/network policy was bypassed. A network draft preserving existing custom domains and adding that exact host was saved; review/save and publication are required only to retrieve those historical full logs. The new structured annotation provides the captured later error through the accessible GitHub API.
+
+The workflow still invokes the same Cargo command and preserves its exit code/full console output. It additionally strips ANSI codes and puts the final2400 characters in an error annotation;16000 characters exceeded the runner annotation transport limit and lost the actual tail. This is observability, not a passing-test filter.
