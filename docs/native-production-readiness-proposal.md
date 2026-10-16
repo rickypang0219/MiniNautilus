@@ -1,6 +1,8 @@
 # Native runtime：生命週期、營運保護、真實策略驗收 v1.0
 
 Created: **2026-10-16T13:22:00Z** (UTC).
+Strategy selection: **使用者於 2026-10-16 確認 Cluster-PCA stat-arb，先無下單 shadow**。這不代表已批准主網或已有策略驗收結果。
+
 Status: **PREPARATION / NOT ACCEPTED**。這是後續 implementation scope；數字是預先訂定的驗收目標，不是已取得的成果。
 
 ## 目的與目前邊界
@@ -91,7 +93,7 @@ Status: **PREPARATION / NOT ACCEPTED**。這是後續 implementation scope；數
 
 O 的 ≤20USD 是預算 gate，不是現有價格承諾；即使 correctness 通過，超預算也要明確 FAIL，不自行升級 persistent instance。
 
-## S：真實策略驗收（預設先 Cluster-PCA shadow）
+## S：真實策略驗收（已選定 Cluster-PCA shadow）
 
 **問題。** SMA／強制交易只驗 infrastructure，不能用其 Testnet PnL 推論 alpha。原 [PCA proposal](pca-stat-arb-research-to-paper-proposal.md) 已找到聊天來源但未取得原程式／資料重現；該舊文的 Binance Futures execution scope 已不適用新的 Hyperliquid 方向。本文件僅更新 execution venue，沒有把未重現研究當完成。
 
