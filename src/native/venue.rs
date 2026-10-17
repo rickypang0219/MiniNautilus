@@ -252,8 +252,7 @@ fn decimal_string<S: serde::Serializer>(v: &Decimal, s: S) -> std::result::Resul
     s.serialize_str(&wire(*v))
 }
 pub fn account_ledger(symbol: &str, fills: &[Value], funding: &[Value]) -> Result<Ledger> {
-    let mut fills = unique(fills, false)?;
-    fills.sort_by_key(|f| (f["time"].as_u64(), f["tid"].as_u64()));
+    let fills = chronological_fills(fills)?;
     let mut out = Ledger {
         position: Decimal::ZERO,
         entry: Decimal::ZERO,
@@ -320,6 +319,37 @@ pub fn account_ledger(symbol: &str, fills: &[Value], funding: &[Value]) -> Resul
         out.funding += dec(&f["delta"]["usdc"])?;
     }
     out.cash_change = out.realized - out.fees + out.funding;
+    Ok(out)
+}
+/// Trade IDs are opaque, not sequence numbers. Within one exchange millisecond
+/// require a unique position chain; never guess when multiple starts are possible.
+fn chronological_fills(input: &[Value]) -> Result<Vec<Value>> {
+    let mut groups: BTreeMap<u64, BTreeMap<Decimal, Value>> = BTreeMap::new();
+    for row in unique(input, false)? {
+        let group = groups.entry(number(&row["time"])?).or_default();
+        if group.insert(dec(&row["startPosition"])?, row).is_some() {
+            return Err(fail("ambiguous same-time fill chronology"));
+        }
+    }
+    let mut position = Decimal::ZERO;
+    let mut out = Vec::new();
+    for mut group in groups.into_values() {
+        while !group.is_empty() {
+            let row = group
+                .remove(&position)
+                .ok_or_else(|| fail("fill position/time gap"))?;
+            let qty = dec(&row["sz"])?;
+            if qty <= Decimal::ZERO {
+                return Err(fail("nonpositive chronological fill"));
+            }
+            position += match text(&row["side"])? {
+                "B" => qty,
+                "A" => -qty,
+                _ => return Err(fail("fill side")),
+            };
+            out.push(row);
+        }
+    }
     Ok(out)
 }
 #[derive(Clone, Debug, Serialize, Deserialize)]

@@ -230,6 +230,26 @@ fn fills_ahead_of_order_status_are_rechecked_without_applying_or_resending() {
 }
 
 #[test]
+fn same_millisecond_fills_follow_unique_position_chain_not_opaque_trade_ids() {
+    let fill = |tid, time, side, sz, px, start, pnl| json!({"tid":tid,"time":time,"oid":tid,"coin":"BTC","side":side,"sz":sz,"px":px,"startPosition":start,"closedPnl":pnl,"fee":"0.001","feeToken":"USDC"});
+    let mut rows = vec![
+        fill(1, 1, "A", "0.0002", "81312", "0", "0"),
+        fill(2, 2, "B", "0.00006", "81298", "-0.00006", "0.00084"),
+        fill(99, 2, "B", "0.00014", "81295", "-0.0002", "0.00238"),
+    ];
+    let a = account_ledger("BTC", &rows, &[]).unwrap();
+    assert_eq!(a.position, Decimal::ZERO);
+    assert_eq!(a.realized, Decimal::new(322, 5));
+    rows.reverse();
+    assert_eq!(
+        account_ledger("BTC", &rows, &[]).unwrap().cash_change,
+        a.cash_change
+    );
+    rows[1]["startPosition"] = "-0.0002".into();
+    assert!(account_ledger("BTC", &rows, &[]).is_err());
+}
+
+#[test]
 fn no_attempt_proof_cannot_cover_acknowledged_or_durably_attempted_orders() {
     let server = Server::start(json!({"status":"unknownOid"}));
     let dir = dir("no-attempt");

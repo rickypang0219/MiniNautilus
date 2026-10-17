@@ -39,7 +39,7 @@ def unique(rows, key):
 def ledger(fills, funding):
     """Independent rational average-cost accounting, including cross-zero fills."""
     position = entry = realized = fees = F(0)
-    for row in sorted(unique(fills, lambda f: f["tid"]), key=lambda f: (f["time"], f["tid"])):
+    for row in chronological_fills(fills):
         if row["coin"] != "BTC" or row["feeToken"] != "USDC" or row["side"] not in ("B", "A"):
             raise ValueError("unsupported instrument, fee or side")
         if fraction(row["startPosition"]) != position:
@@ -69,6 +69,24 @@ def ledger(fills, funding):
         cash_funding += fraction(row["delta"]["usdc"])
     return dict(position=position, entry=entry, realized=realized, fees=fees,
                 funding=cash_funding, cash_change=realized-fees+cash_funding)
+
+
+def chronological_fills(fills):
+    """Independent list traversal of unique same-ms startPosition chains."""
+    from itertools import groupby
+    position=F(0)
+    for _, group in groupby(sorted(unique(fills,lambda f:f["tid"]),key=lambda f:f["time"]),key=lambda f:f["time"]):
+        pending=list(group)
+        while pending:
+            candidates=[f for f in pending if fraction(f["startPosition"])==position]
+            if len(candidates)!=1:
+                raise ValueError("position gap or ambiguous same-time fills")
+            row=candidates[0];pending.remove(row)
+            qty=fraction(row["sz"])
+            if qty<=0 or row["side"] not in ("B","A"):
+                raise ValueError("invalid chronological fill")
+            position+=qty if row["side"]=="B" else -qty
+            yield row
 
 
 def strategy_parity(rows):

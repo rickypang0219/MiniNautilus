@@ -19,6 +19,15 @@ def book(at, bid="99", ask="100", size="0.0002"):
 
 
 class CorrespondenceTest(unittest.TestCase):
+    def test_same_timestamp_ids_do_not_determine_fill_order(self):
+        rows=[fill(1,"A","0.0002","81312","0"),fill(2,"B","0.00006","81298","-0.00006","0.00084"),fill(99,"B","0.00014","81295","-0.0002","0.00238")]
+        rows[1]["time"]=rows[2]["time"]=2
+        result=audit.ledger(rows,[])
+        self.assertEqual(result["position"],0);self.assertEqual(result["realized"],audit.F("0.00322"))
+        self.assertEqual(result,audit.ledger(list(reversed(rows)),[]))
+        rows[1]["startPosition"]="-0.0002"
+        with self.assertRaisesRegex(ValueError,"ambiguous"):
+            audit.ledger(rows,[])
     def test_simulated_pnl_uses_predicted_fills_and_requires_mark_for_open_inventory(self):
         orders={1:dict(side="Buy"),2:dict(side="Sell")}
         predictions=[dict(id=1,status="MODELED",filled_lots=2,vwap="100"),dict(id=2,status="MODELED",filled_lots=2,vwap="110")]
