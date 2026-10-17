@@ -155,7 +155,16 @@ impl Http {
             .timeout(timeout)
             .json(payload)
             .send()
-            .map_err(|_| fail("HTTP transport; outcome may be unknown"))?;
+            .map_err(|e| {
+                std::io::Error::new(
+                    if e.is_timeout() {
+                        std::io::ErrorKind::TimedOut
+                    } else {
+                        std::io::ErrorKind::ConnectionAborted
+                    },
+                    "HTTP transport; outcome may be unknown",
+                )
+            })?;
         if !response.status().is_success() {
             return Err(fail("HTTP error; outcome may be unknown"));
         }
@@ -163,7 +172,12 @@ impl Http {
         response
             .take(4 * 1024 * 1024 + 1)
             .read_to_end(&mut raw)
-            .map_err(|_| fail("HTTP body failure"))?;
+            .map_err(|_| {
+                std::io::Error::new(
+                    std::io::ErrorKind::ConnectionReset,
+                    "HTTP body failure; outcome may be unknown",
+                )
+            })?;
         if raw.len() > 4 * 1024 * 1024 {
             return Err(fail("HTTP response cap"));
         }
@@ -482,7 +496,12 @@ impl Venue {
             Some(deadline) => deadline
                 .checked_duration_since(Instant::now())
                 .filter(|d| !d.is_zero())
-                .ok_or_else(|| fail("order visibility deadline; absence unresolved"))?,
+                .ok_or_else(|| {
+                    std::io::Error::new(
+                        std::io::ErrorKind::TimedOut,
+                        "order visibility deadline; absence unresolved",
+                    )
+                })?,
             None => Duration::from_secs(8),
         };
         args["type"] = kind.into();
@@ -683,11 +702,50 @@ impl Venue {
         // The execution owner stays busy throughout, so no new strategy action is dispatched.
         let deadline = Instant::now() + Duration::from_secs(5);
         let r = loop {
-            let response = self.info_until(
+            let mut response = self.info_until(
                 "orderStatus",
                 json!({"user":self.session.account,"oid":self.session.cloid(i.id)}),
                 Some(deadline),
             )?;
+            if response["status"] == "unknownOid" {
+                // An opaque exchange OID discovered in original-cloid fills is
+                // only a lookup hint. The full response must pass all terms below.
+                let lo = self.session.started_ms;
+                let hi = wall_ms();
+                let facts=self.info_until("userFillsByTime",json!({"user":self.session.account,"startTime":lo,"endTime":hi,"aggregateByTime":false}),Some(deadline))?;
+                let facts = rows(&facts)?;
+                if facts.len() >= 2000 {
+                    return Err(fail(
+                        "lookup history saturated; full reconciliation required",
+                    ));
+                }
+                let mut oid = None;
+                for fill in unique(facts, false)? {
+                    if number(&fill["time"])? < lo || number(&fill["time"])? > hi {
+                        return Err(fail("lookup fact outside session window"));
+                    }
+                    if fill["cloid"] != self.session.cloid(i.id) {
+                        continue;
+                    }
+                    if fill["coin"] != self.session.instrument.symbol
+                        || fill["side"] != if i.side == Side::Buy { "B" } else { "A" }
+                    {
+                        return Err(fail("lookup fill identity mismatch"));
+                    }
+                    let candidate = number(&fill["oid"])?;
+                    if oid.is_some_and(|old| old != candidate) {
+                        return Err(fail("multiple venue IDs for original cloid"));
+                    }
+                    oid = Some(candidate);
+                }
+                if let Some(oid) = oid {
+                    response = self.info_until(
+                        "orderStatus",
+                        json!({"user":self.session.account,"oid":oid}),
+                        Some(deadline),
+                    )?;
+                }
+            }
             if response["status"] == "order" {
                 break response;
             }
@@ -695,7 +753,11 @@ impl Venue {
                 return Err(fail("invalid order status response"));
             }
             if Instant::now() >= deadline {
-                return Err(fail("unknown order; absence unresolved"));
+                return Err(std::io::Error::new(
+                    std::io::ErrorKind::TimedOut,
+                    "unknown order; absence unresolved",
+                )
+                .into());
             }
         };
         let result = &r["order"];

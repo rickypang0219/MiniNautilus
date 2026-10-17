@@ -23,6 +23,7 @@ def main():
     parser.add_argument("--config",type=Path,required=True)
     parser.add_argument("--output",type=Path,required=True)
     parser.add_argument("--verify-log",type=Path,required=True)
+    parser.add_argument("--host-first",action="store_true",help="collect independent host-recovery evidence before the two live runs")
     args=parser.parse_args()
     if not args.verify_log.read_text().rstrip().endswith("VERIFY OK"):
         raise ValueError("full verify must finish before launch")
@@ -40,7 +41,7 @@ def main():
     s3=session.client("s3",endpoint_url="https://s3.ap-northeast-1.amazonaws.com",config=Config(connect_timeout=8,read_timeout=60,retries={"max_attempts":2},s3={"addressing_style":"path"}))
     token="mini-lifecycle-"+str(int(time.time()));prefix="native-readiness-20261017/"+token
     parameter="/mininautilus/temporary/"+token
-    resources=dict(token=token,region="ap-northeast-1",prefix=prefix,bucket=config["bucket"],instances=[],root_volumes=[],data_volume=None,build=build,cleanup_verified=False,flat_verified=False,verify_sha256=sha(args.verify_log),started=time.time())
+    resources=dict(token=token,region="ap-northeast-1",prefix=prefix,bucket=config["bucket"],instances=[],root_volumes=[],data_volume=None,build=build,cleanup_verified=False,flat_verified=False,verify_sha256=sha(args.verify_log),host_first=args.host_first,started=time.time())
     task=dict(bucket=config["bucket"],prefix=prefix,secret_parameter=parameter,bundle_sha256=build["sha256"])
     def save():
         (args.output/"resources.json").write_text(json.dumps(resources,indent=2))
@@ -144,7 +145,8 @@ BOOT
                 elif mapping["Ebs"]["VolumeId"] not in resources["root_volumes"]:resources["root_volumes"].append(mapping["Ebs"]["VolumeId"])
             save();volume=resources["data_volume"]
         command(active,"mount --volume "+volume+" --initialize",120);mounted=True
-        resources["trading_started"]=True;save();command(active,"rotation",2400)
+        resources["trading_started"]=True;save()
+        if not args.host_first:command(active,"rotation",2400)
         command(active,"crash",180);resources["potential_exposure"]=True;save()
         loss_started=time.monotonic();resources["host_loss_started_epoch"]=time.time();save()
         old=active;terminate(old);active=None;mounted=False
@@ -160,6 +162,7 @@ BOOT
         resources["host_loss_to_recovered_seconds"]=time.monotonic()-loss_started
         resources["flat_verified"]=True;resources["potential_exposure"]=False;save()
         resources["status"]="PASS" if resources["host_loss_to_recovered_seconds"]<=300 else "FAIL_RTO"
+        if args.host_first:command(active,"rotation",2400)
     except BaseException as error:
         resources["status"]="FAIL";resources["failure"]=type(error).__name__+": "+str(error);save()
         raise

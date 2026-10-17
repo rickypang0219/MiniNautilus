@@ -142,6 +142,10 @@ struct Market {
     received: Instant,
 }
 enum Control {
+    ExecutionUncertain {
+        epoch: u64,
+        reason: String,
+    },
     Ready {
         generation: u64,
     },
@@ -185,6 +189,10 @@ fn execute(
     telemetry: Telemetry,
 ) -> Option<Venue> {
     for job in jobs {
+        let job_epoch = match &job {
+            Job::Submit { epoch, .. } | Job::Cancel { epoch, .. } => *epoch,
+            Job::Refresh { core, .. } => core.epoch,
+        };
         let result: Result<Control> = (|| match job {
             Job::Submit {
                 intent,
@@ -296,6 +304,32 @@ fn execute(
                 }
             }
             Err(error) => {
+                if error.downcast_ref::<std::io::Error>().is_some_and(|e| {
+                    matches!(
+                        e.kind(),
+                        std::io::ErrorKind::TimedOut
+                            | std::io::ErrorKind::ConnectionAborted
+                            | std::io::ErrorKind::ConnectionReset
+                            | std::io::ErrorKind::WouldBlock
+                    )
+                }) {
+                    let detected = Instant::now();
+                    circuit.close();
+                    telemetry.emit(json!({"kind":"execution_gate_closed","detected_to_latch_ns":detected.elapsed().as_nanos() as u64,"reason":error.to_string()}));
+                    if circuit
+                        .publish(
+                            &critical,
+                            Control::ExecutionUncertain {
+                                epoch: job_epoch,
+                                reason: error.to_string(),
+                            },
+                        )
+                        .is_err()
+                    {
+                        break;
+                    }
+                    continue;
+                }
                 circuit.trip(error.to_string());
                 break;
             }
@@ -304,6 +338,9 @@ fn execute(
     venue
 }
 struct Writer {
+    recovery_attempts: u32,
+    recovery_not_before: Option<Instant>,
+    execution_recoveries: u64,
     engine: DurableEngine,
     jobs: Sender<Job>,
     circuit: Arc<Circuit>,
@@ -381,7 +418,9 @@ impl Writer {
                 Effect::QueryState { .. } => self.reconcile = true,
                 Effect::Alert(reason) => {
                     self.telemetry.emit(json!({"kind":"alert","reason":reason}));
-                    if self.engine.core().health != Health::Healthy {
+                    if self.engine.core().health != Health::Healthy
+                        && !(kind == "tick" && self.recovery_attempts > 0)
+                    {
                         self.circuit.trip("Core requested reconciliation");
                     }
                 }
@@ -398,6 +437,24 @@ impl Writer {
     fn control(&mut self, message: Control) -> Result<()> {
         self.critical_count += 1;
         match message {
+            Control::ExecutionUncertain { epoch, reason } => {
+                if epoch != self.engine.core().epoch {
+                    return Err(fail("outage belongs to an obsolete epoch"));
+                }
+                self.busy = false;
+                self.target = None;
+                self.circuit.close();
+                self.recovery_attempts += 1;
+                if self.recovery_attempts > 3 {
+                    return Err(fail(
+                        "execution recovery budget exhausted; original outcome unresolved",
+                    ));
+                }
+                self.reconnect_pending = true;
+                self.recovery_not_before =
+                    Some(Instant::now() + Duration::from_secs(1 << (self.recovery_attempts - 1)));
+                self.telemetry.emit(json!({"kind":"execution_uncertain","epoch":epoch,"attempt":self.recovery_attempts,"reason":reason}));
+            }
             Control::Ready { generation } => {
                 if generation == self.source_generation {
                     self.stream_ready = true;
@@ -450,6 +507,12 @@ impl Writer {
                 self.reconcile = false;
                 self.process(Event::Reconcile(snapshot), Instant::now())?;
                 if self.engine.core().health == Health::Healthy {
+                    if self.recovery_attempts > 0 {
+                        self.execution_recoveries += 1;
+                        self.target = None;
+                    }
+                    self.recovery_attempts = 0;
+                    self.recovery_not_before = None;
                     self.reconciled_generation = self.source_generation;
                     self.telemetry.emit(json!({"kind":"source_reconciled","generation":self.source_generation,"epoch":self.engine.core().epoch,"at_ms":wall_ms()}));
                 }
@@ -958,6 +1021,9 @@ pub fn run_segment(dir: &Path, options: Options, segment: Option<&Segment>) -> R
         })
     };
     let mut writer = Writer {
+        recovery_attempts: 0,
+        recovery_not_before: None,
+        execution_recoveries: 0,
         engine,
         jobs: job_tx,
         circuit: circuit.clone(),
@@ -1041,6 +1107,9 @@ pub fn run_segment(dir: &Path, options: Options, segment: Option<&Segment>) -> R
                 writer.dispatch_target()?;
             }
             if !writer.busy
+                && writer
+                    .recovery_not_before
+                    .is_none_or(|t| Instant::now() >= t)
                 && (writer.reconcile
                     || writer.poll_requested
                     || poll.elapsed() >= Duration::from_secs(1))
@@ -1100,7 +1169,7 @@ pub fn run_segment(dir: &Path, options: Options, segment: Option<&Segment>) -> R
     if let Err(e) = &cleanup {
         circuit.trip(format!("cleanup unresolved: {e}"));
     }
-    let report = json!({"schema":1,"runtime":"rust-native","signed":options.signed,"python_strategy":options.python,"requested_seconds":options.seconds,"active_seconds":active_seconds,"processed":writer.processed,"market_events":writer.market_count,"source_reconnects":writer.source_generation,"stale_market_discarded":writer.stale_market_discarded,"critical_events":writer.critical_count,"market_queued_at_stop":market_rx.len(),"critical_queued_at_stop":critical_rx.len(),"position":engine.core().position,"orders":engine.core().orders.len(),"fills":engine.core().fills.len(),"health":engine.core().health,"failed":circuit.failed.load(Ordering::Acquire),"failure":circuit.reason(),"cleanup_verified":cleanup.is_ok(),"ledger":venue.as_ref().and_then(|v|v.last_ledger.as_ref()),"telemetry_dropped":telemetry.dropped.load(Ordering::Relaxed),"rotation_requested":rotation_requested.is_some(),"rotation_ready":rotation_ready && cleanup.is_ok() && engine.core().position==0 && engine.core().rotation_ready().is_ok() && engine.core().reconciled_through==engine.core().venue_seq,"rotation_drain_started":rotation_ready,"signal_stop":stop.load(Ordering::Acquire)&&!rotation_ready&&active_seconds<options.seconds as f64,"nonce_floor":venue.as_ref().map_or(0, Venue::nonce_floor),"id_floor":engine.core().carry().id_floor});
+    let report = json!({"schema":1,"runtime":"rust-native","signed":options.signed,"python_strategy":options.python,"requested_seconds":options.seconds,"active_seconds":active_seconds,"processed":writer.processed,"market_events":writer.market_count,"source_reconnects":writer.source_generation,"execution_recoveries":writer.execution_recoveries,"stale_market_discarded":writer.stale_market_discarded,"critical_events":writer.critical_count,"market_queued_at_stop":market_rx.len(),"critical_queued_at_stop":critical_rx.len(),"position":engine.core().position,"orders":engine.core().orders.len(),"fills":engine.core().fills.len(),"health":engine.core().health,"failed":circuit.failed.load(Ordering::Acquire),"failure":circuit.reason(),"cleanup_verified":cleanup.is_ok(),"ledger":venue.as_ref().and_then(|v|v.last_ledger.as_ref()),"telemetry_dropped":telemetry.dropped.load(Ordering::Relaxed),"rotation_requested":rotation_requested.is_some(),"rotation_ready":rotation_ready && cleanup.is_ok() && engine.core().position==0 && engine.core().rotation_ready().is_ok() && engine.core().reconciled_through==engine.core().venue_seq,"rotation_drain_started":rotation_ready,"signal_stop":stop.load(Ordering::Acquire)&&!rotation_ready&&active_seconds<options.seconds as f64,"nonce_floor":venue.as_ref().map_or(0, Venue::nonce_floor),"id_floor":engine.core().carry().id_floor});
     drop(writer.telemetry);
     drop(telemetry);
     logger
@@ -1427,6 +1496,9 @@ mod isolation_tests {
             telemetry.emit(json!({"blocked":"cold sink"}));
         }
         let mut writer = Writer {
+            recovery_attempts: 0,
+            recovery_not_before: None,
+            execution_recoveries: 0,
             engine,
             jobs,
             circuit,

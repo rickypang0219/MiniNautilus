@@ -30,6 +30,13 @@ def completed_root(directory):
             and all(s["cleanup_verified"] and not s["failed"] for s in segments))
 
 
+def completed_diagnostic():
+    path=STATE/"recover-result.json"
+    if not path.exists():return False
+    report=json.loads(path.read_text())
+    return report.get("status")=="PASS" and report.get("exit")==0 and report["replayed"]["position"]==0 and not report["after"]["positions"] and not report["after"]["open_orders"]
+
+
 def info(kind):
     request = urllib.request.Request("https://api.hyperliquid-testnet.xyz/info",
         data=json.dumps(dict(type=kind,user=os.environ["HL_MAIN_ADDRESS"])).encode(),
@@ -198,7 +205,7 @@ def main():
                         code=execute([native,"recover-lifecycle","--run-dir",str(directory),"--flatten"],directory.name+"-final-cleanup",180)
                         if code: raise ValueError("lifecycle cleanup unresolved")
             directory=STATE/"crash-original"
-            if (directory/"session.json").exists():
+            if (directory/"session.json").exists() and not completed_diagnostic():
                 code=execute([native,"recover","--run-dir",str(directory),"--flatten"],"crash-final-cleanup",180)
                 if code: raise ValueError("original crash cleanup unresolved")
             evidence["account"]=account(True)

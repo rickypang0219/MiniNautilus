@@ -164,6 +164,17 @@ def predict_orders(orders, books, manifest):
     return result
 
 
+def recorded_books(rows):
+    """Normalize all independently recorded L2 sources, including cleanup REST."""
+    books=[]
+    for row in rows:
+        if row["kind"]=="ws" and row["message"]["channel"]=="l2Book":
+            books.append(dict(row,source="ws"))
+        elif row["kind"]=="http" and row["path"]=="/info" and row["request"].get("type")=="l2Book":
+            books.append(dict(received_ms=row["received_ms"],message=dict(data=row["response"]),source="rest"))
+    return sorted(books,key=lambda b:b["received_ms"])
+
+
 def scenario_pnl(predictions, orders, mark, fee_rate, lot):
     """Linear-perp marked PnL for the predicted fill scenario, before funding."""
     if any(p["status"]!="MODELED" for p in predictions):
@@ -194,7 +205,8 @@ def analyze(directory, manifest, binary=None):
     session = json.loads((directory/"session.json").read_text())
     if session["instrument"]["symbol"] != "BTC" or session["instrument"]["sz_decimals"] != 5 or F(manifest["lot"]) != F(1, 100000) or F(manifest["tick"]) != F(1, 10):
         raise ValueError("instrument quantum mismatch")
-    fills, funding, books = [], [], []
+    fills, funding = [], []
+    books=recorded_books(rows)
     for row in rows:
         if row["kind"] == "http" and row["path"] == "/info":
             kind = row["request"]["type"]
@@ -202,8 +214,6 @@ def analyze(directory, manifest, binary=None):
                 fills.extend(row["response"])
             elif kind == "userFunding":
                 funding.extend(row["response"])
-        elif row["kind"] == "ws" and row["message"]["channel"] == "l2Book":
-            books.append(row)
     fills = unique(fills, lambda f: f["tid"])
     accounting = ledger(fills, funding)
     quantum = F(manifest["lot"])
@@ -301,3 +311,5 @@ if __name__ == "__main__":
         json.dump(result, stream, indent=2)
         stream.write("\n")
     print(json.dumps({k:v for k,v in result.items() if k not in ("orders", "provenance")}))
+    if result["strategy"]["status"]=="FAIL":
+        raise SystemExit(1)

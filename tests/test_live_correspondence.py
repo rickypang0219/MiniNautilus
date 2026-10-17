@@ -19,6 +19,15 @@ def book(at, bid="99", ask="100", size="0.0002"):
 
 
 class CorrespondenceTest(unittest.TestCase):
+    def test_recorded_rest_cleanup_book_is_available_without_using_future_responses(self):
+        ws=dict(book(10),kind="ws");ws["message"]["channel"]="l2Book"
+        rest=dict(kind="http",path="/info",request=dict(type="l2Book"),response=book(20,ask="101")["message"]["data"],received_ms=20)
+        books=audit.recorded_books([rest,ws])
+        self.assertEqual([b["source"] for b in books],["ws","rest"])
+        manifest=dict(arrival_delay_ms=0,max_book_age_ms=5,tick="1",lot="0.00001")
+        order=dict(id=1,at_ms=20,qty=20,side="Buy",limit=101)
+        self.assertEqual(audit.predict_orders([order],books,manifest)[0]["vwap"],"101")
+        self.assertEqual(audit.predict_orders([dict(order,at_ms=19)],books,manifest)[0]["status"],"NOT_MEASURED")
     def test_same_timestamp_ids_do_not_determine_fill_order(self):
         rows=[fill(1,"A","0.0002","81312","0"),fill(2,"B","0.00006","81298","-0.00006","0.00084"),fill(99,"B","0.00014","81295","-0.0002","0.00238")]
         rows[1]["time"]=rows[2]["time"]=2

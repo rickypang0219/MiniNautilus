@@ -13,6 +13,7 @@ struct Server {
     stop: Arc<AtomicBool>,
     actions: Arc<AtomicUsize>,
     fill_reads: Arc<AtomicUsize>,
+    order_queries: Arc<std::sync::Mutex<Vec<Value>>>,
     worker: Option<thread::JoinHandle<()>>,
 }
 impl Server {
@@ -34,6 +35,8 @@ impl Server {
         let actions = Arc::new(AtomicUsize::new(0));
         let fill_reads = Arc::new(AtomicUsize::new(0));
         let reads = fill_reads.clone();
+        let order_queries = Arc::new(std::sync::Mutex::new(Vec::new()));
+        let seen_queries = order_queries.clone();
         let stopped = stop.clone();
         let count = actions.clone();
         let worker = thread::spawn(move || {
@@ -80,6 +83,7 @@ impl Server {
                             json!({"role":"agent","data":{"user":"0x1111111111111111111111111111111111111111"}})
                         }
                         Some("orderStatus") => {
+                            seen_queries.lock().unwrap().push(request["oid"].clone());
                             let response =
                                 order_responses[queries.min(order_responses.len() - 1)].clone();
                             queries += 1;
@@ -102,6 +106,7 @@ impl Server {
             stop,
             actions,
             fill_reads,
+            order_queries,
             worker: Some(worker),
         }
     }
@@ -185,6 +190,27 @@ fn dust_is_allowed_only_when_fresh_position_makes_it_strictly_reduce_only() {
     assert!(v.validate_for_position(&i, 1).is_err());
     i.qty = 2;
     assert!(v.validate_for_position(&i, -1).is_err());
+}
+
+#[test]
+fn delayed_cloid_index_can_use_verified_original_fill_oid_without_resend() {
+    let at = wall_ms();
+    let visible = json!({"status":"order","order":{"status":"filled","order":{"oid":123,"cloid":"0x0123456789abcdef0000000000000001","coin":"BTC","side":"B","origSz":"0.0002","sz":"0","limitPx":"80000"}}});
+    let fill = json!({"time":at,"tid":1,"oid":123,"cloid":"0x0123456789abcdef0000000000000001","coin":"BTC","side":"B"});
+    let server = Server::with_fills(
+        vec![json!({"status":"unknownOid"}), visible],
+        None,
+        vec![json!([fill])],
+    );
+    let dir = dir("oid-fallback");
+    let mut venue = server.venue(&dir);
+    venue.session.started_ms = at - 1;
+    assert_eq!(venue.query(&intent()).unwrap()["status"], "filled");
+    assert_eq!(
+        *server.order_queries.lock().unwrap(),
+        vec![json!("0x0123456789abcdef0000000000000001"), json!(123)]
+    );
+    assert_eq!(server.actions.load(Ordering::Acquire), 0);
 }
 
 #[test]

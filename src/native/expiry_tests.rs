@@ -9,6 +9,9 @@ fn writer(name: &str) -> (Writer, Receiver<Job>, Receiver<Value>, std::path::Pat
     let (jobs, receiver) = bounded(32);
     let (queue, trace) = bounded(1024);
     let mut writer = Writer {
+        recovery_attempts: 0,
+        recovery_not_before: None,
+        execution_recoveries: 0,
         engine,
         jobs,
         circuit: Arc::new(Circuit::default()),
@@ -61,6 +64,82 @@ fn snapshot(core: &Core) -> Reconciliation {
             .collect(),
         fills: core.fills.values().cloned().collect(),
     }
+}
+
+#[test]
+fn lost_response_closes_gate_reconciles_original_order_and_waits_for_fresh_target() {
+    let (mut writer, jobs, _trace, _dir) = writer("rest-recovery");
+    writer
+        .process(
+            Event::Submit(Intent {
+                id: 1,
+                side: Side::Buy,
+                qty: 20,
+                limit: 800000,
+                based_on_seq: writer.engine.core().seq,
+                valid_until: wall_ms() + 3000,
+            }),
+            Instant::now(),
+        )
+        .unwrap();
+    assert!(matches!(jobs.recv().unwrap(), Job::Submit { .. }));
+    writer
+        .control(Control::ExecutionUncertain {
+            epoch: 0,
+            reason: "lost HTTP response".into(),
+        })
+        .unwrap();
+    writer.advance_reconnect().unwrap();
+    writer.dispatch_target().unwrap();
+    assert_eq!(writer.engine.core().health, Health::Reconciling);
+    assert_eq!(
+        writer.engine.core().orders[&1].lifecycle,
+        Lifecycle::Pending
+    );
+    assert!(writer.engine.core().orders[&1].uncertain);
+    assert!(jobs.try_recv().is_err());
+    let mut snapshot = snapshot(writer.engine.core());
+    snapshot.position = 20;
+    snapshot.orders[0].lifecycle = Lifecycle::Filled;
+    snapshot.orders[0].filled = 20;
+    snapshot.fills = vec![Fill {
+        execution_id: 77,
+        order_id: 1,
+        qty: 20,
+        price: 800000,
+    }];
+    writer.control(Control::Reconciled(snapshot)).unwrap();
+    assert_eq!(writer.engine.core().position, 20);
+    assert_eq!(writer.execution_recoveries, 1);
+    assert_eq!(writer.recovery_attempts, 0);
+    assert!(writer.target.is_none());
+    writer.dispatch_target().unwrap();
+    assert!(jobs.try_recv().is_err());
+}
+
+#[test]
+fn unresolved_execution_recovery_has_a_finite_budget_without_resending() {
+    let (mut writer, jobs, _trace, _dir) = writer("rest-budget");
+    for _ in 0..3 {
+        writer
+            .control(Control::ExecutionUncertain {
+                epoch: writer.engine.core().epoch,
+                reason: "unresolved".into(),
+            })
+            .unwrap();
+        writer.advance_reconnect().unwrap();
+        writer.dispatch_target().unwrap();
+        assert!(jobs.try_recv().is_err());
+        assert_ne!(writer.circuit.permit.load(Ordering::Acquire), 1);
+    }
+    assert!(
+        writer
+            .control(Control::ExecutionUncertain {
+                epoch: writer.engine.core().epoch,
+                reason: "unresolved".into()
+            })
+            .is_err()
+    );
 }
 #[test]
 fn expiry_drains_old_fill_then_requires_reconciliation_and_new_subscription() {

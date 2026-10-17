@@ -10,6 +10,15 @@ SPEC.loader.exec_module(worker)
 
 
 class NativeDrillTest(unittest.TestCase):
+    def test_verified_diagnostic_is_not_reopened_after_later_independent_sessions(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root=Path(directory);original=worker.STATE;worker.STATE=root
+            try:
+                self.assertFalse(worker.completed_diagnostic())
+                report=dict(status="PASS",exit=0,replayed=dict(position=0),after=dict(positions=[],open_orders=[]))
+                (root/"recover-result.json").write_text(json.dumps(report));self.assertTrue(worker.completed_diagnostic())
+                report["status"]="FAIL";(root/"recover-result.json").write_text(json.dumps(report));self.assertFalse(worker.completed_diagnostic())
+            finally:worker.STATE=original
     def test_only_completed_flat_sessions_are_excluded_from_later_session_recovery(self):
         with tempfile.TemporaryDirectory() as directory:
             root=Path(directory)
