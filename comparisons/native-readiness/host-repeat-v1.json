@@ -1,0 +1,38 @@
+{
+  "schema": 1,
+  "created_utc": "2026-10-17T14:15:09.023439+00:00",
+  "scope": "Finish original three host-replacement drills on exactly the existing qualified runtime artifact; no additional live rotation or mainnet sessions",
+  "runtime_bundle": {
+    "path": "runs/readiness-20261017/bundle-3596d31.tar.gz",
+    "commit": "3596d313d197c57074138bcc493ef7e2f06b692b",
+    "sha256": "3836d5e7b83f77725bd1525e6048a83ff597e901b4bbc37d8258a0ba59102f9b",
+    "bytes": 4813105
+  },
+  "completed_on_artifact": 1,
+  "additional_drills": 2,
+  "total_required": 3,
+  "sequential_dedicated_account": true,
+  "required_preflight_positions": 0,
+  "required_preflight_open_orders": 0,
+  "rto_seconds_max_each": 300,
+  "original_durable_file_hash_mismatches_max": 0,
+  "original_mutation_retries_max": 0,
+  "expected_recovered_orders_each": 2,
+  "expected_recovered_fills_each": 2,
+  "final_positions_each": 0,
+  "final_open_orders_each": 0,
+  "confirm_old_host_terminated_before_replacement": true,
+  "same_original_ebs_no_formatting": true,
+  "controller_finally_cleanup_required_each": true,
+  "retained_volume_deleted_only_after_fresh_cleanup": true,
+  "network": "hyperliquid-testnet-only",
+  "region": "ap-northeast-1",
+  "estimated_additional_compute_storage_ipv4_cost_usd_upper_bound": 0.1,
+  "not_covered": [
+    "power loss",
+    "EBS loss",
+    "AZ loss",
+    "24-hour operation",
+    "closed-loop market fidelity"
+  ]
+}
