@@ -145,6 +145,7 @@ impl Server {
             owned_oids: BTreeSet::new(),
             last_ledger: None,
             last_request: Instant::now() - Duration::from_secs(1),
+            resolve_unattempted: false,
         }
     }
 }
@@ -169,6 +170,99 @@ fn intent() -> Intent {
         based_on_seq: 1,
         valid_until: wall_ms() + 3000,
     }
+}
+
+#[test]
+fn dust_is_allowed_only_when_fresh_position_makes_it_strictly_reduce_only() {
+    let server = Server::start(json!({"status":"unknownOid"}));
+    let dir = dir("dust-reduce");
+    let v = server.venue(&dir);
+    let mut i = intent();
+    i.qty = 1;
+    assert!(v.validate(&i).is_err());
+    assert!(v.validate_for_position(&i, -1).unwrap());
+    assert!(v.validate_for_position(&i, 0).is_err());
+    assert!(v.validate_for_position(&i, 1).is_err());
+    i.qty = 2;
+    assert!(v.validate_for_position(&i, -1).is_err());
+}
+
+#[test]
+fn fills_ahead_of_order_status_are_rechecked_without_applying_or_resending() {
+    let at = wall_ms();
+    let old = json!({"status":"order","order":{"status":"open","order":{"oid":123,"cloid":"0x0123456789abcdef0000000000000001","coin":"BTC","side":"B","origSz":"0.0002","sz":"0.0002","limitPx":"80000"}}});
+    let mut current = old.clone();
+    current["order"]["order"]["sz"] = "0.0001".into();
+    let fill =
+        json!({"time":at,"oid":123,"coin":"BTC","side":"B","tid":1,"sz":"0.0001","px":"80000"});
+    let server = Server::with_fills(vec![old, current], None, vec![json!([fill])]);
+    let dir = dir("fill-ahead");
+    let mut venue = server.venue(&dir);
+    venue.session.started_ms = at - 1;
+    let mut core = Core::new(super::super::runtime::config()).unwrap();
+    for (n, event) in [
+        Event::Heartbeat { epoch: 0 },
+        Event::Quote {
+            bid: 800000,
+            ask: 800000,
+        },
+        Event::Submit(intent()),
+    ]
+    .into_iter()
+    .enumerate()
+    {
+        core.apply(&Envelope {
+            seq: n as u64 + 1,
+            at,
+            event,
+        })
+        .unwrap();
+    }
+    let reports = venue.poll(&core).unwrap();
+    assert!(
+        reports
+            .iter()
+            .any(|r| matches!(r,Report::Fill(f) if f.qty==10))
+    );
+    assert_eq!(server.fill_reads.load(Ordering::Acquire), 2);
+    assert_eq!(server.actions.load(Ordering::Acquire), 0);
+    assert!(core.fills.is_empty());
+}
+
+#[test]
+fn no_attempt_proof_cannot_cover_acknowledged_or_durably_attempted_orders() {
+    let server = Server::start(json!({"status":"unknownOid"}));
+    let dir = dir("no-attempt");
+    let mut v = server.venue(&dir);
+    v.enable_local_unsent_proof();
+    let mut core = Core::new(super::super::runtime::config()).unwrap();
+    for (n, event) in [
+        Event::Heartbeat { epoch: 0 },
+        Event::Quote {
+            bid: 800000,
+            ask: 800000,
+        },
+        Event::Submit(intent()),
+    ]
+    .into_iter()
+    .enumerate()
+    {
+        core.apply(&Envelope {
+            seq: n as u64 + 1,
+            at: wall_ms(),
+            event,
+        })
+        .unwrap();
+    }
+    assert!(v.locally_unsent(&core, 1));
+    v.attempts
+        .prepare("order-1", &Action::cancel(3, v.session.cloid(1)), wall_ms())
+        .unwrap();
+    assert!(!v.locally_unsent(&core, 1));
+    let accepted = core.orders.get_mut(&1).unwrap();
+    accepted.lifecycle = Lifecycle::Accepted;
+    v.attempts.entries.clear();
+    assert!(!v.locally_unsent(&core, 1));
 }
 
 #[test]

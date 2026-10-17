@@ -34,6 +34,7 @@ fn run() -> Result<()> {
     let mut crash = false;
     let mut rotation = native::lifecycle::Policy::default();
     let mut fixture_orders = 10000;
+    let mut resolve_unsent = false;
     let mut n = 1;
     while n < args.len() {
         match args[n].as_str() {
@@ -59,6 +60,7 @@ fn run() -> Result<()> {
             "--python-strategy" => python = true,
             "--flatten" => flatten = true,
             "--crash-after-fill" => crash = true,
+            "--resolve-unsent" => resolve_unsent = true,
             "--rotate-orders" => {
                 n += 1;
                 rotation.orders = args
@@ -181,7 +183,11 @@ fn run() -> Result<()> {
         "recover" => {
             println!(
                 "{}",
-                runtime::recover_only(&dir.ok_or_else(|| fail("--run-dir required"))?, flatten)?
+                runtime::recover_with_proof(
+                    &dir.ok_or_else(|| fail("--run-dir required"))?,
+                    flatten,
+                    resolve_unsent
+                )?
             );
         }
         "diagnostic" => {

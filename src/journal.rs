@@ -153,6 +153,29 @@ pub struct DurableEngine {
     cold_verification: crate::cold_pages::Verification,
     cold_integrity_failed: bool,
 }
+impl Drop for DurableEngine {
+    fn drop(&mut self) {
+        let _ = self.file.unlock();
+    }
+}
+// File locks belong to logical owners, not fork-before-exec descriptor copies.
+struct LockedFile(File);
+impl std::ops::Deref for LockedFile {
+    type Target = File;
+    fn deref(&self) -> &File {
+        &self.0
+    }
+}
+impl std::ops::DerefMut for LockedFile {
+    fn deref_mut(&mut self) -> &mut File {
+        &mut self.0
+    }
+}
+impl Drop for LockedFile {
+    fn drop(&mut self) {
+        let _ = self.0.unlock();
+    }
+}
 
 impl DurableEngine {
     pub fn create(path: &Path, config: Config) -> io::Result<Self> {
@@ -795,8 +818,9 @@ fn rotate_with_format(
     paged: bool,
     verification: crate::cold_pages::Verification,
 ) -> io::Result<Core> {
-    let mut file = OpenOptions::new().read(true).write(true).open(old)?;
+    let file = OpenOptions::new().read(true).write(true).open(old)?;
     file.try_lock().map_err(io::Error::other)?;
+    let mut file = LockedFile(file);
     let mut bytes = Vec::new();
     file.read_to_end(&mut bytes)?;
     if !bytes.ends_with(b"\n") {
@@ -927,8 +951,9 @@ fn write_cold(
 /// Read-only validated replay. Refuses an active writer or an incomplete tail.
 /// No transport effects are returned, and no recovery event is appended.
 pub fn replay(path: &Path) -> io::Result<Core> {
-    let mut file = File::open(path)?;
+    let file = File::open(path)?;
     file.try_lock_shared().map_err(io::Error::other)?;
+    let mut file = LockedFile(file);
     let mut bytes = Vec::new();
     file.read_to_end(&mut bytes)?;
     if !bytes.ends_with(b"\n") {
@@ -1099,6 +1124,20 @@ impl JournalFollower {
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[test]
+    fn writer_owner_drop_releases_lock_despite_inherited_descriptor() {
+        let path = std::env::temp_dir().join(format!("journal-inherited-{}", std::process::id()));
+        let _ = fs::remove_file(&path);
+        let owner = DurableEngine::create(&path, Config::default()).unwrap();
+        let inherited = owner.file.try_clone().unwrap();
+        assert!(DurableEngine::recover(&path, None).is_err());
+        drop(owner);
+        let next = DurableEngine::recover(&path, None).unwrap();
+        drop(inherited);
+        assert!(DurableEngine::recover(&path, None).is_err());
+        drop(next);
+        fs::remove_file(path).unwrap();
+    }
     #[test]
     fn failed_journal_discards_market_fill_cancel_and_rebuild_transitions() {
         for case in 0..6 {

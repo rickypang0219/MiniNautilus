@@ -259,6 +259,11 @@ pub struct ColdIndex {
     fills: u64,
     paged: Option<Box<crate::cold_pages::Index>>,
 }
+impl Drop for ColdIndex {
+    fn drop(&mut self) {
+        let _ = self.file.unlock();
+    }
+}
 
 impl ColdIndex {
     /// Opens and fully verifies size, header and checksum against `reference`.
@@ -465,4 +470,31 @@ pub fn remove_superseded(
     let existed = directory.join(&previous.file).exists();
     crate::cold_gc::register_and_sweep(directory, previous, current)?;
     Ok(existed && !directory.join(&previous.file).exists())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    #[test]
+    fn reader_owner_drop_unpins_only_its_own_open_description() {
+        let dir = std::env::temp_dir().join(format!("cold-pin-inherited-{}", std::process::id()));
+        let _ = fs::remove_dir_all(&dir);
+        fs::create_dir(&dir).unwrap();
+        let old = write(&dir.join("old.cold"), &[], &[]).unwrap();
+        let current = write(&dir.join("current.cold"), &[], &[]).unwrap();
+        let owner = ColdIndex::open(&dir, &old).unwrap();
+        let inherited = owner.file.try_clone().unwrap();
+        let other_reader = ColdIndex::open(&dir, &old).unwrap();
+        assert!(!remove_superseded(&dir, &old, &current).unwrap());
+        drop(owner);
+        assert!(
+            !remove_superseded(&dir, &old, &current).unwrap(),
+            "another logical reader still pins the root"
+        );
+        drop(other_reader);
+        assert!(remove_superseded(&dir, &old, &current).unwrap());
+        drop(inherited);
+        assert!(dir.join("current.cold").exists());
+        fs::remove_dir_all(dir).unwrap();
+    }
 }

@@ -199,6 +199,8 @@ def analyze(directory, manifest, binary=None):
         local = local_fills.get(str(fill["tid"]+1))  # native execution ID reserves zero
         if local is None or local["qty"]*quantum != fraction(fill["sz"]) or local["price"]*F(manifest["tick"]) != fraction(fill["px"]):
             raise ValueError("Core/venue fill mismatch")
+        if fill.get("cloid")!="0x"+session["session"]+f"{local['order_id']:016x}" or fill["side"]!=("B" if state["orders"][str(local["order_id"])]["intent"]["side"]=="Buy" else "A"):
+            raise ValueError("Core/venue fill order identity mismatch")
     if len(local_fills) != len(fills):
         raise ValueError("missing venue fills")
     report = json.loads((directory/"run-report.json").read_text())
@@ -218,6 +220,7 @@ def analyze(directory, manifest, binary=None):
         if intent and str(intent["id"]) in state["orders"]:
             orders[intent["id"]] = dict(intent, at_ms=event["at"])
     predictions = predict_orders(list(orders.values()), books, manifest)
+    attempted={json.loads(line)["payload"]["key"] for line in (directory/"actions.jsonl").read_text().splitlines()}
     # cloid -> exchange oid comes from orderStatus identity, never simulated fills.
     oids = {}
     for row in rows:
@@ -231,6 +234,7 @@ def analyze(directory, manifest, binary=None):
                 raise ValueError("changed exchange order identity")
             oids[identity] = remote["oid"]
     for prediction in predictions:
+        prediction["durable_adapter_attempt"]=f"order-{prediction['id']}" in attempted
         actual = by_order.get(oids.get(prediction["id"]), [])
         quantity = sum((fraction(f["sz"]) for f in actual), F(0))
         value = sum((fraction(f["sz"])*fraction(f["px"]) for f in actual), F(0))
@@ -262,7 +266,9 @@ def analyze(directory, manifest, binary=None):
                 max_vwap_error_bps=max_price_error, enough_orders=len(measured)>=manifest["minimum_orders"],
                 minimum_orders=manifest["minimum_orders"], reason="passive queue/latency/impact not validated; no fidelity PASS from this model"),
                 simulated_funding="NOT_MEASURED: private actual cashflows cannot be applied to a different simulated position",
-                pnl=pnl,orders=predictions, provenance={p.name:hashlib.sha256(p.read_bytes()).hexdigest() for p in [journal, directory/"session.json", directory/"observations.jsonl", directory/"run-report.json"]})
+                pnl=pnl,orders=predictions, validator_binary_sha256=hashlib.sha256(binary.read_bytes()).hexdigest(),
+                analyzer_source_sha256=hashlib.sha256(Path(__file__).read_bytes()).hexdigest(),
+                provenance={p.name:hashlib.sha256(p.read_bytes()).hexdigest() for p in [journal, directory/"session.json", directory/"actions.jsonl", directory/"observations.jsonl", directory/"run-report.json"]})
 
 
 if __name__ == "__main__":

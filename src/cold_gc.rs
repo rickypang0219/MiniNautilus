@@ -15,7 +15,42 @@ fn hash(bytes: &[u8]) -> u64 {
         (h ^ *b as u64).wrapping_mul(0x100000001b3)
     })
 }
-fn lock(directory: &Path, exclusive: bool) -> io::Result<File> {
+#[cfg(test)]
+mod tests {
+    use super::*;
+    #[test]
+    fn retirement_owner_drop_releases_lock_despite_inherited_descriptor() {
+        let dir = std::env::temp_dir().join(format!("cold-gc-inherited-{}", std::process::id()));
+        let _ = fs::remove_dir_all(&dir);
+        fs::create_dir(&dir).unwrap();
+        let owner = lock(&dir, true).unwrap();
+        let inherited = File::try_clone(&owner).unwrap();
+        assert!(lock(&dir, true).is_err());
+        drop(owner);
+        let next = lock(&dir, true).unwrap();
+        drop(inherited);
+        assert!(
+            lock(&dir, true).is_err(),
+            "old descriptor cannot unlock a new owner"
+        );
+        drop(next);
+        drop(lock(&dir, true).unwrap());
+        fs::remove_dir_all(dir).unwrap();
+    }
+}
+pub(crate) struct Lease(File);
+impl std::ops::Deref for Lease {
+    type Target = File;
+    fn deref(&self) -> &File {
+        &self.0
+    }
+}
+impl Drop for Lease {
+    fn drop(&mut self) {
+        let _ = self.0.unlock();
+    }
+}
+fn lock(directory: &Path, exclusive: bool) -> io::Result<Lease> {
     let f = OpenOptions::new()
         .read(true)
         .write(true)
@@ -31,9 +66,9 @@ fn lock(directory: &Path, exclusive: bool) -> io::Result<File> {
     } else {
         f.lock_shared()?;
     }
-    Ok(f)
+    Ok(Lease(f))
 }
-pub(crate) fn registration(directory: &Path) -> io::Result<File> {
+pub(crate) fn registration(directory: &Path) -> io::Result<Lease> {
     lock(directory, false)
 }
 #[derive(Clone, Serialize, Deserialize)]

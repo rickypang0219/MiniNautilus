@@ -70,6 +70,68 @@ fn flat_terminal_is_not_enough_without_a_reconciliation_barrier() {
     assert!(!lifecycle::journal_path(&root, 1).exists());
     fs::remove_dir_all(root).unwrap();
 }
+
+#[test]
+fn explicit_rotation_cleanup_can_cancel_resting_orders_but_not_race_inflight_jobs() {
+    let mut core = mininautilus::core::Core::new(runtime::config()).unwrap();
+    core.apply(&Envelope {
+        seq: 1,
+        at: 1,
+        event: Event::Heartbeat { epoch: 0 },
+    })
+    .unwrap();
+    core.apply(&Envelope {
+        seq: 2,
+        at: 1,
+        event: Event::Quote {
+            bid: 800000,
+            ask: 800000,
+        },
+    })
+    .unwrap();
+    core.apply(&Envelope {
+        seq: 3,
+        at: 1,
+        event: Event::Submit(Intent {
+            id: 1,
+            side: Side::Buy,
+            qty: 20,
+            limit: 800000,
+            based_on_seq: 2,
+            valid_until: 100,
+        }),
+    })
+    .unwrap();
+    core.apply(&Envelope {
+        seq: 4,
+        at: 1,
+        event: Event::Execution {
+            epoch: 0,
+            venue_seq: 1,
+            report: Report::Accepted { id: 1 },
+        },
+    })
+    .unwrap();
+    let mut segment = runtime::Segment {
+        journal: PathBuf::new(),
+        orders: 4,
+        bytes: 1000,
+        age_seconds: 180,
+        flatten_on_rotation: false,
+        nonce_floor: 0,
+        risk_cash_floor: None,
+        expected_cash: None,
+    };
+    assert!(!segment.can_drain(&core, false, false));
+    segment.flatten_on_rotation = true;
+    assert!(segment.can_drain(&core, false, false));
+    assert!(!segment.can_drain(&core, true, false));
+    assert!(!segment.can_drain(&core, false, true));
+    assert!(
+        core.rotation_ready().is_err(),
+        "starting cleanup does not grant rotation permission"
+    );
+}
 #[test]
 fn repeated_real_core_rotation_preserves_economic_state_and_bounds_active_orders() {
     let parent = dir("fixture");

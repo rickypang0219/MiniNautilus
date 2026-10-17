@@ -107,6 +107,16 @@ BOOT
             if mapping["DeviceName"]=="/dev/sdf":resources["data_volume"]=mapping["Ebs"]["VolumeId"]
             else:resources["root_volumes"].append(mapping["Ebs"]["VolumeId"])
         save();log("created task host "+identity)
+        def record_volumes():
+            current=ec2.describe_instances(InstanceIds=[identity])["Reservations"][0]["Instances"][0]
+            found=current.get("BlockDeviceMappings",[])
+            for mapping in found:
+                volume=mapping["Ebs"]["VolumeId"]
+                if mapping["DeviceName"]=="/dev/sdf" and first:resources["data_volume"]=volume
+                elif volume not in resources["root_volumes"]:resources["root_volumes"].append(volume)
+            save()
+            return bool(found) and (not first or resources["data_volume"] is not None)
+        wait_for(record_volumes,30,"record task volume IDs before bootstrap")
         wait_for(lambda:any(r["PingStatus"]=="Online" for r in ssm.describe_instance_information(Filters=[dict(Key="InstanceIds",Values=[identity])])["InstanceInformationList"]),360,"SSM bootstrap")
         item=ec2.describe_instances(InstanceIds=[identity])["Reservations"][0]["Instances"][0]
         for mapping in item["BlockDeviceMappings"]:
@@ -163,7 +173,12 @@ BOOT
             try:terminate(identity)
             except BaseException as error:resources.setdefault("termination_failures",[]).append(dict(instance=identity,error=type(error).__name__))
         volume_safe=resources["flat_verified"] or not resources.get("trading_started",False)
+        # Discover only this unique task's tagged volumes, including failed launches
+        # whose RunInstances response did not yet expose block-device IDs.
+        discovered=ec2.describe_volumes(Filters=[dict(Name="tag:Name",Values=[token]),dict(Name="tag:Purpose",Values=["temporary-native-lifecycle-drill"])])["Volumes"]
+        resources["discovered_task_volumes"]=[v["VolumeId"] for v in discovered]
         volumes=resources["root_volumes"]+([resources["data_volume"]] if resources["data_volume"] and volume_safe else [])
+        if volume_safe:volumes=list(dict.fromkeys(volumes+resources["discovered_task_volumes"]))
         resources["volume_cleanup"]={}
         for volume in volumes:
             try:

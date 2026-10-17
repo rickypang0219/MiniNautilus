@@ -603,6 +603,12 @@ pub struct Segment {
     pub expected_cash: Option<String>,
 }
 impl Segment {
+    pub fn can_drain(&self, core: &Core, busy: bool, reconcile: bool) -> bool {
+        !busy
+            && !reconcile
+            && core.health == Health::Healthy
+            && (self.flatten_on_rotation || (core.position == 0 && core.rotation_ready().is_ok()))
+    }
     pub fn due(&self, core: &Core, age: Duration) -> Result<bool> {
         Ok(core.orders.len() >= self.orders
             || std::fs::metadata(&self.journal)?.len() >= self.bytes
@@ -1022,11 +1028,7 @@ pub fn run_segment(dir: &Path, options: Options, segment: Option<&Segment>) -> R
                 }
                 if let Some(requested) = rotation_requested {
                     writer.target = None;
-                    if !writer.busy
-                        && !writer.reconcile
-                        && writer.engine.core().rotation_ready().is_ok()
-                        && (writer.engine.core().position == 0 || segment.flatten_on_rotation)
-                    {
+                    if segment.can_drain(writer.engine.core(), writer.busy, writer.reconcile) {
                         rotation_ready = true;
                         break;
                     }
@@ -1240,11 +1242,17 @@ fn flatten_paper(engine: &mut DurableEngine) -> Result<()> {
     Ok(())
 }
 pub fn recover_only(dir: &Path, flatten: bool) -> Result<Value> {
+    recover_with_proof(dir, flatten, false)
+}
+pub fn recover_with_proof(dir: &Path, flatten: bool, resolve_unsent: bool) -> Result<Value> {
     let session: Session = serde_json::from_slice(&std::fs::read(dir.join("session.json"))?)?;
     let _lock = account_lock(&session.account)?;
-    recover_locked(dir, flatten)
+    recover_locked_with_proof(dir, flatten, resolve_unsent)
 }
 pub(super) fn recover_locked(dir: &Path, flatten: bool) -> Result<Value> {
+    recover_locked_with_proof(dir, flatten, false)
+}
+fn recover_locked_with_proof(dir: &Path, flatten: bool, resolve_unsent: bool) -> Result<Value> {
     if !dir.join("actions.jsonl").is_file() || !dir.join("journal.jsonl").is_file() {
         return Err(fail(
             "original action/journal history missing; recovery cannot create replacements",
@@ -1252,6 +1260,9 @@ pub(super) fn recover_locked(dir: &Path, flatten: bool) -> Result<Value> {
     }
     let session: Session = serde_json::from_slice(&std::fs::read(dir.join("session.json"))?)?;
     let mut venue = Venue::open(session, dir)?;
+    if resolve_unsent {
+        venue.enable_local_unsent_proof();
+    }
     let recorder = super::record::Recorder::create(
         &dir.join(format!("recovery-observations-{}.jsonl", wall_ms())),
     )?;

@@ -87,8 +87,13 @@ pub struct Index {
     root: Root,
     reference: ColdRef,
     _pin: File,
-    _store_reader: File,
+    _store_reader: crate::cold_gc::Lease,
     stats: Cell<Stats>,
+}
+impl Drop for Index {
+    fn drop(&mut self) {
+        let _ = self._pin.unlock();
+    }
 }
 impl Index {
     pub fn open(

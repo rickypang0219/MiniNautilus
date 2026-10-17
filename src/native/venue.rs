@@ -386,8 +386,22 @@ pub struct Venue {
     pub owned_oids: BTreeSet<u64>,
     pub last_ledger: Option<Ledger>,
     last_request: Instant,
+    resolve_unattempted: bool,
 }
 impl Venue {
+    fn locally_unsent(&self, core: &Core, id: u64) -> bool {
+        if !self.resolve_unattempted {
+            return false;
+        }
+        let o = &core.orders[&id];
+        matches!(o.lifecycle, Lifecycle::Pending | Lifecycle::Rejected)
+            && o.filled == 0
+            && !core.fills.values().any(|f| f.order_id == id)
+            && !self.attempts.entries.contains_key(&format!("order-{id}"))
+    }
+    pub fn enable_local_unsent_proof(&mut self) {
+        self.resolve_unattempted = true;
+    }
     pub fn open(session: Session, dir: &Path) -> Result<Self> {
         session.validate()?;
         if std::env::var("HL_NETWORK").as_deref() != Ok("testnet")
@@ -408,6 +422,7 @@ impl Venue {
             owned_oids: BTreeSet::new(),
             last_ledger: None,
             last_request: Instant::now() - Duration::from_secs(1),
+            resolve_unattempted: false,
         };
         v.attempts.carry_nonce(v.session.nonce_floor);
         v.check_binding()?;
@@ -496,6 +511,9 @@ impl Venue {
         Ok(rows(&self.info("openOrders", args)?)?.clone())
     }
     pub fn validate(&self, i: &Intent) -> Result<()> {
+        self.validate_for_position(i, 0).map(|_| ())
+    }
+    fn validate_for_position(&self, i: &Intent, position_lots: i64) -> Result<bool> {
         let instrument = &self.session.instrument;
         if i.id == 0 || i.qty <= 0 || i.limit <= 0 {
             return Err(fail("intent fields"));
@@ -505,18 +523,23 @@ impl Venue {
         instrument.size(&json!(wire(qty)))?;
         instrument.price(&json!(wire(price)))?;
         let notional = qty * price;
-        if notional < Decimal::from(10) || notional > dec(&json!(self.session.max_notional))? {
+        let reducing = position_lots != 0
+            && position_lots.signum() != i.side.sign()
+            && i.qty.unsigned_abs() <= position_lots.unsigned_abs();
+        if (notional < Decimal::from(10) && !reducing)
+            || notional > dec(&json!(self.session.max_notional))?
+        {
             return Err(fail("order notional outside cap/minimum"));
         }
-        Ok(())
+        Ok(reducing)
     }
     fn admission(&mut self, i: &Intent) -> Result<(bool, u64)> {
-        self.validate(i)?;
         self.check_mode()?;
         self.check_leverage()?;
         let s = self.account()?;
         let position = position(&s)?;
         let lots = units(position, self.session.instrument.lot())?;
+        let reducing = self.validate_for_position(i, lots)?;
         let change = i
             .qty
             .checked_mul(i.side.sign())
@@ -541,12 +564,7 @@ impl Venue {
         if !self.open_orders()?.is_empty() {
             return Err(fail("open order reservation domain busy"));
         }
-        Ok((
-            lots != 0
-                && lots.signum() != change.signum()
-                && change.unsigned_abs() <= lots.unsigned_abs(),
-            number(&s["time"])?,
-        ))
+        Ok((reducing, number(&s["time"])?))
     }
     fn mutate(
         &mut self,
@@ -813,15 +831,37 @@ impl Venue {
             if o["coin"] != self.session.instrument.symbol || !known.contains(text(&o["cloid"])?) {
                 return Err(fail("foreign open order"));
             }
+            if core
+                .orders
+                .keys()
+                .any(|id| self.locally_unsent(core, *id) && o["cloid"] == self.session.cloid(*id))
+            {
+                return Err(fail("venue order contradicts durable no-attempt proof"));
+            }
         }
         for o in core.orders.values() {
-            self.cancel(&o.intent)?;
+            if !self.locally_unsent(core, o.intent.id) {
+                self.cancel(&o.intent)?;
+            }
         }
         let all = self.history("userFillsByTime")?;
         let mut orders = Vec::new();
         let mut fills = Vec::new();
         let mut owned = BTreeSet::new();
+        let mut absent = Vec::new();
         for o in core.orders.values() {
+            if self.locally_unsent(core, o.intent.id) {
+                if o.lifecycle == Lifecycle::Pending {
+                    absent.push(o.intent.id);
+                } else {
+                    orders.push(VenueOrder {
+                        intent: o.intent.clone(),
+                        filled: 0,
+                        lifecycle: Lifecycle::Rejected,
+                    });
+                }
+                continue;
+            }
             let (remote, fs, ids) = self.collect(&o.intent, &all)?;
             if !remote.lifecycle.terminal() {
                 return Err(fail("account not quiescent"));
@@ -846,7 +886,7 @@ impl Venue {
             orders,
             fills,
             position,
-            absent: vec![],
+            absent,
         })
     }
 }
@@ -913,13 +953,13 @@ pub fn collect_order(
         });
     }
     let remaining = units(dec(&remote["order"]["sz"])?, instrument.lot())?;
-    if remaining < 0 || remaining > i.qty || filled > i.qty || filled > i.qty - remaining {
+    if remaining < 0 || remaining > i.qty || filled > i.qty {
         return Err(fail(&format!(
             "cumulative fill history mismatch: order={} qty={} remaining={remaining} observed={filled}",
             i.id, i.qty
         )));
     }
-    if filled < i.qty - remaining {
+    if filled != i.qty - remaining {
         return Err(std::io::Error::new(
             std::io::ErrorKind::WouldBlock,
             format!(
