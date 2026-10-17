@@ -1,4 +1,5 @@
 import importlib.util
+import copy
 import json
 from pathlib import Path
 import tempfile
@@ -13,6 +14,37 @@ CONTROLLER_SPEC.loader.exec_module(controller)
 
 
 class NativeDrillTest(unittest.TestCase):
+    def test_recovery_proof_accepts_split_fills_but_rejects_missing_changed_and_foreign_facts(self):
+        session={"session":"0123456789abcdef","instrument":{"symbol":"BTC","sz_decimals":5}}
+        orders={str(i):dict(intent=dict(id=i,side=side,qty=20),filled=20,lifecycle="Filled",pending=None,uncertain=False)
+                for i,side in [(1,"Buy"),(2,"Sell")]}
+        fills={str(tid+1):dict(execution_id=tid+1,order_id=oid,qty=qty,price=800000)
+               for tid,oid,qty in [(11,1,20),(22,2,6),(33,2,14)]}
+        state=dict(position=0,orders=orders,fills=fills)
+        raw=[dict(tid=tid,oid=oid+100,cloid="0x"+session["session"]+f"{oid:016x}",coin="BTC",
+                  side="B" if oid==1 else "A",sz=size,px="80000")
+             for tid,oid,size in [(11,1,"0.0002"),(22,2,"0.00006"),(33,2,"0.00014")]]
+        self.assertEqual(worker.recovered_fill_proof(state,session,raw+raw)["unique_fills"],3)
+        # A first order can be partly filled then canceled before flattening.
+        partial=copy.deepcopy(state);partial["orders"]["1"].update(filled=6,lifecycle="Canceled")
+        partial["orders"]["2"]["intent"]["qty"]=6;partial["orders"]["2"]["filled"]=6
+        partial["fills"].pop("34");partial["fills"]["12"]["qty"]=6
+        partial_raw=copy.deepcopy(raw[:2]);partial_raw[0]["sz"]="0.00006"
+        self.assertEqual(worker.recovered_fill_proof(partial,session,partial_raw)["unique_fills"],2)
+        for field,value in [("sz","0.00007"),("px","80001"),("cloid","foreign"),("side","B"),("coin","ETH"),("oid",101)]:
+            wrong=copy.deepcopy(raw);wrong[1][field]=value
+            with self.subTest(field=field),self.assertRaises(ValueError):worker.recovered_fill_proof(state,session,wrong)
+        for wrong in [raw[:2],raw+[dict(raw[0],sz="0.0001")],raw+[dict(raw[0],tid=44)]]:
+            with self.assertRaises(ValueError):worker.recovered_fill_proof(state,session,wrong)
+        for field,value in [("position",1),("fills",{}),("orders",dict(orders,extra=orders["1"]))]:
+            wrong=copy.deepcopy(state);wrong[field]=value
+            with self.subTest(field=field),self.assertRaises(ValueError):worker.recovered_fill_proof(wrong,session,raw)
+        wrong=copy.deepcopy(state);wrong["orders"]["2"]["filled"]=19
+        with self.assertRaises(ValueError):worker.recovered_fill_proof(wrong,session,raw)
+        for field,value in [("uncertain",True),("pending","Cancel"),("lifecycle","Accepted")]:
+            wrong=copy.deepcopy(state);wrong["orders"]["1"][field]=value
+            with self.subTest(field=field),self.assertRaises(ValueError):worker.recovered_fill_proof(wrong,session,raw)
+
     def test_later_trading_invalidates_flat_proof_and_retains_state_on_failed_cleanup(self):
         resources=dict(trading_started=True,flat_verified=True,potential_exposure=False)
         self.assertTrue(controller.state_volume_safe(resources))

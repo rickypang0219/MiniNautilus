@@ -4,6 +4,7 @@ import argparse
 import hashlib
 import json
 import os
+from fractions import Fraction
 from pathlib import Path
 import subprocess
 import tarfile
@@ -16,6 +17,47 @@ STATE = Path("/mnt/native-state")
 
 def sha(path):
     return hashlib.sha256(path.read_bytes()).hexdigest()
+
+
+def recovered_fill_proof(state, session, observations):
+    """Match all original venue executions; one order may have many fills."""
+    if session["instrument"].get("symbol")!="BTC" or session["instrument"].get("sz_decimals")!=5:
+        raise ValueError("unexpected recovery proof instrument")
+    if state["position"] or set(state["orders"])!={"1","2"}:
+        raise ValueError("unexpected recovered position/orders")
+    unique={}
+    for fill in observations:
+        tid=fill["tid"]
+        if type(tid) is not int or tid<0 or (tid in unique and unique[tid]!=fill):
+            raise ValueError("invalid/changed recovery execution")
+        unique[tid]=fill
+    if set(state["fills"])!={str(tid+1) for tid in unique}:
+        raise ValueError("missing/extra recovery execution")
+    totals={1:0,2:0};oids={}
+    for tid,fill in unique.items():
+        local=state["fills"][str(tid+1)];order_id=local["order_id"]
+        if order_id not in totals:
+            raise ValueError("unowned recovery execution")
+        order=state["orders"][str(order_id)]
+        if (local["execution_id"]!=tid+1 or local["qty"]<=0 or local["price"]<=0
+            or Fraction(fill["sz"])!=Fraction(local["qty"],100000)
+            or Fraction(fill["px"])!=Fraction(local["price"],10)
+            or fill["coin"]!="BTC" or fill["cloid"]!="0x"+session["session"]+f"{order_id:016x}"
+            or fill["side"]!=("B" if order["intent"]["side"]=="Buy" else "A")):
+            raise ValueError("recovery execution identity/quantity/price mismatch")
+        if type(fill["oid"]) is not int or fill["oid"]<=0 or oids.get(order_id,fill["oid"])!=fill["oid"]:
+            raise ValueError("changed recovery order ID")
+        oids[order_id]=fill["oid"];totals[order_id]+=local["qty"]
+    for order_id,side in [(1,"Buy"),(2,"Sell")]:
+        order=state["orders"][str(order_id)]
+        if (order["intent"]["id"]!=order_id or order["intent"]["side"]!=side
+            or not 0<totals[order_id]==order["filled"]<=order["intent"]["qty"]
+            or order["lifecycle"] not in ("Filled","Canceled") or order["pending"] is not None or order["uncertain"]
+            or (order["lifecycle"]=="Filled" and order["filled"]!=order["intent"]["qty"])):
+            raise ValueError("recovery order not terminal/conserved")
+    if totals[1]!=totals[2] or state["orders"]["2"]["intent"]["qty"]!=totals[1] or len(set(oids.values()))!=2:
+        raise ValueError("recovery exposure/order identity mismatch")
+    return dict(unique_fills=len(unique),filled_lots_by_order=totals,position=0)
 
 
 def completed_root(directory):
@@ -196,8 +238,13 @@ def main():
                 raise ValueError("original-session host recovery failed")
             state = json.loads(subprocess.check_output([str(ROOT/"target/release/mininautilus"),"inspect",str(directory/"journal.jsonl")],text=True))
             evidence["replayed"] = dict(position=state["position"],orders=len(state["orders"]),fills=len(state["fills"]))
-            if state["position"] or len(state["orders"]) != 2 or len(state["fills"]) != 2:
-                raise ValueError("unexpected duplicate/missing original or cleanup order")
+            observed=[]
+            for path in directory.glob("recovery-observations-*.jsonl"):
+                for line in path.read_text().splitlines():
+                    row=json.loads(line)
+                    if row["kind"]=="http" and row["request"].get("type")=="userFillsByTime":
+                        observed.extend(row["response"])
+            evidence["fill_proof"]=recovered_fill_proof(state,json.loads((directory/"session.json").read_text()),observed)
         elif args.phase == "cleanup":
             for directory in sorted(STATE.glob("rotation-*")):
                 if directory.is_dir() and (directory/"current.json").exists():

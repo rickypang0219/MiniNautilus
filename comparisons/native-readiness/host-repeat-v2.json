@@ -1,0 +1,43 @@
+{
+  "schema": 2,
+  "created_utc": "2026-10-17T14:36:19.718515+00:00",
+  "previous_manifest": "comparisons/native-readiness/host-repeat-v1.json",
+  "previous_verdict": "FAIL attempt6: two orders legitimately produced three unique fills; original FAIL retained, no controller RTO receipt",
+  "scope": "Three fresh host-only drills with a verified fill-identity/quantity oracle; unchanged native and strategy runtime, corrected worker harness",
+  "fresh_drills_required": 3,
+  "old_attempts_counted_toward_three": 0,
+  "same_new_bundle_for_all_three": true,
+  "live_qualified_runtime_source": "3596d313d197c57074138bcc493ef7e2f06b692b",
+  "live_qualified_binary_sha256": {
+    "target/release/native-live": "49a4f650c8932dd544c6d2290f1b65ff8ffd5ab4fb85b41f0c19b7b624b00e13",
+    "target/release/mininautilus": "ec4f08579c159c67f62aa5be0159dde56600b237cb1f85b1b471ec44b71fe07a"
+  },
+  "new_bundle_must_preserve_native_and_strategy_file_sha256": true,
+  "rto_seconds_max_each": 300,
+  "original_file_sha256_mismatches_max": 0,
+  "expected_orders_each": 2,
+  "expected_order_sides": [
+    "Buy",
+    "Sell"
+  ],
+  "expected_executions": "variable cardinality: exact bijection raw venue tid+1 to Core execution_id, same order/side/coin/quantity/price; changed/extra/missing facts fail",
+  "each_order_filled_lots_must_equal_sum_of_unique_executions": true,
+  "close_intent_lots_equals_original_filled_lots": true,
+  "net_filled_lots": 0,
+  "position": 0,
+  "open_orders": 0,
+  "original_mutation_retries_max": 0,
+  "pending_or_uncertain_orders_max": 0,
+  "old_host_termination_required": true,
+  "same_original_ebs_no_formatting": true,
+  "controller_finally_cleanup_required": true,
+  "network": "hyperliquid-testnet-only",
+  "region": "ap-northeast-1",
+  "estimated_additional_compute_storage_ipv4_usd_upper_bound": 0.2,
+  "not_covered": [
+    "active rotated-root takeover",
+    "power/EBS/AZ loss",
+    "24h service",
+    "full backtest market fidelity"
+  ]
+}
