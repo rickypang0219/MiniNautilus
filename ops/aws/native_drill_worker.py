@@ -18,6 +18,18 @@ def sha(path):
     return hashlib.sha256(path.read_bytes()).hexdigest()
 
 
+def completed_root(directory):
+    report_path=directory/"lifecycle-report.json"
+    pointer_path=directory/"current.json"
+    if not report_path.exists() or not pointer_path.exists():
+        return False
+    report=json.loads(report_path.read_text())
+    pointer=json.loads(pointer_path.read_text())["payload"]
+    segments=report["segments"]
+    return (pointer["phase"]=="stopped" and report["position"]==0 and bool(segments)
+            and all(s["cleanup_verified"] and not s["failed"] for s in segments))
+
+
 def info(kind):
     request = urllib.request.Request("https://api.hyperliquid-testnet.xyz/info",
         data=json.dumps(dict(type=kind,user=os.environ["HL_MAIN_ADDRESS"])).encode(),
@@ -176,6 +188,10 @@ def main():
         elif args.phase == "cleanup":
             for directory in sorted(STATE.glob("rotation-*")):
                 if directory.is_dir() and (directory/"current.json").exists():
+                    # Older verified-flat sessions must not absorb subsequent
+                    # independent session trades into their original baselines.
+                    if completed_root(directory):
+                        continue
                     pointer=json.loads((directory/"current.json").read_text())["payload"]
                     segment=directory/f"segment-{pointer['index']:06}"
                     if (segment/"actions.jsonl").exists():
