@@ -184,7 +184,13 @@ def main():
             receipt = json.loads((STATE/"crash-receipt.json").read_text())
             if any(sha(directory/name) != digest for name,digest in receipt["durable_sha256"].items()):
                 raise ValueError("durable bytes lost/changed across host replacement")
-            code = execute([native,"recover","--run-dir",str(directory),"--flatten"],"host-recovery",180)
+            attempts=[]
+            for attempt in range(3):
+                code=execute([native,"recover","--run-dir",str(directory),"--flatten"],f"host-recovery-{attempt}",60)
+                attempts.append(code)
+                if code==0:break
+                time.sleep(1<<attempt)
+            evidence["recovery_attempt_exits"]=attempts
             evidence.update(exit=code,recovery_seconds=time.monotonic()-started,after=account(True))
             if code:
                 raise ValueError("original-session host recovery failed")
