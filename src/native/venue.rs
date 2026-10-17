@@ -37,6 +37,12 @@ pub fn text(v: &Value) -> Result<&str> {
 pub fn rows(v: &Value) -> Result<&Vec<Value>> {
     v.as_array().ok_or_else(|| fail("array required"))
 }
+fn cancel_terminal_race(status: &Value, asset: u64) -> bool {
+    status["error"].as_str()
+        == Some(
+            format!("Order was never placed, already canceled, or filled. asset={asset}").as_str(),
+        )
+}
 pub fn units(value: Decimal, increment: Decimal) -> Result<i64> {
     let result = value
         .checked_div(increment)
@@ -658,7 +664,15 @@ impl Venue {
             return Err(fail("action rejected; reconcile without retry"));
         }
         let statuses = rows(&result["response"]["data"]["statuses"])?;
-        if statuses.len() != 1 || statuses[0].get("error").is_some() {
+        if statuses.len() != 1 {
+            return Err(fail("action response rejected/ambiguous"));
+        }
+        // This cancel rejection is not evidence of absence or terminality.
+        // Only cancel() may accept it, after checking the original order below.
+        if statuses[0].get("error").is_some()
+            && !(matches!(action, Action::Cancel { .. })
+                && cancel_terminal_race(&statuses[0], self.session.instrument.asset))
+        {
             return Err(fail("action response rejected/ambiguous"));
         }
         Ok(statuses[0].clone())
@@ -781,7 +795,9 @@ impl Venue {
             return Ok(());
         }
         let action = Action::cancel(self.session.instrument.asset, self.session.cloid(i.id));
-        if self.mutate(&action, &format!("cancel-{}", i.id), None, None)? != "success" {
+        let response = self.mutate(&action, &format!("cancel-{}", i.id), None, None)?;
+        if response != "success" && !cancel_terminal_race(&response, self.session.instrument.asset)
+        {
             return Err(fail("unknown cancel acknowledgement"));
         }
         // An action acknowledgement may precede orderStatus visibility. Query;

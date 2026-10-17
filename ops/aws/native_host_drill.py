@@ -17,6 +17,16 @@ def sha(path):
     return hashlib.sha256(path.read_bytes()).hexdigest()
 
 
+def begin_signed_phase(resources):
+    # A flat proof belongs to the preceding phase, not future signed activity.
+    resources.update(trading_started=True,flat_verified=False,potential_exposure=True)
+
+
+def state_volume_safe(resources):
+    return not resources.get("trading_started",False) or (
+        resources.get("flat_verified") is True and resources.get("potential_exposure") is False)
+
+
 def main():
     parser=argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--bundle-receipt",type=Path,required=True)
@@ -145,7 +155,7 @@ BOOT
                 elif mapping["Ebs"]["VolumeId"] not in resources["root_volumes"]:resources["root_volumes"].append(mapping["Ebs"]["VolumeId"])
             save();volume=resources["data_volume"]
         command(active,"mount --volume "+volume+" --initialize",120);mounted=True
-        resources["trading_started"]=True;save()
+        begin_signed_phase(resources);save()
         if not args.host_first:command(active,"rotation",2400)
         command(active,"crash",180);resources["potential_exposure"]=True;save()
         loss_started=time.monotonic();resources["host_loss_started_epoch"]=time.time();save()
@@ -162,7 +172,9 @@ BOOT
         resources["host_loss_to_recovered_seconds"]=time.monotonic()-loss_started
         resources["flat_verified"]=True;resources["potential_exposure"]=False;save()
         resources["status"]="PASS" if resources["host_loss_to_recovered_seconds"]<=300 else "FAIL_RTO"
-        if args.host_first:command(active,"rotation",2400)
+        if args.host_first:
+            begin_signed_phase(resources);save()
+            command(active,"rotation",2400)
     except BaseException as error:
         resources["status"]="FAIL";resources["failure"]=type(error).__name__+": "+str(error);save()
         raise
@@ -175,7 +187,7 @@ BOOT
         for identity in resources["instances"]:
             try:terminate(identity)
             except BaseException as error:resources.setdefault("termination_failures",[]).append(dict(instance=identity,error=type(error).__name__))
-        volume_safe=resources["flat_verified"] or not resources.get("trading_started",False)
+        volume_safe=state_volume_safe(resources)
         # Discover only this unique task's tagged volumes, including failed launches
         # whose RunInstances response did not yet expose block-device IDs.
         discovered=ec2.describe_volumes(Filters=[dict(Name="tag:Name",Values=[token]),dict(Name="tag:Purpose",Values=["temporary-native-lifecycle-drill"])])["Volumes"]

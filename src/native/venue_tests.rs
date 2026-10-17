@@ -533,3 +533,77 @@ fn cancel_ack_waits_for_terminal_visibility_without_resending() {
     drop(v);
     std::fs::remove_dir_all(dir).unwrap();
 }
+
+#[test]
+fn cancel_rejection_race_requires_original_terminal_facts_without_resending() {
+    let open = json!({"status":"order","order":{"status":"open","order":{"oid":123,"cloid":"0x0123456789abcdef0000000000000001","coin":"BTC","side":"B","origSz":"0.0002","sz":"0.0002","limitPx":"80000"}}});
+    let mut filled = open.clone();
+    filled["order"]["status"] = "filled".into();
+    filled["order"]["order"]["sz"] = "0".into();
+    for changed_identity in [false, true] {
+        let mut terminal = filled.clone();
+        if changed_identity {
+            terminal["order"]["order"]["cloid"] = "0x0123456789abcdef0000000000000002".into();
+        }
+        let server = Server::script(
+            vec![open.clone(), open.clone(), terminal],
+            Some(
+                json!({"status":"ok","response":{"data":{"statuses":[{"error":"Order was never placed, already canceled, or filled. asset=3"}]}}}),
+            ),
+        );
+        let dir = dir("cancel-rejected-race");
+        let mut venue = server.venue(&dir);
+        let result = venue.cancel(&intent());
+        assert_eq!(result.is_err(), changed_identity);
+        assert_eq!(server.actions.load(Ordering::Acquire), 1);
+        assert_eq!(venue.attempts.entries.len(), 1);
+        assert!(server.order_queries.lock().unwrap().len() >= 3);
+        drop(venue);
+        std::fs::remove_dir_all(dir).unwrap();
+    }
+}
+
+#[test]
+fn unrelated_cancel_rejection_remains_fatal() {
+    let open = json!({"status":"order","order":{"status":"open","order":{"oid":123,"cloid":"0x0123456789abcdef0000000000000001","coin":"BTC","side":"B","origSz":"0.0002","sz":"0.0002","limitPx":"80000"}}});
+    for error in [
+        "agent not authorized",
+        "Order was never placed, already canceled, or filled. asset=4",
+    ] {
+        let server = Server::script(
+            vec![open.clone()],
+            Some(json!({"status":"ok","response":{"data":{"statuses":[{"error":error}]}}})),
+        );
+        let dir = dir("cancel-rejected-unrelated");
+        let mut venue = server.venue(&dir);
+        assert!(venue.cancel(&intent()).is_err());
+        assert_eq!(server.actions.load(Ordering::Acquire), 1);
+        assert_eq!(server.order_queries.lock().unwrap().len(), 1);
+        drop(venue);
+        std::fs::remove_dir_all(dir).unwrap();
+    }
+}
+
+#[test]
+fn cancel_race_response_cannot_prove_an_open_order_terminal() {
+    let open = json!({"status":"order","order":{"status":"open","order":{"oid":123,"cloid":"0x0123456789abcdef0000000000000001","coin":"BTC","side":"B","origSz":"0.0002","sz":"0.0002","limitPx":"80000"}}});
+    let server = Server::script(
+        vec![open],
+        Some(
+            json!({"status":"ok","response":{"data":{"statuses":[{"error":"Order was never placed, already canceled, or filled. asset=3"}]}}}),
+        ),
+    );
+    let dir = dir("cancel-race-still-open");
+    let mut venue = server.venue(&dir);
+    assert!(
+        venue
+            .cancel(&intent())
+            .unwrap_err()
+            .to_string()
+            .contains("cancel not terminal")
+    );
+    assert_eq!(server.actions.load(Ordering::Acquire), 1);
+    assert_eq!(venue.attempts.entries.len(), 1);
+    drop(venue);
+    std::fs::remove_dir_all(dir).unwrap();
+}
