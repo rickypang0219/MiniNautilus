@@ -1,4 +1,6 @@
 //! Native live boundary. The existing deterministic Core remains unchanged.
+pub mod lifecycle;
+pub mod record;
 pub mod runtime;
 pub mod signing;
 pub mod venue;

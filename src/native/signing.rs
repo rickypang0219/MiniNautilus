@@ -136,6 +136,12 @@ impl Drop for Attempts {
     }
 }
 impl Attempts {
+    pub fn nonce_floor(&self) -> u64 {
+        self.last_nonce
+    }
+    pub fn carry_nonce(&mut self, floor: u64) {
+        self.last_nonce = self.last_nonce.max(floor);
+    }
     pub fn open(path: &Path) -> Result<Self> {
         let file = OpenOptions::new()
             .create(true)

@@ -116,6 +116,7 @@ impl Server {
                     .build()
                     .unwrap(),
                 base: self.base.clone(),
+                recorder: None,
                 test_transport: true,
             },
             session: Session {
@@ -132,6 +133,8 @@ impl Server {
                 max_position_lots: 20,
                 max_notional: "40".into(),
                 max_loss: "10".into(),
+                nonce_floor: 0,
+                risk_cash_floor: None,
             },
             signer: Signer::new(
                 fixture["public_test_key"].as_str().unwrap(),

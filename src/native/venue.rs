@@ -110,6 +110,7 @@ impl Instrument {
 pub struct Http {
     client: Client,
     base: String,
+    pub recorder: Option<super::record::Recorder>,
     #[cfg(test)]
     test_transport: bool,
 }
@@ -125,6 +126,7 @@ impl Http {
         }
         Ok(Self {
             client: builder.build()?,
+            recorder: None,
             #[cfg(test)]
             test_transport: false,
             base: if mainnet {
@@ -139,6 +141,8 @@ impl Http {
         self.post_with_timeout(path, payload, Duration::from_secs(8))
     }
     fn post_with_timeout(&self, path: &str, payload: &Value, timeout: Duration) -> Result<Value> {
+        let started = Instant::now();
+        let started_ms = wall_ms();
         let allowed_mutation = self.base == "https://api.hyperliquid-testnet.xyz";
         #[cfg(test)]
         let allowed_mutation = allowed_mutation || self.test_transport;
@@ -163,7 +167,17 @@ impl Http {
         if raw.len() > 4 * 1024 * 1024 {
             return Err(fail("HTTP response cap"));
         }
-        serde_json::from_slice(&raw).map_err(|_| fail("HTTP JSON schema"))
+        let value = serde_json::from_slice(&raw).map_err(|_| fail("HTTP JSON schema"))?;
+        if let Some(recorder) = &self.recorder {
+            recorder.response(
+                path,
+                payload,
+                &value,
+                started_ms,
+                started.elapsed().as_nanos() as u64,
+            )?;
+        }
+        Ok(value)
     }
     pub fn info(&self, kind: &str, mut args: Value) -> Result<Value> {
         args["type"] = kind.into();
@@ -319,9 +333,18 @@ pub struct Session {
     pub max_position_lots: i64,
     pub max_notional: String,
     pub max_loss: String,
+    #[serde(default)]
+    pub nonce_floor: u64,
+    #[serde(default)]
+    pub risk_cash_floor: Option<String>,
 }
 impl Session {
     pub fn validate(&self) -> Result<()> {
+        if let Some(floor) = &self.risk_cash_floor
+            && dec(&json!(floor))? > dec(&json!(self.baseline_cash))?
+        {
+            return Err(fail("carried cumulative loss budget exhausted"));
+        }
         if self.session.len() != 16
             || !self.session.bytes().all(|b| b.is_ascii_hexdigit())
             || self.instrument.symbol != "BTC"
@@ -346,6 +369,13 @@ impl Session {
     }
     pub fn cloid(&self, id: u64) -> String {
         format!("0x{}{:016x}", self.session, id)
+    }
+    pub fn risk_floor(&self) -> Result<Decimal> {
+        let local = dec(&json!(self.baseline_cash))? - dec(&json!(self.max_loss))?;
+        Ok(match &self.risk_cash_floor {
+            Some(floor) => local.max(dec(&json!(floor))?),
+            None => local,
+        })
     }
 }
 pub struct Venue {
@@ -379,10 +409,14 @@ impl Venue {
             last_ledger: None,
             last_request: Instant::now() - Duration::from_secs(1),
         };
+        v.attempts.carry_nonce(v.session.nonce_floor);
         v.check_binding()?;
         v.check_mode()?;
         v.check_leverage()?;
         Ok(v)
+    }
+    pub fn nonce_floor(&self) -> u64 {
+        self.attempts.nonce_floor()
     }
     fn info(&mut self, kind: &str, args: Value) -> Result<Value> {
         self.info_until(kind, args, None)
@@ -498,7 +532,7 @@ impl Venue {
         let nav = dec(&s["marginSummary"]["accountValue"])?;
         let used = dec(&s["marginSummary"]["totalMarginUsed"])?;
         if nav < Decimal::from(100)
-            || nav < dec(&json!(self.session.baseline_cash))? - dec(&json!(self.session.max_loss))?
+            || nav < self.session.risk_floor()?
             || used < Decimal::ZERO
             || nav - used < dec(&json!(self.session.max_notional))? * Decimal::from(2)
         {

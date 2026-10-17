@@ -33,3 +33,5 @@ so the next session does not repeat it.
 - EC2 cloud-init needs IMDS to retrieve user data. Require IMDSv2 instead of disabling metadata when using bootstrap scripts; confirm the script actually ran and verify cleanup after failed launches.
 
 - Temporary benchmark EC2: launch only after the exact build and runnable experiment are ready. Wrap each bounded experiment in controller-side `finally` termination and verify instance termination plus deletion of task EBS volumes. A guest shutdown timer is a fallback, never evidence of cleanup; do not leave an instance idle while implementing code. Persist resource IDs before waiting, and check them first after any interrupted turn.
+
+- Freeze source files while `verify.sh` runs: modifying build inputs during verification invalidates its release receipts. Finish edits first, then run the gates against that exact tree.

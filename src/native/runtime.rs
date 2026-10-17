@@ -592,6 +592,23 @@ pub struct Options {
     pub seconds: u64,
     pub flatten: bool,
 }
+pub struct Segment {
+    pub journal: std::path::PathBuf,
+    pub orders: usize,
+    pub bytes: u64,
+    pub age_seconds: u64,
+    pub flatten_on_rotation: bool,
+    pub nonce_floor: u64,
+    pub risk_cash_floor: Option<String>,
+    pub expected_cash: Option<String>,
+}
+impl Segment {
+    pub fn due(&self, core: &Core, age: Duration) -> Result<bool> {
+        Ok(core.orders.len() >= self.orders
+            || std::fs::metadata(&self.journal)?.len() >= self.bytes
+            || age >= Duration::from_secs(self.age_seconds))
+    }
+}
 pub fn config() -> Config {
     Config {
         max_abs_position: 20,
@@ -637,6 +654,8 @@ pub fn new_session(http: &Http, instrument: Instrument) -> Result<Session> {
         max_position_lots: 20,
         max_notional: "40".into(),
         max_loss: "10".into(),
+        nonce_floor: 0,
+        risk_cash_floor: None,
     };
     session.validate()?;
     Ok(session)
@@ -668,6 +687,18 @@ fn candle_worker(
         let boundary = wall_ms() / 60000 * 60000;
         let start = last.map_or(boundary - 9 * 60000, |v: u64| v.saturating_sub(60000));
         let fetched = strategy::bars(&http, &instrument, start, boundary - 1)?;
+        if let Some(recorder) = &http.recorder {
+            let snapshot = http.info("metaAndAssetCtxs", json!({}))?;
+            let asset = instrument.asset as usize;
+            if snapshot[0]["universe"][asset]["name"] != instrument.symbol {
+                return Err(fail("funding context instrument mismatch"));
+            }
+            let context = &snapshot[1][asset];
+            for key in ["funding", "markPx", "oraclePx"] {
+                venue::dec(&context[key])?;
+            }
+            recorder.append(json!({"kind":"asset_context","coin":instrument.symbol,"available_ms":wall_ms(),"context":context,"meaning":"current public funding estimate, not settled account cashflow"}))?;
+        }
         if last.is_none()
             && (fetched.len() < 8 || fetched.last().is_none_or(|b| b.close_ms < boundary - 60001))
         {
@@ -697,6 +728,9 @@ fn candle_worker(
             };
             let answer = strategy.calculate(&request)?;
             strategy::validate_answer(&request, &answer, request.epoch, wall_ms())?;
+            if let Some(recorder) = &http.recorder {
+                recorder.append(json!({"kind":"strategy","request":request,"answer":answer,"received_ms":wall_ms()}))?;
+            }
             last = Some(bar.open_ms);
             cached.push_back(bar);
             if cached.len() > 503 {
@@ -726,12 +760,15 @@ fn candle_worker(
 }
 /// A failing run retains its journals and returns failure even if explicit cleanup succeeds.
 pub fn run(dir: &Path, options: Options) -> Result<Value> {
+    run_segment(dir, options, None)
+}
+pub fn run_segment(dir: &Path, options: Options, segment: Option<&Segment>) -> Result<Value> {
     if options.seconds == 0 || options.seconds > 7200 {
         return Err(fail("runtime duration must be 1..7200 seconds"));
     }
-    let http = Http::new(false)?;
+    let mut http = Http::new(false)?;
     let instrument = Instrument::from_meta(&http.info("meta", json!({}))?, "BTC")?;
-    let lock = if options.signed {
+    let lock = if options.signed && segment.is_none() {
         Some(account_lock(
             &std::env::var("HL_MAIN_ADDRESS").map_err(|_| fail("account missing"))?,
         )?)
@@ -740,7 +777,18 @@ pub fn run(dir: &Path, options: Options) -> Result<Value> {
     };
     let session = if options.signed {
         std::fs::create_dir(dir)?;
-        let s = new_session(&http, instrument.clone())?;
+        let mut s = new_session(&http, instrument.clone())?;
+        if let Some(segment) = segment {
+            if let Some(expected) = &segment.expected_cash
+                && (venue::dec(&json!(expected))? - venue::dec(&json!(s.baseline_cash))?).abs()
+                    > rust_decimal::Decimal::new(1, 6)
+            {
+                return Err(fail("cash changed between reconciled segments"));
+            }
+            s.nonce_floor = segment.nonce_floor;
+            s.risk_cash_floor = segment.risk_cash_floor.clone();
+            s.validate()?;
+        }
         save_json(&dir.join("session.json"), &s)?;
         if s.instrument != instrument {
             return Err(fail("instrument metadata changed"));
@@ -750,13 +798,26 @@ pub fn run(dir: &Path, options: Options) -> Result<Value> {
         std::fs::create_dir(dir)?;
         None
     };
-    let mut engine = DurableEngine::create(&dir.join("journal.jsonl"), config())?;
+    let mut engine = if let Some(segment) = segment {
+        std::os::unix::fs::symlink(&segment.journal, dir.join("journal.jsonl"))?;
+        if segment.journal.exists() {
+            DurableEngine::recover(&segment.journal, None)?
+        } else {
+            DurableEngine::create(&segment.journal, config())?
+        }
+    } else {
+        DurableEngine::create(&dir.join("journal.jsonl"), config())?
+    };
+    let recorder = super::record::Recorder::create(&dir.join("observations.jsonl"))?;
+    http.recorder = Some(recorder.clone());
     if engine.core().config != config() {
         return Err(fail("native Core config mismatch"));
     }
     engine.set_sync_policy(SyncPolicy::Outbox);
     let venue = if let Some(s) = &session {
-        Some(Venue::open(s.clone(), dir)?)
+        let mut venue = Venue::open(s.clone(), dir)?;
+        venue.http.recorder = Some(recorder.clone());
+        Some(venue)
     } else {
         None
     };
@@ -781,6 +842,7 @@ pub fn run(dir: &Path, options: Options) -> Result<Value> {
         let critical = critical_tx.clone();
         let instrument = instrument.clone();
         let account = session.as_ref().map(|s| s.account.clone());
+        let recorder = recorder.clone();
         thread::spawn(move || {
             let result: Result<()> = (|| {
                 let rt = tokio::runtime::Builder::new_current_thread()
@@ -793,6 +855,7 @@ pub fn run(dir: &Path, options: Options) -> Result<Value> {
                     account,
                     stop,
                     |event, received| match event {
+                        Observation::Raw(event) => recorder.append(json!({"kind":"ws","received_ms":wall_ms(),"generation":generation,"message":event})),
                         Observation::Quote {
                             bid,
                             ask,
@@ -910,6 +973,8 @@ pub fn run(dir: &Path, options: Options) -> Result<Value> {
     let mut tick = Instant::now();
     let mut poll = Instant::now() - Duration::from_secs(2);
     let mut audit = Instant::now() - Duration::from_secs(11);
+    let mut rotation_requested = None::<Instant>;
+    let mut rotation_ready = false;
     let outcome: Result<()> = (|| {
         writer.process(
             Event::Heartbeat {
@@ -945,7 +1010,34 @@ pub fn run(dir: &Path, options: Options) -> Result<Value> {
             }
             writer.advance_reconnect()?;
             epoch.store(writer.engine.core().epoch, Ordering::Release);
-            writer.dispatch_target()?;
+            if let Some(segment) = segment {
+                if rotation_requested.is_none()
+                    && segment.due(writer.engine.core(), started.elapsed())?
+                {
+                    rotation_requested = Some(Instant::now());
+                    writer.target = None;
+                    if !writer.busy {
+                        circuit.close();
+                    }
+                }
+                if let Some(requested) = rotation_requested {
+                    writer.target = None;
+                    if !writer.busy
+                        && !writer.reconcile
+                        && writer.engine.core().rotation_ready().is_ok()
+                        && (writer.engine.core().position == 0 || segment.flatten_on_rotation)
+                    {
+                        rotation_ready = true;
+                        break;
+                    }
+                    if requested.elapsed() >= Duration::from_secs(60) {
+                        return Err(fail("rotation quiescence deadline; no successor published"));
+                    }
+                }
+            }
+            if rotation_requested.is_none() {
+                writer.dispatch_target()?;
+            }
             if !writer.busy
                 && (writer.reconcile
                     || writer.poll_requested
@@ -991,12 +1083,14 @@ pub fn run(dir: &Path, options: Options) -> Result<Value> {
     }
     let mut engine = writer.engine;
     let cleanup = (|| -> Result<()> {
-        if !options.signed && options.flatten {
+        let flatten =
+            options.flatten || (rotation_ready && segment.is_some_and(|s| s.flatten_on_rotation));
+        if !options.signed && flatten {
             flatten_paper(&mut engine)?;
         }
         engine.process(wall_ms().max(engine.core().now), Event::Disconnect)?;
         if let Some(v) = venue.as_mut() {
-            cleanup_signed(&mut engine, v, options.flatten)
+            cleanup_signed(&mut engine, v, flatten)
         } else {
             engine.sync().map_err(Into::into)
         }
@@ -1004,13 +1098,14 @@ pub fn run(dir: &Path, options: Options) -> Result<Value> {
     if let Err(e) = &cleanup {
         circuit.trip(format!("cleanup unresolved: {e}"));
     }
-    let report = json!({"schema":1,"runtime":"rust-native","signed":options.signed,"python_strategy":options.python,"requested_seconds":options.seconds,"active_seconds":active_seconds,"processed":writer.processed,"market_events":writer.market_count,"source_reconnects":writer.source_generation,"stale_market_discarded":writer.stale_market_discarded,"critical_events":writer.critical_count,"market_queued_at_stop":market_rx.len(),"critical_queued_at_stop":critical_rx.len(),"position":engine.core().position,"orders":engine.core().orders.len(),"fills":engine.core().fills.len(),"health":engine.core().health,"failed":circuit.failed.load(Ordering::Acquire),"failure":circuit.reason(),"cleanup_verified":cleanup.is_ok(),"ledger":venue.as_ref().and_then(|v|v.last_ledger.as_ref()),"telemetry_dropped":telemetry.dropped.load(Ordering::Relaxed)});
+    let report = json!({"schema":1,"runtime":"rust-native","signed":options.signed,"python_strategy":options.python,"requested_seconds":options.seconds,"active_seconds":active_seconds,"processed":writer.processed,"market_events":writer.market_count,"source_reconnects":writer.source_generation,"stale_market_discarded":writer.stale_market_discarded,"critical_events":writer.critical_count,"market_queued_at_stop":market_rx.len(),"critical_queued_at_stop":critical_rx.len(),"position":engine.core().position,"orders":engine.core().orders.len(),"fills":engine.core().fills.len(),"health":engine.core().health,"failed":circuit.failed.load(Ordering::Acquire),"failure":circuit.reason(),"cleanup_verified":cleanup.is_ok(),"ledger":venue.as_ref().and_then(|v|v.last_ledger.as_ref()),"telemetry_dropped":telemetry.dropped.load(Ordering::Relaxed),"rotation_requested":rotation_requested.is_some(),"rotation_ready":rotation_ready,"signal_stop":stop.load(Ordering::Acquire)&&!rotation_ready&&active_seconds<options.seconds as f64,"nonce_floor":venue.as_ref().map_or(0, Venue::nonce_floor),"id_floor":engine.core().carry().id_floor});
     drop(writer.telemetry);
     drop(telemetry);
     logger
         .join()
         .map_err(|_| fail("telemetry worker panicked"))??;
     save_json(&dir.join(format!("{tag}-report.json")), &report)?;
+    recorder.sync()?;
     drop(lock);
     Ok(report)
 }
@@ -1147,7 +1242,20 @@ fn flatten_paper(engine: &mut DurableEngine) -> Result<()> {
 pub fn recover_only(dir: &Path, flatten: bool) -> Result<Value> {
     let session: Session = serde_json::from_slice(&std::fs::read(dir.join("session.json"))?)?;
     let _lock = account_lock(&session.account)?;
+    recover_locked(dir, flatten)
+}
+pub(super) fn recover_locked(dir: &Path, flatten: bool) -> Result<Value> {
+    if !dir.join("actions.jsonl").is_file() || !dir.join("journal.jsonl").is_file() {
+        return Err(fail(
+            "original action/journal history missing; recovery cannot create replacements",
+        ));
+    }
+    let session: Session = serde_json::from_slice(&std::fs::read(dir.join("session.json"))?)?;
     let mut venue = Venue::open(session, dir)?;
+    let recorder = super::record::Recorder::create(
+        &dir.join(format!("recovery-observations-{}.jsonl", wall_ms())),
+    )?;
+    venue.http.recorder = Some(recorder.clone());
     let mut engine = DurableEngine::recover(&dir.join("journal.jsonl"), None)?;
     if engine.core().config != config() {
         return Err(fail("recovery config mismatch"));
@@ -1157,6 +1265,7 @@ pub fn recover_only(dir: &Path, flatten: bool) -> Result<Value> {
     let result = cleanup_signed(&mut engine, &mut venue, flatten);
     let report = json!({"runtime":"rust-native-recovery","at_ms":wall_ms(),"elapsed_seconds":started.elapsed().as_secs_f64(),"position":engine.core().position,"orders":engine.core().orders.len(),"fills":engine.core().fills.len(),"cleanup_verified":result.is_ok(),"failure":result.as_ref().err().map(ToString::to_string),"ledger":venue.last_ledger});
     save_json(&dir.join(format!("recovery-{}.json", wall_ms())), &report)?;
+    recorder.sync()?;
     result?;
     Ok(report)
 }

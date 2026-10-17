@@ -32,6 +32,8 @@ fn run() -> Result<()> {
     let mut python = false;
     let mut flatten = false;
     let mut crash = false;
+    let mut rotation = native::lifecycle::Policy::default();
+    let mut fixture_orders = 10000;
     let mut n = 1;
     while n < args.len() {
         match args[n].as_str() {
@@ -57,14 +59,71 @@ fn run() -> Result<()> {
             "--python-strategy" => python = true,
             "--flatten" => flatten = true,
             "--crash-after-fill" => crash = true,
+            "--rotate-orders" => {
+                n += 1;
+                rotation.orders = args
+                    .get(n)
+                    .ok_or_else(|| fail("missing rotation orders"))?
+                    .parse()?;
+            }
+            "--rotate-seconds" => {
+                n += 1;
+                rotation.age_seconds = args
+                    .get(n)
+                    .ok_or_else(|| fail("missing rotation age"))?
+                    .parse()?;
+            }
+            "--rotation-flatten" => rotation.flatten_on_rotation = true,
+            "--fixture-orders" => {
+                n += 1;
+                fixture_orders = args
+                    .get(n)
+                    .ok_or_else(|| fail("missing fixture order count"))?
+                    .parse()?;
+            }
             _ => return Err(fail("unknown option")),
         }
         n += 1;
     }
-    if cfg!(debug_assertions) && matches!(command.as_str(), "testnet" | "diagnostic" | "recover") {
+    if cfg!(debug_assertions)
+        && matches!(
+            command.as_str(),
+            "testnet" | "diagnostic" | "recover" | "lifecycle" | "recover-lifecycle"
+        )
+    {
         return Err(fail("signed runtime requires a verified release build"));
     }
     match command.as_str() {
+        "lifecycle-fixture" => println!(
+            "{}",
+            native::lifecycle::fixture(
+                &dir.ok_or_else(|| fail("--run-dir required"))?,
+                fixture_orders,
+                rotation.orders
+            )?
+        ),
+        "lifecycle" => {
+            let result = native::lifecycle::run(
+                &dir.ok_or_else(|| fail("--run-dir required"))?,
+                Options {
+                    signed: true,
+                    python,
+                    seconds,
+                    flatten,
+                },
+                rotation,
+            )?;
+            println!("{result}");
+        }
+        "recover-lifecycle" => {
+            println!(
+                "{}",
+                native::lifecycle::recover(
+                    &dir.ok_or_else(|| fail("--run-dir required"))?,
+                    flatten
+                )?
+            );
+        }
         "bench" => {
             let m = serde_json::from_slice(&std::fs::read(
                 manifest.ok_or_else(|| fail("--manifest required"))?,

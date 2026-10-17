@@ -102,6 +102,7 @@ pub async fn connect(mainnet: bool) -> Result<WebSocketStream<MaybeTlsStream<Tcp
 }
 #[derive(Debug)]
 pub enum Observation {
+    Raw(Value),
     Quote {
         bid: i64,
         ask: i64,
@@ -220,6 +221,7 @@ async fn subscribe_and_read(
             other => return Err(frame_error(&other)),
         };
         let event: Value = serde_json::from_str(&raw)?;
+        publish(Observation::Raw(event.clone()), received)?;
         match event["channel"].as_str() {
             Some("subscriptionResponse") => {
                 let d = &event["data"];
