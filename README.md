@@ -68,7 +68,7 @@ target/release/native-live paper --python-strategy --seconds 900 --flatten --run
 
 Live 部署前的 artifact／ABI 核對、原 session 恢復及升級步驟見 [deployment runbook](docs/native-live-deployment-runbook.md)。生命週期、持久 journal／失機演練，以及已選定的 Cluster-PCA 無下單 shadow，見 [下一階段 scope 與量化驗收](docs/native-production-readiness-proposal.md) 及 [機讀 manifest](comparisons/native-readiness/manifest-v1.json)；這些待驗收項目不代表已能無人值守實盤。
 
-Native flat segmentation、原始行情／funding 錄製、獨立帳本／模擬成交對照及 retained-EBS 換機演練的實作與當次驗收，見 [readiness progress](docs/native-readiness-progress.md)。條件式成交重播與完整策略回測驗收分開報告。
+Native flat segmentation、原始行情／funding 錄製、獨立帳本／模擬成交對照及 retained-EBS 換機演練的實作與當次驗收，見 [readiness progress](docs/native-readiness-progress.md)。條件式成交重播與完整策略回測驗收分開報告。 完整數值、artifact hashes、原 FAIL 與清理證據見 [machine-readable results](docs/native-readiness-evidence.json)。
 
 ## Hyperliquid Perps Testnet
 

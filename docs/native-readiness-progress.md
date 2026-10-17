@@ -40,7 +40,29 @@ For EC2, package the clean verified release using `ops/native_bundle.py`, then u
 
 ## Result status
 
-Pending final source/build identity and AWS evidence. Do not infer PASS from implementation. Full production readiness still requires the original L/O/S matrix, repeated host drills, long qualification, operations/alerts/rollback and real strategy shadow. No mainnet actions are enabled.
+**Bounded live lifecycle: PASS. Fresh host-repeat v2: PASS (3/3). Full backtest/live fidelity and production readiness: NOT ACCEPTED.** Updated 2026-10-17; exact creation time, source/binary identities, frozen manifest hashes, S3 archive keys/checksums and independent final cleanup are in [machine-readable evidence](native-readiness-evidence.json).
+
+| Same native/strategy runtime, Tokyo EC2 Testnet | Run 1 | Run 2 |
+| --- | ---: | ---: |
+| Wall duration | 903.930s | 904.158s |
+| Rotations / segments | 4 / 5 | 4 / 5 |
+| Orders / unique fills | 11 / 12 | 15 / 19 |
+| Independent accounting / within-segment SMA | 5/5 PASS | 5/5 PASS |
+| Sampled native + strategy RSS peak | 40.051 MiB | 41.227 MiB |
+| In-place REST uncertainty recoveries | 0 | 1 |
+| Final position / open orders | 0 / 0 | 0 / 0 |
+| Net cash, including operational flatten and fees | -0.098946 USDC | -0.138673 USDC |
+| Settled funding | +0.000203 USDC, one row | 0, no rows |
+
+The actual BTC funding payment (`fundingRate=0.0000125`, short `0.0002 BTC`) was recorded and independently reconciled within the existing cash quantum. This validates that observed cashflow; simulated settlement at a counterfactual position remains unimplemented. These SMA infrastructure sessions and forced rotation closes do not assess alpha. The 119 strategy requests include overlapping warm-up windows (24 distinct bar timestamps per root), not 119 independent market samples or strategy continuity across segments.
+
+All 26 orders had available recorded books for the fixed immediate-depth diagnostic. Filled-lot error was zero in these two roots; maximum VWAP error was 0.258 bps. Every segment remains **INCONCLUSIVE**: fewer than 100 orders, passive queue/market impact, simulated funding and closed-loop future-order behavior unvalidated. The earlier **45% quantity-error FAIL** remains evidence against treating this model as validated. No model parameter was fitted to erase that failure.
+
+The fresh host-repeat-v2 trials (attempts 7–9) all passed: **80.014s, 81.574s, 76.411s**, each below 300s. Each used the same new bundle `e5597dac364d1dc0cc4e726c96885ab28f7f1b014b7f7040eb8378d565ce72a2`, confirmed the original signer terminated, mounted its original EBS, preserved original file hashes/prefixes, matched all unique executions/quantities and finished flat. Attempts 5 and 6 are not counted toward those three fresh trials. Live roots used bundle `3836d5e7b83f77725bd1525e6048a83ff597e901b4bbc37d8258a0ba59102f9b`; **all 33 Rust source/release-binary/strategy files are identical** between the bundles. Only the worker oracle and associated tests/manifest/docs changed. The immutable native binary SHA256 is `49a4f650c8932dd544c6d2290f1b65ff8ffd5ab4fb85b41f0c19b7b624b00e13`.
+
+These host trials cover a crash after a diagnostic venue fill before local fill application and same-AZ retained-volume replacement. They do **not** take over an active rotated lifecycle root, simulate power/EBS/AZ loss, or complete the original operations qualification. The offline 10,000-order fixture separately passed 12 rotations, retained 400 current orders, and preserved zero position/cash difference. This does not establish indefinitely bounded cold history/disk costs or production-size private polling.
+
+Independent final AWS/API checks verified **10 task hosts terminated, 15 task volumes deleted, 5 temporary parameters deleted, no active task hosts/volumes, and actual Testnet positions/open orders both zero**. Prior failed attempts retain their original verdicts and supplemental recovery/cleanup receipts. No mainnet actions were made. Full verify and CI passed; no A/A or A/B performance comparison was performed, so no relative speed improvement is claimed.
 
 ### First frozen attempt: FAIL, recovered (2026-10-17)
 
@@ -64,7 +86,7 @@ Build `6363b43`, bundle `fb2710018a9c26c50c9b194417c0763a22368580285c9935d76946b
 
 The second run stopped at **143.114s** after an ambiguous HTTP response. The exchange had filled the original reversal, but cloid lookup remained unavailable within its deadline; the runner exited instead of recovering in place. Original-session recovery later reconciled and flattened **3 orders / 3 fills** in **6.819s**, with no resend; net cash **-0.029608 USDC**. First-run PASS and second-run FAIL remain separate. Prefix `native-readiness-20261017/mini-lifecycle-1792204541/`; host `i-08bccffd735581edb` terminated. Root `vol-005308c7d026ade5e` and data `vol-065a0f88bd07588a5` were deleted after original recovery, independent flat verification and archive `606eaf9fd0c86745d0f612390f4c42923b4caa6b5501c7185c6c3654b6adaf48`; the temporary SSM parameter was deleted.
 
-The next frozen experiment [v2](../comparisons/native-readiness/lifecycle-drill-v2.json) keeps numeric targets and collects independent host recovery first (`--host-first`). Recoverable REST I/O errors now close admission before publishing uncertainty, drain the one execution owner, advance the epoch and reconcile original identities/accounting with at most three failures and 1/2/4s backoff. A successful snapshot clears the old target; a fresh target/quote and valid stream are required before new orders. Old mutations are never queued again. Financial/schema/integrity contradictions still latch failure. Unknown cloid lookup may use an exchange OID discovered in that exact cloid's fills, but the resulting order must pass all original identity/terms checks; neither an empty lookup nor a hint proves absence. Generic WS EOF remains a stop, rather than an automatic continuation.
+The next frozen experiment [v2](../comparisons/native-readiness/lifecycle-drill-v2.json) keeps numeric targets and collects independent host recovery first (`--host-first`). Recoverable REST I/O errors now close admission before publishing uncertainty, drain the one execution owner, advance the epoch and reconcile original identities/accounting with at most three reconciliation attempts after initial I/O uncertainty and 1/2/4s backoff. A successful snapshot clears the old target; a fresh target/quote and valid stream are required before new orders. Old mutations are never queued again. Financial/schema/integrity contradictions still latch failure. Unknown cloid lookup may use an exchange OID discovered in that exact cloid's fills, but the resulting order must pass all original identity/terms checks; neither an empty lookup nor a hint proves absence. Generic WS EOF remains a stop, rather than an automatic continuation.
 
 
 ### Fourth frozen attempt: host recovery PASS, live rotation FAIL on cancel/fill race
@@ -90,3 +112,21 @@ Independent corrected replay of all three attempt-4 segments passed accounting a
 Attempt 6 used exactly the live-qualified `3596d31` bundle. Original-session recovery exited 0 in **4.009s**, independently verified flat/open-orders=0, and replayed **2 orders / 3 fills**. The worker falsely expected exactly two fills: the reducing order actually filled **14 + 6 lots**, both unique executions, totaling its requested 20. Its original status remains FAIL and the controller never recorded a completed host RTO. Both hosts, roots/data and temporary parameter were subsequently cleaned after a fresh flat check. No replacement trial is started over an unresolved original account.
 
 The corrected worker joins every unique venue `tid+1` to the Core execution ID and checks coin/cloid/side/quantity/price, one venue OID per original order, each order's cumulative quantity, terminal/resolved state, exact closing size and zero net lots. Equal duplicate observations are allowed, changed duplicates/missing/extra/foreign fills are rejected. This validates the intended financial invariant more strongly than a fixed trade count; no financial test was removed. The recorded incident independently passes that new proof, but is not relabeled PASS or counted as a new timed trial. [host-repeat-v2.json](../comparisons/native-readiness/host-repeat-v2.json) freezes **three fresh** trials before collection, with an identical new worker bundle and unchanged native/strategy binary/file hashes relative to the two successful live roots. The frozen v1 failure remains in the evidence.
+
+
+## Next work, with concrete evidence requirements
+
+1. **Combined rotated-root host takeover and production-size history.** Extend the drill to kill an active native lifecycle after at least one completed rotation, fence the old signer, retain the full current-pointer/session/action/journal/cold lineage at the same mount path, and recover that exact root on replacement. Capture hashes before/after, zero missing/duplicate financial executions, zero position/cash discrepancy and RTO ≤300s. Keep ambiguous publication states stopped. Implement the proposed verified terminal-facts cache before default-size live qualification: the 800 terminal + 4 active fixture must issue ≤4 regular orderStatus queries, while full reconciliations still verify foreign fills, changed duplicates, cash/position/funding and cache integrity. Do not relax private freshness to hide linear polling.
+2. **A real backtester/live correspondence holdout.** The read-only 45s probe confirmed `fast=false` and `fast=true` subscriptions; it observed 9 versus 81 L2 books, event-interval medians 5.307s versus 0.517s. This was a separate cloud capability probe, not a runtime performance benchmark or a change to the frozen EC2 feed. Use confirmed fast L2 plus public trades and explicit event/receive/available timestamps in the next recorder. Track partial fills, effective cancellation and observation gaps; an attempted send timestamp is not known exchange arrival. Freeze latency/queue/fee/funding assumptions on separate calibration data, then collect ≥100 held-out orders. Run the existing backtest path closed loop: its own simulated fills must drive its own inventory and future orders. Require zero signal mismatches on identical bounded inputs, ledger difference ≤one cash quantum, and the predeclared covered-class quantity/VWAP gates (≤5%, ≤2bps). Report missing/passive/unknown coverage explicitly; a fixed-live-intent scenario cannot satisfy full fidelity. Public available-at funding must be applied to simulated settlement inventory, never copied from private actual cashflows.
+3. **Long-running operations.** Run the original 24h qualification only after the above history and takeover gates; define verified archive/offload and cold-history retention before claiming bounded lifetime disk/memory/recovery cost. Exercise immutable artifact upgrades, rollback compatibility, persistent human stop and alert receipt. Current local ownership plus confirmed EC2 termination is not a general distributed lease or protection against another independently launched signer.
+4. **Owner-selected Cluster-PCA remains shadow first.** Reproduce original dataset/universe/model provenance and causal refit behavior, share bounded inputs/model snapshots across offline and shadow paths, and add the multi-instrument shared-collateral Core before portfolio execution. The successful SMA sessions do not validate PCA signals, strategy returns or mainnet execution.
+
+Full verification logs, deliberately failing regression logs, replay/retention and build receipts are durably archived under the main experiment S3 prefix `validation/`; checksums and exact keys are in `final-validation-receipt.json`.
+
+Latest full verification: `scripts/verify.sh` in `runs/readiness-20261017/verify-split-fill-final.log`, 194 Python tests, 37 native/lib unit tests plus the enabled integration suites; CI source `82598f6`. Tail:
+
+```text
+lost ack → timeout → disconnect → partial fill → reconciliation → duplicate fill
+position=2, unique_fills=1, reserved_buy=3, venue_orders=1, health=Healthy
+VERIFY OK
+```

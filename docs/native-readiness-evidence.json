@@ -1,0 +1,761 @@
+{
+  "schema": 1,
+  "created_utc": "2026-10-17T14:49:14.753692+00:00",
+  "overall_status": "PARTIAL: bounded lifecycle and market correspondence are separate acceptance goals",
+  "scope": "short Testnet lifecycle/storage drill and conditional execution diagnostics; no production or alpha acceptance",
+  "source_commit": "3596d313d197c57074138bcc493ef7e2f06b692b",
+  "bundle": {
+    "path": "runs/readiness-20261017/bundle-3596d31.tar.gz",
+    "commit": "3596d313d197c57074138bcc493ef7e2f06b692b",
+    "sha256": "3836d5e7b83f77725bd1525e6048a83ff597e901b4bbc37d8258a0ba59102f9b",
+    "bytes": 4813105
+  },
+  "release_binary_sha256": {
+    "target/release/native-live": "49a4f650c8932dd544c6d2290f1b65ff8ffd5ab4fb85b41f0c19b7b624b00e13",
+    "target/release/mininautilus": "ec4f08579c159c67f62aa5be0159dde56600b237cb1f85b1b471ec44b71fe07a"
+  },
+  "manifests": {
+    "comparisons/native-readiness/lifecycle-drill-v3.json": "40a94eef44858f747e2198d755d731228521868eb9d2f8c85111cb9508b627b8",
+    "comparisons/native-readiness/correspondence-v1.json": "5bd175547fc7eeede24aa54c34911434da055739a55cdef2055ce8edc7609f84",
+    "comparisons/native-readiness/host-repeat-v2.json": "81b20eddb42c03d7eb00562e5e681e4f41c58faa5d0cf4a125829a6820ab819c"
+  },
+  "s3": {
+    "bucket": "mininautilushost-artifacts82dd59a1-jimhxpumwqyb",
+    "prefix": "native-readiness-20261017/mini-lifecycle-1792245320",
+    "archives": {
+      "recover-final.tar.gz": {
+        "key": "native-readiness-20261017/mini-lifecycle-1792245320/recover-final.tar.gz",
+        "sha256": "f214e303171429a01cef12a0625197e768b2db098a42eda5440b1eaf3cccd36b",
+        "bytes": 5299
+      },
+      "crash-final.tar.gz": {
+        "key": "native-readiness-20261017/mini-lifecycle-1792245320/crash-final.tar.gz",
+        "sha256": "98a60bfebd2aa610a0a7b489fe4ae5b8bb7ff7debf6ac50028355ac995a82e7c",
+        "bytes": 2115
+      },
+      "rotation-2.tar.gz": {
+        "key": "native-readiness-20261017/mini-lifecycle-1792245320/rotation-2.tar.gz",
+        "sha256": "0b4c7e2e0e07cf90338bbf180e5bf28dc91a2b7df4f9910509db6b69626ad56f",
+        "bytes": 3601728
+      },
+      "cleanup-final.tar.gz": {
+        "key": "native-readiness-20261017/mini-lifecycle-1792245320/cleanup-final.tar.gz",
+        "sha256": "5ead813a4d3a98c4beca16882856b31f9c7f13d55fb31138a7150f59612ba749",
+        "bytes": 3602742
+      },
+      "rotation-final.tar.gz": {
+        "key": "native-readiness-20261017/mini-lifecycle-1792245320/rotation-final.tar.gz",
+        "sha256": "ab93448d5beff322517f5dbf4ce8b4615a66551814ce6d83078252f4c2613c62",
+        "bytes": 3602674
+      },
+      "rotation-1.tar.gz": {
+        "key": "native-readiness-20261017/mini-lifecycle-1792245320/rotation-1.tar.gz",
+        "sha256": "79ff358cfcdbcecc4b7b4e8c9581e99940fab2a217de0e2b1658032c25c15276",
+        "bytes": 1651105
+      }
+    },
+    "independent_evidence_receipt_key": "native-readiness-20261017/mini-lifecycle-1792245320/final-independent-evidence-receipt.json"
+  },
+  "live_and_host_results": {
+    "scope": "scoped native lifecycle/storage acceptance, not production or market simulator fidelity",
+    "source_commit": "3596d313d197c57074138bcc493ef7e2f06b692b",
+    "bundle_sha256": "3836d5e7b83f77725bd1525e6048a83ff597e901b4bbc37d8258a0ba59102f9b",
+    "s3_prefix": "native-readiness-20261017/mini-lifecycle-1792245320",
+    "runs": [
+      {
+        "run": 1,
+        "status": "PASS",
+        "wall_seconds": 903.930309547,
+        "active_seconds": 885.045214357,
+        "rotations": 4,
+        "segments": 5,
+        "orders": 11,
+        "fills": 12,
+        "sampled_peak_rss_mib": 40.05078125,
+        "resource_samples": 904,
+        "net_cash_usdc": "-49473/500000",
+        "funding_usdc": "203/1000000",
+        "settlement_count": 1,
+        "public_contexts": 20,
+        "strategy_requests": 60,
+        "distinct_bar_timestamps": 24,
+        "strategy_mismatches": 0,
+        "execution_diagnostics": [
+          {
+            "status": "INCONCLUSIVE",
+            "modeled_orders": 3,
+            "total_orders": 3,
+            "filled_lot_error_fraction": 0.0,
+            "max_vwap_error_bps": 0.0,
+            "enough_orders": false,
+            "minimum_orders": 100,
+            "reason": "passive queue/latency/impact not validated; no fidelity PASS from this model"
+          },
+          {
+            "status": "INCONCLUSIVE",
+            "modeled_orders": 2,
+            "total_orders": 2,
+            "filled_lot_error_fraction": 0.0,
+            "max_vwap_error_bps": 0.0,
+            "enough_orders": false,
+            "minimum_orders": 100,
+            "reason": "passive queue/latency/impact not validated; no fidelity PASS from this model"
+          },
+          {
+            "status": "INCONCLUSIVE",
+            "modeled_orders": 2,
+            "total_orders": 2,
+            "filled_lot_error_fraction": 0.0,
+            "max_vwap_error_bps": 0.2578044148392221,
+            "enough_orders": false,
+            "minimum_orders": 100,
+            "reason": "passive queue/latency/impact not validated; no fidelity PASS from this model"
+          },
+          {
+            "status": "INCONCLUSIVE",
+            "modeled_orders": 2,
+            "total_orders": 2,
+            "filled_lot_error_fraction": 0.0,
+            "max_vwap_error_bps": 0.0,
+            "enough_orders": false,
+            "minimum_orders": 100,
+            "reason": "passive queue/latency/impact not validated; no fidelity PASS from this model"
+          },
+          {
+            "status": "INCONCLUSIVE",
+            "modeled_orders": 2,
+            "total_orders": 2,
+            "filled_lot_error_fraction": 0.0,
+            "max_vwap_error_bps": 0.0,
+            "enough_orders": false,
+            "minimum_orders": 100,
+            "reason": "passive queue/latency/impact not validated; no fidelity PASS from this model"
+          }
+        ],
+        "rest_recoveries": 0
+      },
+      {
+        "run": 2,
+        "status": "PASS",
+        "wall_seconds": 904.157998758,
+        "active_seconds": 883.123244502,
+        "rotations": 4,
+        "segments": 5,
+        "orders": 15,
+        "fills": 19,
+        "sampled_peak_rss_mib": 41.2265625,
+        "resource_samples": 904,
+        "net_cash_usdc": "-138673/1000000",
+        "funding_usdc": "0",
+        "settlement_count": 0,
+        "public_contexts": 45,
+        "strategy_requests": 59,
+        "distinct_bar_timestamps": 24,
+        "strategy_mismatches": 0,
+        "execution_diagnostics": [
+          {
+            "status": "INCONCLUSIVE",
+            "modeled_orders": 3,
+            "total_orders": 3,
+            "filled_lot_error_fraction": 0.0,
+            "max_vwap_error_bps": 0.0,
+            "enough_orders": false,
+            "minimum_orders": 100,
+            "reason": "passive queue/latency/impact not validated; no fidelity PASS from this model"
+          },
+          {
+            "status": "INCONCLUSIVE",
+            "modeled_orders": 3,
+            "total_orders": 3,
+            "filled_lot_error_fraction": 0.0,
+            "max_vwap_error_bps": 0.0,
+            "enough_orders": false,
+            "minimum_orders": 100,
+            "reason": "passive queue/latency/impact not validated; no fidelity PASS from this model"
+          },
+          {
+            "status": "INCONCLUSIVE",
+            "modeled_orders": 3,
+            "total_orders": 3,
+            "filled_lot_error_fraction": 0.0,
+            "max_vwap_error_bps": 0.0,
+            "enough_orders": false,
+            "minimum_orders": 100,
+            "reason": "passive queue/latency/impact not validated; no fidelity PASS from this model"
+          },
+          {
+            "status": "INCONCLUSIVE",
+            "modeled_orders": 2,
+            "total_orders": 2,
+            "filled_lot_error_fraction": 0.0,
+            "max_vwap_error_bps": 0.0,
+            "enough_orders": false,
+            "minimum_orders": 100,
+            "reason": "passive queue/latency/impact not validated; no fidelity PASS from this model"
+          },
+          {
+            "status": "INCONCLUSIVE",
+            "modeled_orders": 4,
+            "total_orders": 4,
+            "filled_lot_error_fraction": 0.0,
+            "max_vwap_error_bps": 0.2455313297976822,
+            "enough_orders": false,
+            "minimum_orders": 100,
+            "reason": "passive queue/latency/impact not validated; no fidelity PASS from this model"
+          }
+        ],
+        "rest_recoveries": 1
+      }
+    ],
+    "host_recovery": {
+      "status": "PASS",
+      "host_loss_to_ready_seconds": 78.84172300299997,
+      "local_recovery_seconds": 4.007784953000005,
+      "replayed": {
+        "position": 0,
+        "orders": 2,
+        "fills": 2
+      },
+      "attempts": [
+        0
+      ],
+      "required_count": 3,
+      "executed_count": 1
+    },
+    "controller_status": "PASS",
+    "cleanup_verified": true
+  },
+  "offline_retention": {
+    "cash_tick_lots": "0",
+    "elapsed_seconds": 2.529840607,
+    "max_local_recovery_seconds": 0.000352409,
+    "orders": 10000,
+    "position": 0,
+    "retained_orders": 400,
+    "rotations": 12,
+    "rss_hwm_kib": 7308,
+    "schema": 1,
+    "scope": "offline production Core/journal rotation; no venue or strategy"
+  },
+  "original_replay": {
+    "position": 0,
+    "cash_tick_lots": 12,
+    "gross_marked_pnl_tick_lots": 12,
+    "orders": 2,
+    "unique_fills": 3
+  },
+  "independent_host_proof": {
+    "source_commit": "3596d313d197c57074138bcc493ef7e2f06b692b",
+    "original_sha256_matches": {
+      "session.json": true,
+      "actions.jsonl": true,
+      "journal.jsonl": true
+    },
+    "recovered_preserves_original_file_prefix": {
+      "session.json": true,
+      "actions.jsonl": true,
+      "journal.jsonl": true
+    },
+    "action_keys": [
+      "order-1",
+      "order-2"
+    ],
+    "replayed": {
+      "position": 0,
+      "orders": 2,
+      "fills": 2
+    },
+    "host_loss_to_ready_seconds": 78.84172300299997,
+    "old_signer": {
+      "instance": "i-0f558f21726a73dc3",
+      "state": "terminated",
+      "verified_epoch": 1792245399.8272052
+    },
+    "scope": "one process crash plus confirmed host termination / same-AZ retained EBS; not power/AZ loss"
+  },
+  "validation": {
+    "verify": "VERIFY OK",
+    "verify_sha256": "4e7d4a8921e4b597c22d111276f626555d5251780f32d27515fca85d06a0d049",
+    "native_lib_tests": 37,
+    "python_tests": 193,
+    "ci_url": "https://github.com/rickypang0219/MiniNautilus/actions/runs/39038486560",
+    "relative_performance": "NOT_MEASURED: no A/A or A/B comparison in this iteration",
+    "controller_verify": {
+      "status": "VERIFY OK",
+      "sha256": "8270a3f6fa59231b820f52ea5908d20c2394d7c63c4511cf130b1fd456407502",
+      "source_commit": "143cb5a92a46b93f2d797ef840cd90ff00e7258c",
+      "ci_url": "https://github.com/rickypang0219/MiniNautilus/actions/runs/39040105632"
+    },
+    "host_oracle_verify": {
+      "status": "VERIFY OK",
+      "python_tests": 194,
+      "native_lib_tests": 37,
+      "sha256": "0df7609cd3e0023f1cb0b79a345e176cc64217fb0f66bec564984989551bac9a",
+      "source_commit": "82598f6abae96564047fb2be1e6c22d3231fc944",
+      "ci_url": "https://github.com/rickypang0219/MiniNautilus/actions/runs/39041583606"
+    }
+  },
+  "market_model_limitations": {
+    "full_fidelity": "NOT_ACCEPTED",
+    "prior_frozen_attempt4_segment0": {
+      "status": "FAIL",
+      "modeled_orders": 3,
+      "total_orders": 3,
+      "filled_lot_error_fraction": 0.45,
+      "max_vwap_error_bps": 0.0,
+      "enough_orders": false,
+      "minimum_orders": 100,
+      "reason": "passive queue/latency/impact not validated; no fidelity PASS from this model"
+    },
+    "public_subscription_capability_probe": {
+      "location": "managed Codex cloud; not the EC2 runtime",
+      "results": [
+        {
+          "public_only": true,
+          "network": "testnet",
+          "fast": false,
+          "subscription_confirmed": true,
+          "books": 9,
+          "elapsed_seconds": 46.55303070600007,
+          "failure": null,
+          "server_event_intervals_ms_min_median_max": [
+            3227,
+            5306.5,
+            5567
+          ],
+          "receive_intervals_ms_min_median_max": [
+            2947,
+            5320.5,
+            5519
+          ]
+        },
+        {
+          "public_only": true,
+          "network": "testnet",
+          "fast": true,
+          "subscription_confirmed": true,
+          "books": 81,
+          "elapsed_seconds": 46.539282548000074,
+          "failure": null,
+          "server_event_intervals_ms_min_median_max": [
+            106,
+            516.5,
+            1147
+          ],
+          "receive_intervals_ms_min_median_max": [
+            132,
+            525.0,
+            1133
+          ]
+        }
+      ],
+      "runtime_fast_parameter_changed": false
+    },
+    "funding": "One positive BTC settlement +0.000203 USDC reconciled in run 1; this does not validate simulated funding or other settlement cases",
+    "closed_loop": "Conditional fixed-intent replay does not validate the existing backtester making its own fills and future orders",
+    "strategy": "SMA 3/8 within each segment; overlapping warmup inputs; not continuous PCA validation",
+    "current_two_runs": {
+      "orders": 26,
+      "fills": 31,
+      "all_segments_accounting_and_within_segment_sma_pass": true,
+      "execution_fidelity": "INCONCLUSIVE below 100 orders and missing passive/funding/closed-loop coverage; previous 45% failure retained"
+    }
+  },
+  "retained_failures": [
+    {
+      "attempt": 1,
+      "source": "d07cc87a79ad2f543283a21b1983a03baef085db",
+      "status": "FAIL_RECOVERED",
+      "reason": "fills ahead of orderStatus, then sub-minimum dust close",
+      "bundle_sha256": "77d2b73a97715f10e54441887b0f40382d8abdd439ce4f7ac5f955737d8818d8",
+      "s3_prefix": "native-readiness-20261017/mini-lifecycle-1792202502",
+      "original_controller_status": "FAIL",
+      "supplemental_cleanup": {
+        "original_session_recovered": true,
+        "volume_deleted": true,
+        "recovery_archive_sha256": "ef4e38c56cd6f92ce0637804c4ee4dcab4192cf512e98ecb4377cd8f241b05b2",
+        "s3_key": "native-readiness-20261017/mini-lifecycle-1792202502/incident-original-recovery.tar.gz"
+      }
+    },
+    {
+      "attempt": 2,
+      "source": "66c6c4ec3ef653b643c3c2aeea1f28b2bd09ed77",
+      "status": "FAIL_RECOVERED",
+      "reason": "opaque trade ID incorrectly treated as same-millisecond chronology",
+      "bundle_sha256": "3316c4a1595d66b309064a4212bd53e66e7b1b13cd39dd6cd43f8d514793eea8",
+      "s3_prefix": "native-readiness-20261017/mini-lifecycle-1792203518",
+      "original_controller_status": "FAIL",
+      "supplemental_cleanup": {
+        "original_session_recovered": true,
+        "volume_deleted": true,
+        "archive_sha256": "744813dc103a89f4c307433cd7ec5e809dd154252f087c19ab50ae3faef0948b",
+        "s3_key": "native-readiness-20261017/mini-lifecycle-1792203518/chronology-original-recovery.tar.gz"
+      }
+    },
+    {
+      "attempt": 3,
+      "source": "6363b43a950966fc98a554a41e412308f651cec6",
+      "status": "FIRST_900S_PASS_SECOND_FAIL_RECOVERED",
+      "reason": "ambiguous REST outcome stopped rather than recovered in place",
+      "bundle_sha256": "fb2710018a9c26c50c9b194417c0763a22368580285c9935d76946b6b1322777",
+      "s3_prefix": "native-readiness-20261017/mini-lifecycle-1792204541",
+      "original_controller_status": "FAIL",
+      "supplemental_cleanup": {
+        "original_session_recovered": true,
+        "volume_deleted": true,
+        "archive_sha256": "606eaf9fd0c86745d0f612390f4c42923b4caa6b5501c7185c6c3654b6adaf48",
+        "s3_key": "native-readiness-20261017/mini-lifecycle-1792204541/timeout-original-recovery.tar.gz"
+      }
+    },
+    {
+      "attempt": 4,
+      "source": "5f4fe3504cb4b1d8508345c89e2126288e00515b",
+      "status": "HOST_PASS_ROTATION_FAIL_RECOVERED",
+      "reason": "original order filled between pre-cancel query and cancellation",
+      "bundle_sha256": "c5712c2a45ec2bfe9f32520de3c502bf40e51868b263e2295fe49351e051b8b9",
+      "s3_prefix": "native-readiness-20261017/mini-lifecycle-1792206798",
+      "original_controller_status": "FAIL",
+      "cleanup_verified": true
+    },
+    {
+      "attempt": 6,
+      "source": "3596d313d197c57074138bcc493ef7e2f06b692b",
+      "status": "FAIL_HARNESS_ORACLE_RECOVERED_FLAT",
+      "s3_prefix": "native-readiness-20261017/mini-lifecycle-1792247321",
+      "original_status_preserved": true,
+      "controller_rto": "NOT_MEASURED: phase raised before controller wrote its RTO receipt",
+      "supplemental_quantity_proof": {
+        "unique_fills": 3,
+        "filled_lots_by_order": {
+          "1": 20,
+          "2": 20
+        },
+        "position": 0,
+        "scope": "supplemental quantity/identity verification; original attempt6 FAIL and missing controller RTO retained"
+      },
+      "cleanup_verified": true
+    }
+  ],
+  "aws_cleanup": {
+    "instances": [
+      "i-0f558f21726a73dc3",
+      "i-0efcd337db3fb1d36"
+    ],
+    "terminated": [
+      "i-0f558f21726a73dc3",
+      "i-0f558f21726a73dc3",
+      "i-0efcd337db3fb1d36"
+    ],
+    "root_volumes": [
+      "vol-04759c2621e2dbf72",
+      "vol-001f19739c6901a96"
+    ],
+    "data_volume": "vol-036b766cc1cfcf502",
+    "volume_cleanup": {
+      "vol-04759c2621e2dbf72": "deleted",
+      "vol-001f19739c6901a96": "deleted",
+      "vol-036b766cc1cfcf502": "deleted"
+    },
+    "secret_deleted": true,
+    "flat_verified": true,
+    "cleanup_verified": true,
+    "potential_exposure": false
+  },
+  "remaining": [
+    "Closed-loop backtest/live holdout; passive fills/cancel semantics/observation coverage and public funding",
+    "800 terminal+4 active native cache/query budget and 24h qualification",
+    "Host takeover of an active rotated lifecycle root/current-pointer/cold chain; power/EBS/AZ loss is a separate scenario",
+    "Automatic generic WebSocket EOF/timeout reconnect lifecycle fault matrix",
+    "Long-term cold-history/archive/offload policy and whole-history trust watermark",
+    "Upgrade/rollback, alerts and persistent human stop exercises",
+    "Original Cluster-PCA provenance, causal multi-instrument shadow and shared-collateral Core"
+  ],
+  "runtime_preservation": {
+    "old_source": "3596d313d197c57074138bcc493ef7e2f06b692b",
+    "new_source": "82598f6abae96564047fb2be1e6c22d3231fc944",
+    "unchanged_files": 33,
+    "native_sha256": "49a4f650c8932dd544c6d2290f1b65ff8ffd5ab4fb85b41f0c19b7b624b00e13",
+    "mininautilus_sha256": "ec4f08579c159c67f62aa5be0159dde56600b237cb1f85b1b471ec44b71fe07a",
+    "strategy_sha256": "c20b7edeab9dfff1c19e4c6f2db47a26225884daafe2a6dce65668be5ad782a4",
+    "scope": "all Rust sources and release binaries and native Python SMA file identical; worker oracle changed"
+  },
+  "host_repetitions": {
+    "status": "PASS",
+    "required": 3,
+    "executed": 3,
+    "rto_seconds_maximum": 300,
+    "same_runtime_artifact": true,
+    "coverage": "diagnostic crash after venue fill before local fill, followed by termination and same-AZ retained EBS replacement; no active rotated lifecycle root was taken over",
+    "original_complete_operations_scope": "NOT_ACCEPTED: combined rotated-root takeover, 24h, upgrades, alerts, persistent stop and disaster scenarios remain separate",
+    "experiments": [
+      {
+        "experiment": 7,
+        "runtime_bundle_sha256": "e5597dac364d1dc0cc4e726c96885ab28f7f1b014b7f7040eb8378d565ce72a2",
+        "source_commit": "82598f6abae96564047fb2be1e6c22d3231fc944",
+        "controller_sha256": "3083dbd70a464364c0973af59c5130d212dc117d067bfea896b5d3ec310cb0e0",
+        "controller_verify_sha256": "0df7609cd3e0023f1cb0b79a345e176cc64217fb0f66bec564984989551bac9a",
+        "s3_prefix": "native-readiness-20261017/mini-lifecycle-1792247897",
+        "proof": {
+          "source_commit": "82598f6abae96564047fb2be1e6c22d3231fc944",
+          "original_sha256_matches": {
+            "session.json": true,
+            "actions.jsonl": true,
+            "journal.jsonl": true
+          },
+          "recovered_preserves_original_file_prefix": {
+            "session.json": true,
+            "actions.jsonl": true,
+            "journal.jsonl": true
+          },
+          "action_keys": [
+            "order-1",
+            "order-2"
+          ],
+          "replayed": {
+            "position": 0,
+            "orders": 2,
+            "fills": 2
+          },
+          "fill_proof": {
+            "unique_fills": 2,
+            "filled_lots_by_order": {
+              "1": 20,
+              "2": 20
+            },
+            "position": 0
+          },
+          "host_loss_to_ready_seconds": 80.01409629099999,
+          "old_signer": {
+            "instance": "i-0bec8289d33951ec2",
+            "state": "terminated",
+            "verified_epoch": 1792247978.15664
+          },
+          "scope": "process crash after venue fill before local fill, confirmed host termination / same-AZ retained EBS; no active rotated-root takeover or power/AZ loss"
+        },
+        "archives": {
+          "recover-final.tar.gz": {
+            "key": "native-readiness-20261017/mini-lifecycle-1792247897/recover-final.tar.gz",
+            "sha256": "d6fad76ce1460f93a3de6880bc5f99c67da6f25a7442bbc3f994fbc7b072eaa8",
+            "bytes": 5372
+          },
+          "crash-final.tar.gz": {
+            "key": "native-readiness-20261017/mini-lifecycle-1792247897/crash-final.tar.gz",
+            "sha256": "f9956d7c1e348701e06f70a9efb643c34aeee3b445d55e8902086fc606537fac",
+            "bytes": 2103
+          },
+          "cleanup-final.tar.gz": {
+            "key": "native-readiness-20261017/mini-lifecycle-1792247897/cleanup-final.tar.gz",
+            "sha256": "05d1513e8719e204710e23dd3689cf67aa72e716db302c373fb873432d4da348",
+            "bytes": 5487
+          }
+        },
+        "cleanup_verified": true,
+        "instances": [
+          "i-0bec8289d33951ec2",
+          "i-06bd4eb6a25b16799"
+        ],
+        "volumes": {
+          "vol-0418d3e65fa6eb87d": "deleted",
+          "vol-06f8176bb4f1f47da": "deleted",
+          "vol-0fa45b4842a0905be": "deleted"
+        },
+        "temporary_parameter_deleted": true
+      },
+      {
+        "experiment": 8,
+        "runtime_bundle_sha256": "e5597dac364d1dc0cc4e726c96885ab28f7f1b014b7f7040eb8378d565ce72a2",
+        "source_commit": "82598f6abae96564047fb2be1e6c22d3231fc944",
+        "controller_sha256": "3083dbd70a464364c0973af59c5130d212dc117d067bfea896b5d3ec310cb0e0",
+        "controller_verify_sha256": "0df7609cd3e0023f1cb0b79a345e176cc64217fb0f66bec564984989551bac9a",
+        "s3_prefix": "native-readiness-20261017/mini-lifecycle-1792248087",
+        "proof": {
+          "source_commit": "82598f6abae96564047fb2be1e6c22d3231fc944",
+          "original_sha256_matches": {
+            "session.json": true,
+            "actions.jsonl": true,
+            "journal.jsonl": true
+          },
+          "recovered_preserves_original_file_prefix": {
+            "session.json": true,
+            "actions.jsonl": true,
+            "journal.jsonl": true
+          },
+          "action_keys": [
+            "order-1",
+            "order-2"
+          ],
+          "replayed": {
+            "position": 0,
+            "orders": 2,
+            "fills": 2
+          },
+          "fill_proof": {
+            "unique_fills": 2,
+            "filled_lots_by_order": {
+              "1": 20,
+              "2": 20
+            },
+            "position": 0
+          },
+          "host_loss_to_ready_seconds": 81.5742761319998,
+          "old_signer": {
+            "instance": "i-0b6f91ef9ae02735f",
+            "state": "terminated",
+            "verified_epoch": 1792248175.9238646
+          },
+          "scope": "process crash after venue fill before local fill, confirmed host termination / same-AZ retained EBS; no active rotated-root takeover or power/AZ loss"
+        },
+        "archives": {
+          "recover-final.tar.gz": {
+            "key": "native-readiness-20261017/mini-lifecycle-1792248087/recover-final.tar.gz",
+            "sha256": "0a4d878dc35eeb09c5301737dc20d560c061f2b904d8afc66a22ce92936b2a67",
+            "bytes": 5343
+          },
+          "crash-final.tar.gz": {
+            "key": "native-readiness-20261017/mini-lifecycle-1792248087/crash-final.tar.gz",
+            "sha256": "443fe5dd741f04b8b89a56c8c9418e075d78d0aae20d0001277ec523c3adeacf",
+            "bytes": 2103
+          },
+          "cleanup-final.tar.gz": {
+            "key": "native-readiness-20261017/mini-lifecycle-1792248087/cleanup-final.tar.gz",
+            "sha256": "59f5bb13fdb3ed487c04ddb68bbfdbc219510972d5931fdbfc19b77531d03542",
+            "bytes": 5469
+          }
+        },
+        "cleanup_verified": true,
+        "instances": [
+          "i-0b6f91ef9ae02735f",
+          "i-0695a280cbdbaa56f"
+        ],
+        "volumes": {
+          "vol-080e81967c0ab9ca9": "deleted",
+          "vol-09cc0fb63cf6da78b": "deleted",
+          "vol-0c5a8e6360f4670b2": "deleted"
+        },
+        "temporary_parameter_deleted": true
+      },
+      {
+        "experiment": 9,
+        "runtime_bundle_sha256": "e5597dac364d1dc0cc4e726c96885ab28f7f1b014b7f7040eb8378d565ce72a2",
+        "source_commit": "82598f6abae96564047fb2be1e6c22d3231fc944",
+        "controller_sha256": "3083dbd70a464364c0973af59c5130d212dc117d067bfea896b5d3ec310cb0e0",
+        "controller_verify_sha256": "0df7609cd3e0023f1cb0b79a345e176cc64217fb0f66bec564984989551bac9a",
+        "s3_prefix": "native-readiness-20261017/mini-lifecycle-1792248270",
+        "proof": {
+          "source_commit": "82598f6abae96564047fb2be1e6c22d3231fc944",
+          "original_sha256_matches": {
+            "session.json": true,
+            "actions.jsonl": true,
+            "journal.jsonl": true
+          },
+          "recovered_preserves_original_file_prefix": {
+            "session.json": true,
+            "actions.jsonl": true,
+            "journal.jsonl": true
+          },
+          "action_keys": [
+            "order-1",
+            "order-2"
+          ],
+          "replayed": {
+            "position": 0,
+            "orders": 2,
+            "fills": 2
+          },
+          "fill_proof": {
+            "unique_fills": 2,
+            "filled_lots_by_order": {
+              "1": 20,
+              "2": 20
+            },
+            "position": 0
+          },
+          "host_loss_to_ready_seconds": 76.41057386300008,
+          "old_signer": {
+            "instance": "i-03a178ec04ffc3e65",
+            "state": "terminated",
+            "verified_epoch": 1792248348.0564823
+          },
+          "scope": "process crash after venue fill before local fill, confirmed host termination / same-AZ retained EBS; no active rotated-root takeover or power/AZ loss"
+        },
+        "archives": {
+          "recover-final.tar.gz": {
+            "key": "native-readiness-20261017/mini-lifecycle-1792248270/recover-final.tar.gz",
+            "sha256": "d162429ec5c716208e3afcf47b28b6f89b0044220237f9469b41f4e78a9c27c4",
+            "bytes": 5363
+          },
+          "crash-final.tar.gz": {
+            "key": "native-readiness-20261017/mini-lifecycle-1792248270/crash-final.tar.gz",
+            "sha256": "e2301280d87bbfbdc636b7a65e909ecb768c950384da0c4f93184b77a6808621",
+            "bytes": 2127
+          },
+          "cleanup-final.tar.gz": {
+            "key": "native-readiness-20261017/mini-lifecycle-1792248270/cleanup-final.tar.gz",
+            "sha256": "0870b16fe13acda0f5e00f263a8feb3d5474c1ff55e81a44df526b7e7cd67428",
+            "bytes": 5477
+          }
+        },
+        "cleanup_verified": true,
+        "instances": [
+          "i-03a178ec04ffc3e65",
+          "i-0acd4a7701e5e50af"
+        ],
+        "volumes": {
+          "vol-07aff3c33bc345692": "deleted",
+          "vol-01d70179350eb5b59": "deleted",
+          "vol-053bf2834fdb4ff89": "deleted"
+        },
+        "temporary_parameter_deleted": true
+      }
+    ],
+    "manifest": "comparisons/native-readiness/host-repeat-v2.json",
+    "fresh_trials_only": true,
+    "prior_attempts_5_and_6_not_counted": true
+  },
+  "independent_final_cleanup": {
+    "at_ms": 1792248463239,
+    "region": "ap-northeast-1",
+    "network": "hyperliquid-testnet-only",
+    "instances": {
+      "i-0f558f21726a73dc3": "terminated",
+      "i-0bec8289d33951ec2": "terminated",
+      "i-06bd4eb6a25b16799": "terminated",
+      "i-0b6f91ef9ae02735f": "terminated",
+      "i-0403b1d989dfe2868": "terminated",
+      "i-0acd4a7701e5e50af": "terminated",
+      "i-03a178ec04ffc3e65": "terminated",
+      "i-0efcd337db3fb1d36": "terminated",
+      "i-0695a280cbdbaa56f": "terminated",
+      "i-0ba90c8cdf3fb5e65": "terminated"
+    },
+    "volumes": {
+      "vol-04759c2621e2dbf72": "deleted",
+      "vol-001f19739c6901a96": "deleted",
+      "vol-036b766cc1cfcf502": "deleted",
+      "vol-0e3ba0eed883c7981": "deleted",
+      "vol-01fdb10a6a65c16d0": "deleted",
+      "vol-001521bfcdc9fb4fa": "deleted",
+      "vol-0418d3e65fa6eb87d": "deleted",
+      "vol-06f8176bb4f1f47da": "deleted",
+      "vol-0fa45b4842a0905be": "deleted",
+      "vol-080e81967c0ab9ca9": "deleted",
+      "vol-09cc0fb63cf6da78b": "deleted",
+      "vol-0c5a8e6360f4670b2": "deleted",
+      "vol-07aff3c33bc345692": "deleted",
+      "vol-01d70179350eb5b59": "deleted",
+      "vol-053bf2834fdb4ff89": "deleted"
+    },
+    "temporary_parameters": {
+      "/mininautilus/temporary/mini-lifecycle-1792245320": "deleted",
+      "/mininautilus/temporary/mini-lifecycle-1792247321": "deleted",
+      "/mininautilus/temporary/mini-lifecycle-1792247897": "deleted",
+      "/mininautilus/temporary/mini-lifecycle-1792248087": "deleted",
+      "/mininautilus/temporary/mini-lifecycle-1792248270": "deleted"
+    },
+    "active_task_hosts": [],
+    "remaining_task_volumes": [],
+    "clearinghouseState_count": 0,
+    "openOrders_count": 0,
+    "status": "PASS"
+  }
+}
