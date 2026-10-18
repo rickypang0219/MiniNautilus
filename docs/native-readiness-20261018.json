@@ -261,6 +261,13 @@
       "status": "FAIL",
       "reason": "first cleanup polled locally rejected unsent order; final cleanup PASS is separate",
       "cleanup_verified": true
+    },
+    {
+      "run": "clock-v3",
+      "status": "FAIL",
+      "reason": "filled_lot_error_fraction=0.11623616236162361 exceeds0.05; native lifecycle completed and cleanup verified",
+      "source_commit": "ac70f61e762f01310a36cec066d2fdafd9ec3b5a",
+      "bundle_sha256": "8b8b15d3f040e94358306eb46dcf2697d52c4ae88ed9772a02f34fbef07d287a"
     }
   ],
   "original_recoveries": [
@@ -302,10 +309,32 @@
   ],
   "correspondence": {
     "status": "FAIL",
-    "collection_state": "clock-v2b incomplete; original account now recovered, fresh v3 pending",
-    "source_commit": "1fd10b86acfd0fd2be961e18dd3b4c06ac464e30",
-    "manifest_sha256": "6fe4579b822f6dc78de1db03edc9263f28f48b7cc5efe2503aa5aee54fa86f46",
-    "next_manifest": "comparisons/native-readiness/closed-loop-v3.json"
+    "collection_state": "v3 first900s completed then quantitative guard stopped later runs",
+    "source_commit": "ac70f61e762f01310a36cec066d2fdafd9ec3b5a",
+    "manifest_sha256": "0214a196b5fc180ce5fd5d4447482125fead66c6a9292c0ff967a6f59d049dd4",
+    "next_manifest": "comparisons/native-readiness/closed-loop-v4.json",
+    "run": "clock-v3",
+    "metrics": {
+      "schema": 1,
+      "status": "FAIL",
+      "distinct_strategy_bar_times": 24,
+      "actual_orders": 55,
+      "simulated_orders": 53,
+      "order_count_error_fraction": 0.03636363636363636,
+      "actual_lots": 1084,
+      "filled_lot_error_fraction": 0.11623616236162361,
+      "max_vwap_error_bps": 1.1086337936216601,
+      "uncovered_simulated_orders": 7,
+      "actual_nonfilled_ack_orders": 6,
+      "unknown_funding_settlements": 0,
+      "core_or_model_failures": 0,
+      "backtest_binary_sha256": "704ba76060af91d615eaa2e96723f574e8f2b409f696e82f7a39b9b894209d4a",
+      "analyzer_source_sha256": "d8ecb446784133474e8357c2e2168f7a6e3d8df79b753ec9f1134c871994079f",
+      "manifest_sha256": "0214a196b5fc180ce5fd5d4447482125fead66c6a9292c0ff967a6f59d049dd4"
+    },
+    "native_lifecycle": "PASS_FIRST_900S",
+    "cleanup_verified": true,
+    "raw_prefix": "s3://mininautilushost-artifacts82dd59a1-jimhxpumwqyb/native-readiness-20261018/mini-lifecycle-1792335340/"
   },
   "long_qualification": {
     "status": "BLOCKED",
@@ -323,5 +352,5 @@
     "strategy resets at flat segment boundaries; no continuous PCA validation",
     "cold archive/retention, persistent human stop, upgrade/rollback and alert exercises remain unaccepted"
   ],
-  "updated_utc": "2026-10-18T14:55:32.582249+00:00"
+  "updated_utc": "2026-10-18T15:14:36.922126+00:00"
 }

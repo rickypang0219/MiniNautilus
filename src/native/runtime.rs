@@ -338,6 +338,8 @@ fn execute(
     venue
 }
 struct Writer {
+    recorder: Option<super::record::Recorder>,
+    initial_ready_recorded: bool,
     instrument: Option<Instrument>,
     recovery_attempts: u32,
     recovery_not_before: Option<Instant>,
@@ -601,6 +603,20 @@ impl Writer {
         self.circuit.allow();
         if self.circuit.permit.load(Ordering::Acquire) != 1 {
             return Ok(());
+        }
+        // Bootstrap readiness is an operating input, recorded independently of
+        // target arrival and before any order. Never replay later live gates:
+        // those depend on executions which the backtest must simulate itself.
+        if !self.initial_ready_recorded {
+            if let Some(recorder) = &self.recorder {
+                if !self.engine.core().orders.is_empty() || self.engine.core().position != 0 {
+                    return Err(fail("initial admission requires empty bootstrap"));
+                }
+                recorder.append(
+                    json!({"kind":"initial_admission_ready","at_ms":wall_ms(),"empty":true}),
+                )?;
+            }
+            self.initial_ready_recorded = true;
         }
         let Some((target, deadline, received)) = self.target else {
             return Ok(());
@@ -1044,6 +1060,8 @@ pub fn run_segment(dir: &Path, options: Options, segment: Option<&Segment>) -> R
         })
     };
     let mut writer = Writer {
+        recorder: Some(recorder.clone()),
+        initial_ready_recorded: false,
         instrument: admission_instrument,
         recovery_attempts: 0,
         recovery_not_before: None,
@@ -1525,6 +1543,8 @@ mod isolation_tests {
             telemetry.emit(json!({"blocked":"cold sink"}));
         }
         let mut writer = Writer {
+            recorder: None,
+            initial_ready_recorded: false,
             instrument: None,
             recovery_attempts: 0,
             recovery_not_before: None,

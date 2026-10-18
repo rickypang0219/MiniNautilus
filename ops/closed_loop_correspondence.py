@@ -112,6 +112,8 @@ def analyze_segment(segment,manifest,binary):
             order=state['orders'][key.removeprefix('order-')]
             if fully_filled_ack(statuses,order['intent']['qty'],manifest['lot']):filled_ack.add(key)
     actual_uncovered=sum(f'order-{i}' in attempted and f'order-{i}' not in filled_ack for i in state['orders'])
+    if manifest.get('initial_admission')=='recorded-flat-bootstrap-v1' and attempted and not simulated['initial_ready_observed']:
+        raise ValueError('missing initial readiness operating input')
     return dict(segment=segment.name,accounting='PASS',signals=parity,comparison=comparison,
                 actual_orders=sum(f'order-{i}' in attempted for i in state['orders']),actual_nonfilled_ack_orders=actual_uncovered,actual_unique_fills=len(raw_fills),
                 actual_ledger={k:str(v) for k,v in actual.items()},simulated=simulated,

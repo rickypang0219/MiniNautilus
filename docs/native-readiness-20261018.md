@@ -45,3 +45,19 @@ policy in **closed-loop-v3.json**; old frozen manifests/results are untouched.
 Arrival/report/cancel delays, fees, error thresholds, sample requirements and
 passive-coverage restrictions are unchanged. This is a functional correction,
 not a measured performance improvement.
+
+
+## Frozen v3 forward holdout
+
+The fresh900s native lifecycle completed successfully (55signed orders) and ended
+flat with zero open orders. Model53orders vs actual55 gives3.6364% count error;
+filled-lot error is**11.6236% (FAIL)**, maximum grouped VWAP error1.10863bps.
+There are7uncovered simulated orders and6actual non-full acknowledgements.
+55/53orders also remain below the100/100sample requirement. The frozen first-run
+guard stopped further runs. All task EC2/EBS/secrets were cleaned after proof;
+this is a failed fidelity acceptance, separate from native lifecycle success.
+
+The next v4 correction and its exact boundary are documented in
+[initial admission replay](native-initial-admission-replay.md). It adds a once-only,
+target-independent empty-bootstrap readiness operating input; it does not refit
+latencies or claim later live gates are simulated. Fresh v4 collection is pending.

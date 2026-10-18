@@ -62,6 +62,18 @@ class DepthBacktestTest(unittest.TestCase):
         self.assertEqual([o['intent']['qty'] for o in result['orders']],[20,18,2])
         self.assertEqual(result['position'],0)
 
+    def test_initial_flat_readiness_delays_admission_without_replaying_order_schedule(self):
+        events=[self.book(),(1,'target',2),self.book(50,ask='200',bid='199'),
+                (100,'initial_ready',dict(empty=True))]
+        result=self.run_model(events,initial_admission='recorded-flat-bootstrap-v1')
+        self.assertEqual(result['orders'][0]['submitted_ms'],100)
+        self.assertEqual(result['orders'][0]['intent']['limit'],200)
+        self.assertEqual(result['position'],2)
+        with self.assertRaisesRegex(ValueError,'duplicate initial readiness'):
+            self.run_model(events+[(101,'initial_ready',dict(empty=True))],initial_admission='recorded-flat-bootstrap-v1')
+        with self.assertRaisesRegex(ValueError,'empty bootstrap'):
+            self.run_model([self.book(),(1,'target',2),(100,'initial_ready',dict(empty=False))],initial_admission='recorded-flat-bootstrap-v1')
+
     def test_duplicate_and_future_public_trades_cannot_invent_fills(self):
         trade=dict(coin='BTC',time=30,tid=1,side='A',sz='1',px='100')
         events=[self.book(size='1'),(1,'target',2),(30,'trade',trade),(31,'trade',trade)]

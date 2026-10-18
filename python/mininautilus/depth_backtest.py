@@ -48,6 +48,8 @@ def public_events(rows):
         elif kind == 'http' and row['path']=='/info' and row['request'].get('type')=='l2Book':
             yield row['response']['time'], 'venue_book', row['response']
             yield row['received_ms'], 'quote', row['response']
+        elif kind == 'initial_admission_ready':
+            yield row['at_ms'], 'initial_ready', dict(empty=row['empty'])
         elif kind == 'strategy_publication':
             yield row['available_ms'], 'publish', row['bar_open_ms']
         elif kind == 'strategy':
@@ -102,6 +104,8 @@ def replay_depth(engine, events, manifest):
     fills = []; positions = []; oracles = []; funding_seen = {}; trade_seen = {}
     cash = fees = funding = F(0); unknown_funding = []; signals = []; failures = []
     stopping = False
+    require_initial_ready=manifest.get('initial_admission')=='recorded-flat-bootstrap-v1'
+    initial_ready=not require_initial_ready; initial_ready_seen=False
     minimum_refusals = []; minimum_refused_revision = None
     now = pending[0][0]
     quantum = F(manifest['tick']) * F(manifest['lot'])
@@ -150,7 +154,7 @@ def replay_depth(engine, events, manifest):
     def dispatch_target():
         nonlocal minimum_refused_revision
         state = engine.state; target = state.get('target')
-        if now<execution_free_at or not target or target['valid_until'] < now or state.open_orders or state['health'] != 'Healthy':
+        if not initial_ready or now<execution_free_at or not target or target['valid_until'] < now or state.open_orders or state['health'] != 'Healthy':
             return
         if agent_book is None or now-agent_book_at > manifest.get('max_agent_quote_age_ms',5000):
             return
@@ -197,6 +201,12 @@ def replay_depth(engine, events, manifest):
                 bid=integer_units(data['levels'][0][0]['px'],manifest['tick'])
                 ask=integer_units(data['levels'][1][0]['px'],manifest['tick'])
                 schedule_effects(engine.send(now,{'Quote':dict(bid=bid,ask=ask)}))
+        elif kind == 'initial_ready':
+            if require_initial_ready:
+                if initial_ready_seen:raise ValueError('duplicate initial readiness')
+                if data.get('empty') is not True or engine.state['position'] or orders:
+                    raise ValueError('initial readiness requires empty bootstrap')
+                initial_ready=initial_ready_seen=True
         elif kind == 'bar':
             if not strategy.add(Candle(**data)):
                 continue
@@ -277,7 +287,7 @@ def replay_depth(engine, events, manifest):
                 funding+=round_cash(-lots*F(manifest['lot'])*oracles[oracle_index][1]*F(data['fundingRate']),manifest['cash_quantum'])
         else:
             raise ValueError('unknown replay input')
-        if kind in ('book','quote','publish','target','stop','report'):
+        if kind in ('book','quote','publish','target','stop','report','initial_ready'):
             dispatch_target()
     if engine.state['position']!=venue_position or delivered_cash!=cash:
         raise ValueError('undelivered modeled executions at replay end')
@@ -288,4 +298,4 @@ def replay_depth(engine, events, manifest):
                 funding_settlements=len(funding_seen),unknown_funding=unknown_funding,
                 gross_marked=str(equity) if equity is not None else None,
                 net_marked=str(equity-fees+funding) if equity is not None and not unknown_funding else None,
-                accounting='PASS',scope='own simulated executions drive Core inventory and future orders; queue/impact assumptions require holdout validation')
+                initial_ready_observed=initial_ready_seen,accounting='PASS',scope='own simulated executions drive Core inventory and future orders; queue/impact assumptions require holdout validation')

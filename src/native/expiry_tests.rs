@@ -9,6 +9,8 @@ fn writer(name: &str) -> (Writer, Receiver<Job>, Receiver<Value>, std::path::Pat
     let (jobs, receiver) = bounded(32);
     let (queue, trace) = bounded(1024);
     let mut writer = Writer {
+        recorder: None,
+        initial_ready_recorded: false,
         instrument: Some(Instrument {
             symbol: "BTC".into(),
             asset: 3,
@@ -453,5 +455,35 @@ fn partial_fill_dust_topup_is_not_submitted_but_reduction_remains_available() {
         }
     ));
     drop(writer);
+    std::fs::remove_dir_all(dir).unwrap();
+}
+
+#[test]
+fn initial_readiness_is_recorded_once_without_any_strategy_target_or_order() {
+    let (mut writer, jobs, _trace, dir) = writer("initial-ready-record");
+    let path = dir.join("initial-ready.jsonl");
+    let recorder = super::super::record::Recorder::create(&path).unwrap();
+    writer.recorder = Some(recorder.clone());
+    writer.initial_ready_recorded = false;
+    writer.stream_ready = false;
+    writer.dispatch_target().unwrap();
+    assert!(std::fs::read_to_string(&path).unwrap().is_empty());
+    writer.stream_ready = true;
+    writer.dispatch_target().unwrap();
+    writer.dispatch_target().unwrap();
+    recorder.sync().unwrap();
+    let raw = std::fs::read_to_string(&path).unwrap();
+    let rows: Vec<Value> = raw
+        .lines()
+        .map(|line| serde_json::from_str(line).unwrap())
+        .collect();
+    assert_eq!(rows.len(), 1);
+    assert_eq!(rows[0]["kind"], "initial_admission_ready");
+    assert_eq!(rows[0]["empty"], true);
+    assert!(writer.target.is_none());
+    assert!(writer.engine.core().orders.is_empty());
+    assert!(jobs.try_recv().is_err());
+    drop(writer);
+    drop(recorder);
     std::fs::remove_dir_all(dir).unwrap();
 }
