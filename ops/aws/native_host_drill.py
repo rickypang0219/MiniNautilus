@@ -27,6 +27,13 @@ def state_volume_safe(resources):
         resources.get("flat_verified") is True and resources.get("potential_exposure") is False)
 
 
+def original_volume(original):
+    if (not original.get('token','').startswith('mini-lifecycle-') or not original.get('data_volume')
+        or not original.get('instances') or original.get('cleanup_verified') is True):
+        raise ValueError('requires unresolved original task state')
+    return original['data_volume']
+
+
 def main():
     parser=argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--bundle-receipt",type=Path,required=True)
@@ -37,7 +44,9 @@ def main():
     parser.add_argument("--host-only",action="store_true",help="repeat retained-EBS recovery without the two rotation runs")
     parser.add_argument("--rotated-root",action="store_true",help="kill an exposed successor after rotation and recover its complete retained root")
     parser.add_argument("--correspondence-only",action="store_true",help="two frozen 900-second closed-loop correspondence holdouts; no host replacement")
+    parser.add_argument("--recover-original",type=Path,help="recover the exact retained EBS from a failed task; no new trading session")
     args=parser.parse_args()
+    if args.recover_original and (args.correspondence_only or args.host_only or args.host_first or args.rotated_root):raise ValueError("exclusive recovery mode")
     if args.correspondence_only and (args.host_only or args.host_first or args.rotated_root):raise ValueError("exclusive drill modes")
     if args.rotated_root and not args.host_only:raise ValueError("rotated-root drill requires --host-only")
     if not args.verify_log.read_text().rstrip().endswith("VERIFY OK"):
@@ -57,6 +66,12 @@ def main():
     token="mini-lifecycle-"+str(int(time.time()));prefix="native-readiness-"+time.strftime('%Y%m%d',time.gmtime())+"/"+token
     parameter="/mininautilus/temporary/"+token
     resources=dict(token=token,region="ap-northeast-1",prefix=prefix,bucket=config["bucket"],instances=[],root_volumes=[],data_volume=None,build=build,cleanup_verified=False,flat_verified=False,verify_sha256=sha(args.verify_log),host_first=args.host_first,host_only=args.host_only,rotated_root=args.rotated_root,correspondence_only=args.correspondence_only,controller_sha256=sha(Path(__file__)),started=time.time())
+    original=json.loads(args.recover_original.read_text()) if args.recover_original else None
+    if original is not None:
+        resources['data_volume']=original_volume(original)
+        resources['original_resources_sha256']=sha(args.recover_original)
+        resources['original_token']=original['token']
+        begin_signed_phase(resources)
     task=dict(bucket=config["bucket"],prefix=prefix,secret_parameter=parameter,bundle_sha256=build["sha256"])
     def save():
         (args.output/"resources.json").write_text(json.dumps(resources,indent=2))
@@ -150,42 +165,54 @@ BOOT
         ssm.put_parameter(Name=parameter,Type="SecureString",Value=json.dumps(values),Overwrite=False,Tags=[dict(Key="Purpose",Value="temporary-native-lifecycle-drill")]);del values
         resources["secret_created"]=True;save()
         s3.upload_file(str(bundle),config["bucket"],prefix+"/bundle.tar.gz");put("task.json",json.dumps(task).encode())
-        active=launch(True)
-        # The exact IDs returned by this launch are persisted before any wait.
-        volume=resources["data_volume"]
-        if not volume:
-            item=ec2.describe_instances(InstanceIds=[active])["Reservations"][0]["Instances"][0]
-            for mapping in item["BlockDeviceMappings"]:
-                if mapping["DeviceName"]=="/dev/sdf":resources["data_volume"]=mapping["Ebs"]["VolumeId"]
-                elif mapping["Ebs"]["VolumeId"] not in resources["root_volumes"]:resources["root_volumes"].append(mapping["Ebs"]["VolumeId"])
-            save();volume=resources["data_volume"]
-        command(active,"mount --volume "+volume+" --initialize",120);mounted=True
-        if args.rotated_root:command(active,"fixture",60)
-        begin_signed_phase(resources);save()
-        if args.correspondence_only:
-            command(active,"correspondence",2400)
-            result=json.loads(s3.get_object(Bucket=config['bucket'],Key=prefix+'/correspondence-result.json')['Body'].read())
-            resources.update(status=result['comparison']['status'],flat_verified=True,potential_exposure=False);save()
-        else:
-            if not args.host_first and not args.host_only:command(active,"rotation",2400)
-            command(active,"crash-rotated" if args.rotated_root else "crash",420);resources["potential_exposure"]=True;save()
-            loss_started=time.monotonic();resources["host_loss_started_epoch"]=time.time();save()
-            old=active;terminate(old);active=None;mounted=False
-            # No replacement may start until EC2 proves the old signer is terminated.
-            resources["fence"]=dict(instance=old,state=state(old),verified_epoch=time.time());save()
-            put("fencing-receipt.json",json.dumps(resources["fence"]).encode())
-            wait_for(lambda:ec2.describe_volumes(VolumeIds=[volume])["Volumes"][0]["State"]=="available",120,"retained EBS detach")
+        if original is not None:
+            if any(state(identity)!='terminated' for identity in original['instances']):raise ValueError('old signer not fenced')
+            volume=resources['data_volume'];item=ec2.describe_volumes(VolumeIds=[volume])['Volumes'][0]
+            tags={t['Key']:t['Value'] for t in item.get('Tags',[])}
+            if item['State']!='available' or tags.get('Name')!=original['token'] or tags.get('Purpose')!='temporary-native-lifecycle-drill':raise ValueError('original retained volume binding/state mismatch')
             active=launch(False)
-            ec2.attach_volume(VolumeId=volume,InstanceId=active,Device="/dev/sdf")
-            wait_for(lambda:ec2.describe_volumes(VolumeIds=[volume])["Volumes"][0]["State"]=="in-use",120,"retained EBS attach")
-            command(active,"mount --volume "+volume,120);mounted=True
-            command(active,"recover-rotated" if args.rotated_root else "recover",240)
-            resources["host_loss_to_recovered_seconds"]=time.monotonic()-loss_started
-            resources["flat_verified"]=True;resources["potential_exposure"]=False;save()
-            resources["status"]="PASS" if resources["host_loss_to_recovered_seconds"]<=300 else "FAIL_RTO"
-            if args.host_first and not args.host_only:
-                begin_signed_phase(resources);save()
-                command(active,"rotation",2400)
+            ec2.attach_volume(VolumeId=volume,InstanceId=active,Device='/dev/sdf')
+            wait_for(lambda:ec2.describe_volumes(VolumeIds=[volume])['Volumes'][0]['State']=='in-use',120,'original EBS attach')
+            command(active,'mount --volume '+volume,120);mounted=True
+            command(active,'cleanup',300)
+            resources.update(status='PASS_ORIGINAL_RECOVERY',flat_verified=True,potential_exposure=False);save()
+        else:
+            active=launch(True)
+            # The exact IDs returned by this launch are persisted before any wait.
+            volume=resources["data_volume"]
+            if not volume:
+                item=ec2.describe_instances(InstanceIds=[active])["Reservations"][0]["Instances"][0]
+                for mapping in item["BlockDeviceMappings"]:
+                    if mapping["DeviceName"]=="/dev/sdf":resources["data_volume"]=mapping["Ebs"]["VolumeId"]
+                    elif mapping["Ebs"]["VolumeId"] not in resources["root_volumes"]:resources["root_volumes"].append(mapping["Ebs"]["VolumeId"])
+                save();volume=resources["data_volume"]
+            command(active,"mount --volume "+volume+" --initialize",120);mounted=True
+            if args.rotated_root:command(active,"fixture",60)
+            begin_signed_phase(resources);save()
+            if args.correspondence_only:
+                command(active,"correspondence",2400)
+                result=json.loads(s3.get_object(Bucket=config['bucket'],Key=prefix+'/correspondence-result.json')['Body'].read())
+                resources.update(status=result['comparison']['status'],flat_verified=True,potential_exposure=False);save()
+            else:
+                if not args.host_first and not args.host_only:command(active,"rotation",2400)
+                command(active,"crash-rotated" if args.rotated_root else "crash",420);resources["potential_exposure"]=True;save()
+                loss_started=time.monotonic();resources["host_loss_started_epoch"]=time.time();save()
+                old=active;terminate(old);active=None;mounted=False
+                # No replacement may start until EC2 proves the old signer is terminated.
+                resources["fence"]=dict(instance=old,state=state(old),verified_epoch=time.time());save()
+                put("fencing-receipt.json",json.dumps(resources["fence"]).encode())
+                wait_for(lambda:ec2.describe_volumes(VolumeIds=[volume])["Volumes"][0]["State"]=="available",120,"retained EBS detach")
+                active=launch(False)
+                ec2.attach_volume(VolumeId=volume,InstanceId=active,Device="/dev/sdf")
+                wait_for(lambda:ec2.describe_volumes(VolumeIds=[volume])["Volumes"][0]["State"]=="in-use",120,"retained EBS attach")
+                command(active,"mount --volume "+volume,120);mounted=True
+                command(active,"recover-rotated" if args.rotated_root else "recover",240)
+                resources["host_loss_to_recovered_seconds"]=time.monotonic()-loss_started
+                resources["flat_verified"]=True;resources["potential_exposure"]=False;save()
+                resources["status"]="PASS" if resources["host_loss_to_recovered_seconds"]<=300 else "FAIL_RTO"
+                if args.host_first and not args.host_only:
+                    begin_signed_phase(resources);save()
+                    command(active,"rotation",2400)
     except BaseException as error:
         resources["status"]="FAIL";resources["failure"]=type(error).__name__+": "+str(error);save()
         raise

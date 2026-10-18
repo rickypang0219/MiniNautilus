@@ -110,3 +110,9 @@ class NativeDrillTest(unittest.TestCase):
             bad=copy.deepcopy(raw);bad[0][key]=value
             with self.assertRaises(ValueError):worker.session_fill_proof(state,session,bad)
         with self.assertRaises(ValueError):worker.session_fill_proof(state,session,raw[:1])
+
+    def test_original_volume_recovery_cannot_select_unrelated_or_already_deleted_state(self):
+        original=dict(token='mini-lifecycle-123',data_volume='vol-original',instances=['i-original'],potential_exposure=True,cleanup_verified=False)
+        self.assertEqual(controller.original_volume(original),'vol-original')
+        for bad in [dict(original,data_volume=None),dict(original,instances=[]),dict(original,cleanup_verified=True),dict(original,token='user-stack')]:
+            with self.assertRaises(ValueError):controller.original_volume(bad)
