@@ -168,6 +168,7 @@ async fn subscribe_and_read(
     let mut subscriptions = vec![
         json!({"type":"l2Book","coin":instrument.symbol,"nSigFigs":null,"mantissa":null,"fast":true}),
         json!({"type":"trades","coin":instrument.symbol}),
+        json!({"type":"activeAssetCtx","coin":instrument.symbol}),
     ];
     if let Some(user) = account {
         let user = user.to_ascii_lowercase();
@@ -265,7 +266,15 @@ async fn subscribe_and_read(
                 }
                 // Evidence for the offline matcher only, never invent a private fill.
             }
-            Some("orderUpdates" | "userFills") if subscriptions.len() > 2 => {
+            Some("activeAssetCtx") => {
+                if event["data"]["coin"] != instrument.symbol {
+                    return Err(fail("asset context identity"));
+                }
+                for key in ["oraclePx", "markPx", "funding"] {
+                    super::venue::dec(&event["data"]["ctx"][key])?;
+                }
+            }
+            Some("orderUpdates" | "userFills") if subscriptions.len() > 3 => {
                 publish(Observation::PrivateWake, received)?
             }
             Some("pong") => {}
@@ -336,11 +345,20 @@ mod tests {
                 let server = tokio::spawn(async move {
                     let (socket, _) = listener.accept().await.unwrap();
                     let mut peer = tokio_tungstenite::accept_async(socket).await.unwrap();
-                    for _ in 0..2 {
+                    for index in 0..3 {
                         let request: Value = serde_json::from_str(
                             peer.next().await.unwrap().unwrap().to_text().unwrap(),
                         )
                         .unwrap();
+                        if index == 0 {
+                            assert_eq!(request["subscription"]["fast"], true);
+                        }
+                        if index == 1 {
+                            assert_eq!(request["subscription"]["type"], "trades");
+                        }
+                        if index == 2 {
+                            assert_eq!(request["subscription"]["type"], "activeAssetCtx");
+                        }
                         peer.send(Message::Text(
                             json!({"channel":"subscriptionResponse","data":request})
                                 .to_string()

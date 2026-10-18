@@ -127,6 +127,17 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
         };
         args.drain(i..i + 2);
     }
+    // Historical matching can supply its own execution reports to the same Core.
+    // This flag is deliberately unavailable to durable/live serve modes.
+    let external_venue = if let Some(i) = args.iter().position(|a| a == "--external-venue") {
+        if args.get(1).map(String::as_str) != Some("sim") {
+            return Err("--external-venue requires sim".into());
+        }
+        args.remove(i);
+        true
+    } else {
+        false
+    };
     match args.get(1).map(String::as_str) {
         Some("demo") => demo(),
         Some("dashboard") => {
@@ -218,7 +229,7 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
                 engine.set_sync_policy(sync);
                 engine.set_cold_verification(cold_verification)?;
             }
-            serve(backend, mode != "serve")
+            serve(backend, mode != "serve" && !external_venue)
         }
         Some("backtest") => {
             let usage = "backtest BARS.csv TARGETS.csv [CONFIG.json] [--ledger FILLS.csv] \

@@ -767,6 +767,14 @@ fn candle_worker(
                 venue::dec(&context[key])?;
             }
             recorder.append(json!({"kind":"asset_context","coin":instrument.symbol,"available_ms":wall_ms(),"context":context,"meaning":"current public funding estimate, not settled account cashflow"}))?;
+            // Public settled rates are distinct from the current estimate/private cashflow.
+            let settled = http.info("fundingHistory", json!({"coin":instrument.symbol,"startTime":boundary.saturating_sub(3600000),"endTime":wall_ms()}))?;
+            for row in venue::rows(&settled)? {
+                if row["coin"] != instrument.symbol || venue::number(&row["time"])? > wall_ms() {
+                    return Err(fail("public funding history identity/time"));
+                }
+                venue::dec(&row["fundingRate"])?;
+            }
         }
         if last.is_none()
             && (fetched.len() < 8 || fetched.last().is_none_or(|b| b.close_ms < boundary - 60001))
@@ -1043,6 +1051,9 @@ pub fn run_segment(dir: &Path, options: Options, segment: Option<&Segment>) -> R
         critical_count: 0,
     };
     let started = Instant::now();
+    if let Err(error) = recorder.append(json!({"kind":"runtime_boundary","phase":"start","at_ms":wall_ms(),
+        "planned_stop_ms":wall_ms()+1000*segment.map_or(options.seconds,|s|options.seconds.min(s.age_seconds)),
+        "flatten":options.flatten || segment.is_some_and(|s|s.flatten_on_rotation)})) { circuit.trip(error.to_string()); }
     let mut tick = Instant::now();
     let mut poll = Instant::now() - Duration::from_secs(2);
     let mut audit = Instant::now() - Duration::from_secs(11);
@@ -1140,6 +1151,7 @@ pub fn run_segment(dir: &Path, options: Options, segment: Option<&Segment>) -> R
     circuit.halt();
     stop.store(true, Ordering::Release);
     let active_seconds = started.elapsed().as_secs_f64();
+    if let Err(error) = recorder.append(json!({"kind":"runtime_boundary","phase":"stop","at_ms":wall_ms(),"failed":circuit.failed.load(Ordering::Acquire),"rotation_ready":rotation_ready})) { circuit.trip(error.to_string()); }
     // Stop production, join the one execution owner, then reconcile original durable identities.
     let _ = ws_worker.join();
     let _ = strategy_worker.join();

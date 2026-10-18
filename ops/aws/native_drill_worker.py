@@ -264,7 +264,7 @@ def mount(volume, initialize):
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("phase",choices=["mount","rotation","crash","recover","crash-rotated","recover-rotated","fixture","inspect","cleanup"])
+    parser.add_argument("phase",choices=["mount","rotation","crash","recover","crash-rotated","recover-rotated","fixture","correspondence","inspect","cleanup"])
     parser.add_argument("--volume")
     parser.add_argument("--initialize",action="store_true")
     args = parser.parse_args()
@@ -289,7 +289,26 @@ def main():
     native = str(ROOT/"target/release/native-live")
     evidence = dict(phase=args.phase,started_ms=time.time_ns()//1000000)
     try:
-        if args.phase == "fixture":
+        if args.phase == "correspondence":
+            evidence['before']=account(True)
+            roots=[]
+            for index in (1,2):
+                name=f'rotation-holdout-{index}';directory=STATE/name;roots.append(directory)
+                code=execute([native,'lifecycle','--run-dir',str(directory),'--seconds','900',
+                    '--rotate-orders','800','--rotate-seconds','10','--rotation-flatten','--flatten','--python-strategy'],name,1200)
+                if code:raise ValueError('original holdout lifecycle failed; cleanup must recover it')
+                evidence[name]=dict(report=json.loads((directory/'lifecycle-report.json').read_text()),after=account(True))
+                output=STATE/f'closed-loop-holdout-{index}.json'
+                code=execute([os.environ['PYTHON'],str(ROOT/'ops/closed_loop_correspondence.py'),str(directory),
+                    '--manifest',str(ROOT/'comparisons/native-readiness/closed-loop-v1.json'),'--output',str(output)],name+'-analyze',180)
+                archive(s3,task,name)
+                if code:raise ValueError('frozen first-pass correspondence guard failed; no retuning on holdout')
+            output=STATE/'closed-loop-combined.json'
+            code=execute([os.environ['PYTHON'],str(ROOT/'ops/closed_loop_correspondence.py'),*(str(p) for p in roots),
+                '--manifest',str(ROOT/'comparisons/native-readiness/closed-loop-v1.json'),'--output',str(output)],'combined-holdout-analyze',180)
+            if code:raise ValueError('frozen combined correspondence guard failed')
+            evidence['comparison']=json.loads(output.read_text())
+        elif args.phase == "fixture":
             code=execute([str(ROOT/'target/release/native-tests'),'--exact','native::venue::tests::eight_hundred_verified_terminal_facts_plus_four_active_query_only_four_statuses','--nocapture'],'terminal-cache-fixture',30)
             if code:raise ValueError('800 terminal + 4 active fixture failed')
             text=(STATE/'terminal-cache-fixture.log').read_text()
