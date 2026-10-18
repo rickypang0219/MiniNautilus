@@ -4,6 +4,7 @@ import json
 from pathlib import Path
 import tempfile
 import unittest
+from types import SimpleNamespace
 
 SPEC=importlib.util.spec_from_file_location("native_drill_worker",Path(__file__).resolve().parents[1]/"ops/aws/native_drill_worker.py")
 worker=importlib.util.module_from_spec(SPEC)
@@ -14,6 +15,49 @@ CONTROLLER_SPEC.loader.exec_module(controller)
 
 
 class NativeDrillTest(unittest.TestCase):
+    def test_discovery_or_volume_error_cannot_skip_other_cleanup_or_hide_failure(self):
+        class CloudError(Exception):
+            def __init__(self, code):
+                self.response={'Error':{'Code':code}}
+        for failure in ('discovery','first-delete','secret',None):
+            with self.subTest(failure=failure):
+                volumes={'vol-root','vol-state'};calls=[]
+                def describe_volumes(**kw):
+                    if 'Filters' in kw:
+                        if failure=='discovery':raise ValueError('invalid cloud response')
+                        return {'Volumes':[{'VolumeId':v} for v in volumes]}
+                    key=kw['VolumeIds'][0]
+                    if key not in volumes:raise CloudError('InvalidVolume.NotFound')
+                    return {'Volumes':[{'VolumeId':key,'State':'available'}]}
+                def delete_volume(**kw):
+                    key=kw['VolumeId'];calls.append(key)
+                    if failure=='first-delete' and key=='vol-root':raise ValueError('transport interrupted')
+                    volumes.remove(key)
+                def delete_parameter(**kw):
+                    calls.append('secret')
+                    if failure=='secret':raise ValueError('transport interrupted')
+                ec2=SimpleNamespace(describe_volumes=describe_volumes,delete_volume=delete_volume)
+                ssm=SimpleNamespace(delete_parameter=delete_parameter)
+                r=dict(token='mini-lifecycle-test',instances=['i-test'],root_volumes=['vol-root'],data_volume='vol-state',
+                       trading_started=True,flat_verified=True,potential_exposure=False,secret_created=True,status='FAIL')
+                controller.cleanup_cloud_resources(ec2,ssm,r,lambda test,*_:self.assertTrue(test()),lambda _: 'terminated')
+                self.assertIn('vol-state',calls);self.assertIn('secret',calls)
+                self.assertEqual(r['status'],'FAIL')
+                self.assertEqual(r['cleanup_verified'],failure is None)
+                if failure=='discovery':self.assertEqual(r['volume_discovery_failure'],'ValueError')
+                if failure=='first-delete':self.assertEqual(r['volume_cleanup']['vol-root'],'ValueError')
+                if failure=='secret':self.assertFalse(r.get('secret_deleted',False))
+
+    def test_uncertain_original_state_is_retained_even_when_discovery_finds_it(self):
+        calls=[]
+        ec2=SimpleNamespace(describe_volumes=lambda **kw:{'Volumes':[{'VolumeId':'vol-state'}]})
+        ssm=SimpleNamespace(delete_parameter=lambda **kw:calls.append('secret'))
+        r=dict(token='mini-lifecycle-test',instances=['i-test'],root_volumes=[],data_volume='vol-state',
+               trading_started=True,flat_verified=False,potential_exposure=True,secret_created=True)
+        controller.cleanup_cloud_resources(ec2,ssm,r,lambda *_:self.fail('must not delete unresolved data'),lambda _: 'terminated')
+        self.assertEqual(r['volume_cleanup'],{});self.assertEqual(calls,['secret'])
+        self.assertFalse(r['cleanup_verified'])
+
     def test_recovery_proof_accepts_split_fills_but_rejects_missing_changed_and_foreign_facts(self):
         session={"session":"0123456789abcdef","instrument":{"symbol":"BTC","sz_decimals":5}}
         orders={str(i):dict(intent=dict(id=i,side=side,qty=20),filled=20,lifecycle="Filled",pending=None,uncertain=False)

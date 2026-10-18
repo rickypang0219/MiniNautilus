@@ -47,6 +47,52 @@ def signer_fenced(original, identity, instances):
     return identity in original.get('terminated',[])
 
 
+def cloud_error_code(error):
+    return getattr(error,'response',{}).get('Error',{}).get('Code',type(error).__name__)
+
+
+def cleanup_cloud_resources(ec2,ssm,resources,wait_for,state):
+    """Attempt every independent cleanup step; incomplete inventory is not PASS."""
+    token=resources['token'];safe=state_volume_safe(resources)
+    try:
+        discovered=ec2.describe_volumes(Filters=[dict(Name='tag:Name',Values=[token]),dict(Name='tag:Purpose',Values=['temporary-native-lifecycle-drill'])])['Volumes']
+        resources['discovered_task_volumes']=[v['VolumeId'] for v in discovered]
+    except Exception as error:
+        resources['volume_discovery_failure']=cloud_error_code(error)
+        resources['discovered_task_volumes']=[]
+    volumes=resources['root_volumes']+([resources['data_volume']] if resources['data_volume'] and safe else [])
+    if safe:volumes+=resources['discovered_task_volumes']
+    resources['volume_cleanup']={}
+    for volume in dict.fromkeys(volumes):
+        try:
+            item=ec2.describe_volumes(VolumeIds=[volume])['Volumes'][0]
+            if item['State']=='available':ec2.delete_volume(VolumeId=volume)
+            def deleted():
+                try:ec2.describe_volumes(VolumeIds=[volume]);return False
+                except Exception as error:
+                    if cloud_error_code(error)=='InvalidVolume.NotFound':return True
+                    raise
+            wait_for(deleted,90,'task volume deletion')
+            resources['volume_cleanup'][volume]='deleted'
+        except Exception as error:
+            code=cloud_error_code(error)
+            resources['volume_cleanup'][volume]='deleted' if code=='InvalidVolume.NotFound' else code
+    if resources.get('secret_created'):
+        try:
+            ssm.delete_parameter(Name='/mininautilus/temporary/'+token)
+            resources['secret_deleted']=True
+        except Exception as error:
+            if cloud_error_code(error)=='ParameterNotFound':resources['secret_deleted']=True
+            else:resources['secret_cleanup_failure']=cloud_error_code(error)
+    try:hosts_stopped=all(state(i)=='terminated' for i in resources['instances'])
+    except Exception as error:
+        hosts_stopped=False;resources['termination_verification_failure']=cloud_error_code(error)
+    resources['cleanup_verified']=(hosts_stopped and safe and not resources.get('volume_discovery_failure')
+        and all(v=='deleted' for v in resources['volume_cleanup'].values())
+        and (not resources.get('secret_created') or resources.get('secret_deleted',False)))
+    resources['finished_epoch']=time.time()
+
+
 def main():
     parser=argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--bundle-receipt",type=Path,required=True)
@@ -252,31 +298,8 @@ BOOT
         for identity in resources["instances"]:
             try:terminate(identity)
             except BaseException as error:resources.setdefault("termination_failures",[]).append(dict(instance=identity,error=type(error).__name__))
-        volume_safe=state_volume_safe(resources)
-        # Discover only this unique task's tagged volumes, including failed launches
-        # whose RunInstances response did not yet expose block-device IDs.
-        discovered=ec2.describe_volumes(Filters=[dict(Name="tag:Name",Values=[token]),dict(Name="tag:Purpose",Values=["temporary-native-lifecycle-drill"])])["Volumes"]
-        resources["discovered_task_volumes"]=[v["VolumeId"] for v in discovered]
-        volumes=resources["root_volumes"]+([resources["data_volume"]] if resources["data_volume"] and volume_safe else [])
-        if volume_safe:volumes=list(dict.fromkeys(volumes+resources["discovered_task_volumes"]))
-        resources["volume_cleanup"]={}
-        for volume in volumes:
-            try:
-                item=ec2.describe_volumes(VolumeIds=[volume])["Volumes"][0]
-                if item["State"]=="available":ec2.delete_volume(VolumeId=volume)
-                def deleted():
-                    try:ec2.describe_volumes(VolumeIds=[volume]);return False
-                    except ClientError as error:
-                        if error.response["Error"]["Code"]=="InvalidVolume.NotFound":return True
-                        raise
-                wait_for(deleted,90,"task volume deletion");resources["volume_cleanup"][volume]="deleted"
-            except ClientError as error:
-                if error.response["Error"]["Code"]=="InvalidVolume.NotFound":resources["volume_cleanup"][volume]="deleted"
-                else:resources["volume_cleanup"][volume]=error.response["Error"]["Code"]
-        if resources.get("secret_created"):
-            ssm.delete_parameter(Name=parameter);resources["secret_deleted"]=True
-        resources["cleanup_verified"]=all(state(i)=="terminated" for i in resources["instances"]) and volume_safe and all(v=="deleted" for v in resources["volume_cleanup"].values())
-        resources["finished_epoch"]=time.time();save()
+        cleanup_cloud_resources(ec2,ssm,resources,wait_for,state)
+        save()
         put("controller-result.json",json.dumps(resources,indent=2).encode())
         log(dict(status=resources.get("status"),cleanup_verified=resources["cleanup_verified"],resources_file=str(args.output/"resources.json")))
 
