@@ -28,6 +28,14 @@ impl Server {
         mutation_response: Option<Value>,
         fill_pages: Vec<Value>,
     ) -> Self {
+        Self::with_open_rows(order_responses, mutation_response, fill_pages, json!([]))
+    }
+    fn with_open_rows(
+        order_responses: Vec<Value>,
+        mutation_response: Option<Value>,
+        fill_pages: Vec<Value>,
+        open_rows: Value,
+    ) -> Self {
         let listener = TcpListener::bind("127.0.0.1:0").unwrap();
         listener.set_nonblocking(true).unwrap();
         let base = format!("http://{}", listener.local_addr().unwrap());
@@ -41,7 +49,7 @@ impl Server {
         let count = actions.clone();
         let worker = thread::spawn(move || {
             let mut queries = 0usize;
-            while !stopped.load(Ordering::Acquire) {
+            'connections: while !stopped.load(Ordering::Acquire) {
                 let (mut stream, _) = match listener.accept() {
                     Ok(s) => s,
                     Err(e) if e.kind() == std::io::ErrorKind::WouldBlock => {
@@ -55,12 +63,16 @@ impl Server {
                     .unwrap();
                 let mut reader = BufReader::new(stream.try_clone().unwrap());
                 let mut line = String::new();
-                reader.read_line(&mut line).unwrap();
+                if reader.read_line(&mut line).unwrap() == 0 {
+                    continue 'connections;
+                }
                 let exchange = line.starts_with("POST /exchange ");
                 let mut length = 0;
                 loop {
                     line.clear();
-                    reader.read_line(&mut line).unwrap();
+                    if reader.read_line(&mut line).unwrap() == 0 {
+                        continue 'connections;
+                    }
                     if line == "\r\n" {
                         break;
                     }
@@ -95,7 +107,7 @@ impl Server {
                             queries += 1;
                             response
                         }
-                        Some("openOrders") => json!([]),
+                        Some("openOrders") => open_rows.clone(),
                         Some("userFillsByTime") => {
                             let n = reads.fetch_add(1, Ordering::AcqRel);
                             fill_pages[n.min(fill_pages.len() - 1)].clone()
@@ -888,4 +900,157 @@ fn poll_preserves_reconciled_no_attempt_proof_but_rejects_contradictory_fills() 
         "no-attempt proof must not hide any unowned execution"
     );
     assert_eq!(server.actions.load(Ordering::Acquire), 0);
+}
+
+#[test]
+fn current_open_snapshot_and_full_fills_resolve_stale_open_status_without_resend() {
+    let mut captured: Value = serde_json::from_str(include_str!(
+        "../../tests/fixtures/native/partial-open-snapshot.json"
+    ))
+    .unwrap();
+    let at = wall_ms();
+    captured["fills"][0]["time"] = at.into();
+    let server = Server::with_open_rows(
+        vec![captured["order_status"].clone()],
+        None,
+        vec![captured["fills"].clone()],
+        captured["open_orders"].clone(),
+    );
+    let dir = dir("current-open-partial");
+    let mut venue = server.venue(&dir);
+    venue.session.started_ms = at - 1;
+    let mut core = Core::new(super::super::runtime::config()).unwrap();
+    for event in [
+        Event::Heartbeat { epoch: 0 },
+        Event::Quote {
+            bid: 800000,
+            ask: 800000,
+        },
+        Event::Submit(intent()),
+    ] {
+        core.apply(&Envelope {
+            seq: core.seq + 1,
+            at,
+            event,
+        })
+        .unwrap();
+    }
+    let reports = venue.poll(&core).unwrap();
+    assert!(
+        reports
+            .iter()
+            .any(|r| matches!(r,Report::Fill(f) if f.qty==5))
+    );
+    assert!(
+        core.fills.is_empty(),
+        "only the durable writer may apply reports"
+    );
+    assert_eq!(server.actions.load(Ordering::Acquire), 0);
+    assert_eq!(server.fill_reads.load(Ordering::Acquire), 1);
+    for (execution_id, qty) in [(99, 5), (2, 10)] {
+        let mut known = core.clone();
+        known
+            .apply(&Envelope {
+                seq: known.seq + 1,
+                at,
+                event: Event::Execution {
+                    epoch: 0,
+                    venue_seq: 1,
+                    report: Report::Fill(Fill {
+                        execution_id,
+                        order_id: 1,
+                        qty,
+                        price: 800000,
+                    }),
+                },
+            })
+            .unwrap();
+        let before = known.clone();
+        assert!(
+            venue.poll(&known).is_err(),
+            "current snapshot must retain every already-known immutable fill"
+        );
+        assert_eq!(known, before);
+    }
+    assert_eq!(server.actions.load(Ordering::Acquire), 0);
+}
+
+#[test]
+fn current_open_snapshot_cannot_hide_missing_fills_or_override_identity_or_terminal_facts() {
+    let captured: Value = serde_json::from_str(include_str!(
+        "../../tests/fixtures/native/partial-open-snapshot.json"
+    ))
+    .unwrap();
+    let instrument = Instrument {
+        symbol: "BTC".into(),
+        asset: 3,
+        sz_decimals: 5,
+    };
+    let i = intent();
+    let remote = &captured["order_status"]["order"];
+    let open = captured["open_orders"].as_array().unwrap();
+    let normalized = current_open_status(&instrument, &i, remote, open).unwrap();
+    assert_eq!(
+        collect_order(
+            &instrument,
+            &i,
+            &normalized,
+            captured["fills"].as_array().unwrap()
+        )
+        .unwrap()
+        .0
+        .filled,
+        5
+    );
+    assert!(collect_order(&instrument, &i, &normalized, &[]).is_err());
+    assert!(current_open_status(&instrument, &i, remote, &[]).is_err());
+    assert!(
+        current_open_status(&instrument, &i, remote, &[open[0].clone(), open[0].clone()]).is_err()
+    );
+    for (field, value) in [
+        ("oid", json!(999)),
+        ("cloid", json!("foreign")),
+        ("coin", json!("ETH")),
+        ("side", json!("A")),
+        ("origSz", json!("0.0003")),
+        ("limitPx", json!("80001")),
+        ("timestamp", json!(2)),
+        ("sz", json!("0")),
+        ("sz", json!("0.00021")),
+    ] {
+        let mut wrong = open.clone();
+        wrong[0][field] = value;
+        assert!(
+            current_open_status(&instrument, &i, remote, &wrong).is_err(),
+            "accepted wrong {field}"
+        );
+    }
+    let mut ahead = remote.clone();
+    ahead["order"]["sz"] = "0.0001".into();
+    assert!(
+        current_open_status(&instrument, &i, &ahead, open).is_err(),
+        "must not regress a more advanced status"
+    );
+    for status in ["filled", "canceled", "rejected"] {
+        let mut terminal = remote.clone();
+        terminal["status"] = status.into();
+        assert!(current_open_status(&instrument, &i, &terminal, open).is_err());
+    }
+}
+
+#[test]
+fn mock_server_survives_peer_eof_before_or_during_headers() {
+    let server = Server::start(json!({"status":"unknownOid"}));
+    for prefix in ["", "POST /info HTTP/1.1\r\nHost: local\r\n"] {
+        let mut stream =
+            std::net::TcpStream::connect(server.base.strip_prefix("http://").unwrap()).unwrap();
+        stream.write_all(prefix.as_bytes()).unwrap();
+        stream.shutdown(std::net::Shutdown::Write).unwrap();
+    }
+    let dir = dir("peer-eof");
+    let venue = server.venue(&dir);
+    assert_eq!(
+        venue.http.info("userRole", json!({})).unwrap()["role"],
+        "agent"
+    );
 }

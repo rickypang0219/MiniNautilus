@@ -268,6 +268,13 @@
       "reason": "filled_lot_error_fraction=0.11623616236162361 exceeds0.05; native lifecycle completed and cleanup verified",
       "source_commit": "ac70f61e762f01310a36cec066d2fdafd9ec3b5a",
       "bundle_sha256": "8b8b15d3f040e94358306eb46dcf2697d52c4ae88ed9772a02f34fbef07d287a"
+    },
+    {
+      "run": "clock-v4",
+      "status": "FAIL",
+      "reason": "run2 groupedlot error8.1300813%>5%; native roots completed; controller finally discovery ResponseParserError after host termination; follow-up cleanup separately verified",
+      "source_commit": "edcc0546cecde6e74f4c196c266c2b635e0fa7cb",
+      "bundle_sha256": "407e1e9d3eebcbcb74060d01d1f2d51a36bc7413f3f927e6914eaf8cbf209cd4"
     }
   ],
   "original_recoveries": [
@@ -309,11 +316,11 @@
   ],
   "correspondence": {
     "status": "FAIL",
-    "collection_state": "v3 first900s completed then quantitative guard stopped later runs",
-    "source_commit": "ac70f61e762f01310a36cec066d2fdafd9ec3b5a",
+    "collection_state": "v4 run1 INCONCLUSIVE, run2 FAIL8.13%; frozen guard canceled run3; v5 adapter correction pending fresh data",
+    "source_commit": "edcc0546cecde6e74f4c196c266c2b635e0fa7cb",
     "manifest_sha256": "0214a196b5fc180ce5fd5d4447482125fead66c6a9292c0ff967a6f59d049dd4",
-    "next_manifest": "comparisons/native-readiness/closed-loop-v4.json",
-    "run": "clock-v3",
+    "next_manifest": "comparisons/native-readiness/closed-loop-v5.json",
+    "run": "clock-v4",
     "metrics": {
       "schema": 1,
       "status": "FAIL",
@@ -334,7 +341,147 @@
     },
     "native_lifecycle": "PASS_FIRST_900S",
     "cleanup_verified": true,
-    "raw_prefix": "s3://mininautilushost-artifacts82dd59a1-jimhxpumwqyb/native-readiness-20261018/mini-lifecycle-1792335340/"
+    "raw_prefix": "s3://mininautilushost-artifacts82dd59a1-jimhxpumwqyb/native-readiness-20261018/mini-lifecycle-1792336483/",
+    "v3": {
+      "status": "FAIL",
+      "collection_state": "v3 first900s completed then quantitative guard stopped later runs",
+      "source_commit": "ac70f61e762f01310a36cec066d2fdafd9ec3b5a",
+      "manifest_sha256": "0214a196b5fc180ce5fd5d4447482125fead66c6a9292c0ff967a6f59d049dd4",
+      "next_manifest": "comparisons/native-readiness/closed-loop-v4.json",
+      "run": "clock-v3",
+      "metrics": {
+        "schema": 1,
+        "status": "FAIL",
+        "distinct_strategy_bar_times": 24,
+        "actual_orders": 55,
+        "simulated_orders": 53,
+        "order_count_error_fraction": 0.03636363636363636,
+        "actual_lots": 1084,
+        "filled_lot_error_fraction": 0.11623616236162361,
+        "max_vwap_error_bps": 1.1086337936216601,
+        "uncovered_simulated_orders": 7,
+        "actual_nonfilled_ack_orders": 6,
+        "unknown_funding_settlements": 0,
+        "core_or_model_failures": 0,
+        "backtest_binary_sha256": "704ba76060af91d615eaa2e96723f574e8f2b409f696e82f7a39b9b894209d4a",
+        "analyzer_source_sha256": "d8ecb446784133474e8357c2e2168f7a6e3d8df79b753ec9f1134c871994079f",
+        "manifest_sha256": "0214a196b5fc180ce5fd5d4447482125fead66c6a9292c0ff967a6f59d049dd4"
+      },
+      "native_lifecycle": "PASS_FIRST_900S",
+      "cleanup_verified": true,
+      "raw_prefix": "s3://mininautilushost-artifacts82dd59a1-jimhxpumwqyb/native-readiness-20261018/mini-lifecycle-1792335340/"
+    },
+    "v4_trials": [
+      {
+        "run": 1,
+        "grade": "INCONCLUSIVE",
+        "metrics": {
+          "native_wall_seconds": 904.214160516,
+          "rotations": 26,
+          "native_orders": 56,
+          "native_unique_fills": 58,
+          "execution_recoveries": 1,
+          "rss_tree_peak_mib": 43.3125,
+          "minimum_target_refusals": 0,
+          "all_writer": {
+            "n": 17547,
+            "p50_ms": 0.018888,
+            "p99_ms": 0.042409,
+            "max_ms": 3.732482
+          },
+          "strategy_submit_writer": {
+            "n": 29,
+            "p50_ms": 3.502195,
+            "p99_ms": 3.732482,
+            "max_ms": 3.732482
+          },
+          "strategy_submit_sync": {
+            "n": 29,
+            "p50_ms": 3.484521,
+            "p99_ms": 3.714625,
+            "max_ms": 3.714625
+          },
+          "actual_net_cash_usdc": "-220609/500000",
+          "modeled_marked_net_usdc": "-220007/500000",
+          "modeled_minus_actual_net_usdc": "301/250000",
+          "modeled_end_positions": []
+        },
+        "score": {
+          "schema": 1,
+          "status": "INCONCLUSIVE",
+          "distinct_strategy_bar_times": 24,
+          "actual_orders": 56,
+          "simulated_orders": 56,
+          "order_count_error_fraction": 0.0,
+          "actual_lots": 1146,
+          "filled_lot_error_fraction": 0.0,
+          "max_vwap_error_bps": 1.4787248462742295,
+          "uncovered_simulated_orders": 1,
+          "actual_nonfilled_ack_orders": 1,
+          "unknown_funding_settlements": 0,
+          "core_or_model_failures": 0,
+          "backtest_binary_sha256": "704ba76060af91d615eaa2e96723f574e8f2b409f696e82f7a39b9b894209d4a",
+          "analyzer_source_sha256": "e777cb32d0c045172f094d64cccd5d4b72be6e9035f69a5c7e11ffbad410812b",
+          "manifest_sha256": "8f7d100ce34459c198d74f75aad82d698ba92351150474d3b82f798356866a43"
+        }
+      },
+      {
+        "run": 2,
+        "grade": "FAIL",
+        "metrics": {
+          "native_wall_seconds": 903.598480942,
+          "rotations": 26,
+          "native_orders": 56,
+          "native_unique_fills": 57,
+          "execution_recoveries": 5,
+          "rss_tree_peak_mib": 41.66015625,
+          "minimum_target_refusals": 1,
+          "all_writer": {
+            "n": 17722,
+            "p50_ms": 0.019185,
+            "p99_ms": 0.043689,
+            "max_ms": 3.791137
+          },
+          "strategy_submit_writer": {
+            "n": 29,
+            "p50_ms": 3.499256,
+            "p99_ms": 3.791137,
+            "max_ms": 3.791137
+          },
+          "strategy_submit_sync": {
+            "n": 29,
+            "p50_ms": 3.481497,
+            "p99_ms": 3.767586,
+            "max_ms": 3.767586
+          },
+          "actual_net_cash_usdc": "-392141/1000000",
+          "modeled_marked_net_usdc": "-38619/100000",
+          "modeled_minus_actual_net_usdc": "5951/1000000",
+          "modeled_end_positions": []
+        },
+        "score": {
+          "schema": 1,
+          "status": "FAIL",
+          "distinct_strategy_bar_times": 24,
+          "actual_orders": 56,
+          "simulated_orders": 54,
+          "order_count_error_fraction": 0.03571428571428571,
+          "actual_lots": 984,
+          "filled_lot_error_fraction": 0.08130081300813008,
+          "max_vwap_error_bps": 1.1096726465692621,
+          "uncovered_simulated_orders": 6,
+          "actual_nonfilled_ack_orders": 6,
+          "unknown_funding_settlements": 0,
+          "core_or_model_failures": 0,
+          "backtest_binary_sha256": "704ba76060af91d615eaa2e96723f574e8f2b409f696e82f7a39b9b894209d4a",
+          "analyzer_source_sha256": "e777cb32d0c045172f094d64cccd5d4b72be6e9035f69a5c7e11ffbad410812b",
+          "manifest_sha256": "8f7d100ce34459c198d74f75aad82d698ba92351150474d3b82f798356866a43"
+        }
+      }
+    ],
+    "v4_unique_fills": 115,
+    "original_controller_cleanup_verified": false,
+    "followup_cleanup_verified": true
   },
   "long_qualification": {
     "status": "BLOCKED",
@@ -352,5 +499,5 @@
     "strategy resets at flat segment boundaries; no continuous PCA validation",
     "cold archive/retention, persistent human stop, upgrade/rollback and alert exercises remain unaccepted"
   ],
-  "updated_utc": "2026-10-18T15:14:36.922126+00:00"
+  "updated_utc": "2026-10-18T16:21:14.981930+00:00"
 }

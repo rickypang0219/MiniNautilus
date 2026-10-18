@@ -970,6 +970,7 @@ impl Venue {
     fn poll_orders(&mut self, core: &Core, all: &[Value]) -> Result<Vec<Report>> {
         let mut reports = Vec::new();
         let mut owned = BTreeSet::new();
+        let mut current_open = None;
         for o in core.orders.values() {
             // Only an already reconciled rejection may reuse the explicit
             // durable no-attempt proof. The complete history ownership check
@@ -981,7 +982,7 @@ impl Venue {
             {
                 continue;
             }
-            let raw = if let Some(fact) = self.terminal_facts.get(&o.intent.id) {
+            let mut raw = if let Some(fact) = self.terminal_facts.get(&o.intent.id) {
                 if fact.order.intent != o.intent
                     || fact.order.filled != o.filled
                     || fact.order.lifecycle != o.lifecycle
@@ -997,8 +998,68 @@ impl Venue {
             } else {
                 self.query(&o.intent)?
             };
-            let (remote, fills, ids) =
-                collect_order(&self.session.instrument, &o.intent, &raw, all)?;
+            let collected = collect_order(&self.session.instrument, &o.intent, &raw, all);
+            let (remote, fills, ids) = match collected {
+                Err(error)
+                    if raw["status"] == "open"
+                        && error
+                            .downcast_ref::<std::io::Error>()
+                            .is_some_and(|e| e.kind() == std::io::ErrorKind::WouldBlock) =>
+                {
+                    if current_open.is_none() {
+                        current_open = Some(self.open_orders()?);
+                    }
+                    let open = current_open.as_ref().unwrap();
+                    for row in open {
+                        if row["coin"] != self.session.instrument.symbol
+                            || !core
+                                .orders
+                                .keys()
+                                .any(|id| row["cloid"] == self.session.cloid(*id))
+                        {
+                            return Err(fail("foreign current open order"));
+                        }
+                        if core.orders.keys().any(|id| {
+                            self.locally_unsent(core, *id)
+                                && row["cloid"] == self.session.cloid(*id)
+                        }) {
+                            return Err(fail("current open order contradicts no-attempt proof"));
+                        }
+                    }
+                    let normalized =
+                        current_open_status(&self.session.instrument, &o.intent, &raw, open)?;
+                    for fill in all.iter().filter(|f| f["oid"] == raw["order"]["oid"]) {
+                        if fill["cloid"] != raw["order"]["cloid"] {
+                            return Err(fail("current snapshot fill cloid mismatch"));
+                        }
+                    }
+                    let verified =
+                        collect_order(&self.session.instrument, &o.intent, &normalized, all)?;
+                    if verified.0.filled < o.filled
+                        || core
+                            .fills
+                            .values()
+                            .filter(|f| f.order_id == o.intent.id)
+                            .any(|f| {
+                                f.execution_id == 0 || !verified.2.contains(&(f.execution_id - 1))
+                            })
+                        || verified.1.iter().any(|f| {
+                            core.fills
+                                .get(&f.execution_id)
+                                .is_some_and(|known| known != f)
+                        })
+                    {
+                        return Err(fail("current open snapshot drops or changes known fills"));
+                    }
+                    if let Some(recorder) = &self.http.recorder {
+                        recorder.append(json!({"kind":"open_remaining_proof","at_ms":wall_ms(),"order_id":o.intent.id,
+                            "status_remaining":raw["order"]["sz"],"current_remaining":normalized["order"]["sz"],"filled_lots":verified.0.filled}))?;
+                    }
+                    raw = normalized;
+                    verified
+                }
+                result => result?,
+            };
             owned.extend(ids);
             if remote.lifecycle.terminal()
                 && remote.lifecycle == o.lifecycle
@@ -1160,6 +1221,66 @@ pub fn lifecycle(s: &str, filled: i64) -> Result<Lifecycle> {
         _ => return Err(fail("unsupported lifecycle")),
     })
 }
+/// A current open-order row may advance an older open status, never regress it.
+/// The caller must still require complete fills to equal this remaining size.
+fn current_open_status(
+    instrument: &Instrument,
+    intent: &Intent,
+    remote: &Value,
+    open: &[Value],
+) -> Result<Value> {
+    if remote["status"] != "open" {
+        return Err(fail("current snapshot cannot override terminal status"));
+    }
+    let original = &remote["order"];
+    let oid = number(&original["oid"])?;
+    let matches: Vec<_> = open
+        .iter()
+        .filter(|row| row["oid"].as_u64() == Some(oid))
+        .collect();
+    if matches.is_empty() {
+        return Err(std::io::Error::new(
+            std::io::ErrorKind::WouldBlock,
+            "current open order not visible; absence unresolved",
+        )
+        .into());
+    }
+    if matches.len() != 1
+        || open
+            .iter()
+            .filter(|row| row["cloid"] == original["cloid"])
+            .count()
+            != 1
+    {
+        return Err(fail("duplicate current open order"));
+    }
+    let row = matches[0];
+    if row["cloid"] != original["cloid"]
+        || row["coin"] != instrument.symbol
+        || row["side"] != if intent.side == Side::Buy { "B" } else { "A" }
+        || instrument.size(&row["origSz"])? != intent.qty
+        || instrument.price(&row["limitPx"])? != intent.limit
+        || number(&row["timestamp"])? != number(&original["timestamp"])?
+    {
+        return Err(fail("current open order identity/terms mismatch"));
+    }
+    let remaining = units(dec(&row["sz"])?, instrument.lot())?;
+    let older = units(dec(&original["sz"])?, instrument.lot())?;
+    if remaining <= 0 || remaining > intent.qty {
+        return Err(fail("current open order remaining size"));
+    }
+    if remaining > older {
+        return Err(std::io::Error::new(
+            std::io::ErrorKind::WouldBlock,
+            "current snapshot would regress known fills",
+        )
+        .into());
+    }
+    let mut normalized = remote.clone();
+    normalized["order"]["sz"] = row["sz"].clone();
+    Ok(normalized)
+}
+
 pub fn collect_order(
     instrument: &Instrument,
     i: &Intent,

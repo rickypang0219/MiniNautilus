@@ -1,0 +1,47 @@
+{
+  "provenance": {
+    "run": "clock-v4/run2/segment8",
+    "source_observations_sha256": "32a1933f706c7cdbd49a3810b4f3891281a236166977ecc499f7f4b1c68ceb98",
+    "normalization": "synthetic identifiers, price80000 and timestamps; observed20/15/5 quantities and status pattern retained"
+  },
+  "order_status": {
+    "status": "order",
+    "order": {
+      "status": "open",
+      "order": {
+        "oid": 123,
+        "cloid": "0x0123456789abcdef0000000000000001",
+        "coin": "BTC",
+        "side": "B",
+        "origSz": "0.0002",
+        "sz": "0.0002",
+        "limitPx": "80000",
+        "timestamp": 1
+      }
+    }
+  },
+  "open_orders": [
+    {
+      "oid": 123,
+      "cloid": "0x0123456789abcdef0000000000000001",
+      "coin": "BTC",
+      "side": "B",
+      "origSz": "0.0002",
+      "sz": "0.00015",
+      "limitPx": "80000",
+      "timestamp": 1
+    }
+  ],
+  "fills": [
+    {
+      "time": 1,
+      "oid": 123,
+      "cloid": "0x0123456789abcdef0000000000000001",
+      "coin": "BTC",
+      "side": "B",
+      "tid": 1,
+      "sz": "0.00005",
+      "px": "80000"
+    }
+  ]
+}

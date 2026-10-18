@@ -61,3 +61,29 @@ The next v4 correction and its exact boundary are documented in
 [initial admission replay](native-initial-admission-replay.md). It adds a once-only,
 target-independent empty-bootstrap readiness operating input; it does not refit
 latencies or claim later live gates are simulated. Fresh v4 collection is pending.
+
+
+## V4 result and identified adapter defect
+
+Both900s native roots completed:112orders,115unique actual fills,52rotations;
+independent actual/Core cash and position error0. Run1:56/56orders,0groupedlot/count
+error,maxVWAP1.47872bps,1uncovered modeled/1nonfullactualACK => INCONCLUSIVE.
+Run2:56/54orders,8.13008%groupedlot error,maxVWAP1.10967bps,6/6uncovered cases
+=> FAIL. The guard canceled run3. Pooling the runs cannot override that failure.
+The same-data readiness ablation on run1 changes maxVWAP2.21762->1.47872bps;
+it leaves lot/count error0 in both, so different-period lot figures are not a
+causal improvement claim.
+
+All run2 lot discrepancies occurred in three recovery/cancel episodes. Captured
+orderStatus showed original20lots while current openOrders showed15remaining and
+complete fills proved5executed. The adapter's premature recovery invalidated the
+strategy target and canceled early. The cause-specific correction, strict extra
+proof and new frozen v5 are described in [partial open snapshot](native-partial-open-snapshot.md).
+No model clocks or score thresholds were retuned.
+
+V4 account cleanup passed, but the controller's subsequent volume discovery failed
+on a cloud-proxy nonXML response. Its original resource record remains incomplete;
+a targeted fresh follow-up verified flat/noorders, terminated host, deleted both
+EBS and temporary secret. The patched cleanup helper passed fault tests, full
+verify and idempotent real-AWS re-verification; failed discovery cannot skip other
+cleanup and cannot be called fully verified. No task host was left idle during fixes.
