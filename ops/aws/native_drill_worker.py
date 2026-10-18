@@ -60,6 +60,114 @@ def recovered_fill_proof(state, session, observations):
     return dict(unique_fills=len(unique),filled_lots_by_order=totals,position=0)
 
 
+def durable_tree(root):
+    """Financial/control evidence only; observation logs are separately archived."""
+    selected = [p for p in root.rglob('*') if p.is_file() and not p.is_symlink()
+                and (p.name in ('current.json','policy.json','session.json','actions.jsonl','prepared.json','seal.json','run-report.json')
+                     or p.name.startswith('journal-') or p.name.endswith('.cold'))]
+    return {str(p.relative_to(root)):dict(bytes=p.stat().st_size,sha256=sha(p)) for p in selected}
+
+
+def verify_tree(root, inventory, append_current):
+    pointer=json.loads((root/'current.json').read_text()).get('payload',{}) if (root/'current.json').read_text().startswith('{') else {}
+    active=f"journal-{pointer.get('index',1):06}.jsonl"
+    actions=f"segment-{pointer.get('index',1):06}/actions.jsonl"
+    for name, receipt in inventory.items():
+        path=root/name
+        if not path.is_file():raise ValueError('original durable file missing: '+name)
+        data=path.read_bytes()
+        if append_current and name in (active,actions):data=data[:receipt['bytes']]
+        if len(data)!=receipt['bytes'] or hashlib.sha256(data).hexdigest()!=receipt['sha256']:
+            raise ValueError('original durable bytes changed: '+name)
+
+
+def session_fill_proof(state, session, observations):
+    """Generic terminal session bijection, independent of fill cardinality."""
+    if state['position'] or session['instrument']!={'symbol':'BTC','asset':session['instrument']['asset'],'sz_decimals':5}:
+        raise ValueError('unsupported/nonflat session')
+    facts={}
+    for row in observations:
+        tid=row['tid']
+        if type(tid) is not int or tid<0 or (tid in facts and facts[tid]!=row):raise ValueError('changed execution')
+        facts[tid]=row
+    if set(state['fills'])!={str(t+1) for t in facts}:raise ValueError('missing/extra execution')
+    totals={int(k):0 for k in state['orders']};oids={}
+    for tid,row in facts.items():
+        f=state['fills'][str(tid+1)];i=f['order_id'];o=state['orders'][str(i)]
+        if (f['execution_id']!=tid+1 or f['qty']<=0 or f['price']<=0 or row['coin']!='BTC'
+            or row['cloid']!='0x'+session['session']+f'{i:016x}'
+            or row['side']!=('B' if o['intent']['side']=='Buy' else 'A')
+            or Fraction(row['sz'])!=Fraction(f['qty'],100000) or Fraction(row['px'])!=Fraction(f['price'],10)
+            or type(row['oid']) is not int or row['oid']<=0 or oids.get(i,row['oid'])!=row['oid']):raise ValueError('execution identity/terms')
+        oids[i]=row['oid'];totals[i]+=f['qty']
+    for key,o in state['orders'].items():
+        i=int(key)
+        if (o['intent']['id']!=i or totals[i]!=o['filled'] or not 0<=o['filled']<=o['intent']['qty']
+            or o['lifecycle'] not in ('Filled','Canceled','Rejected') or o['pending'] is not None or o['uncertain']
+            or (o['lifecycle']=='Filled' and o['filled']!=o['intent']['qty'])):raise ValueError('terminal quantity/state')
+    if len(set(oids.values()))!=len(oids) or sum(totals[int(k)]*(1 if o['intent']['side']=='Buy' else -1) for k,o in state['orders'].items()):raise ValueError('identity/position conservation')
+    return dict(unique_fills=len(facts),filled_lots_by_order=totals,position=0)
+
+
+def crash_rotated(native):
+    directory=STATE/'rotation-takeover'
+    command=[native,'lifecycle','--run-dir',str(directory),'--seconds','900','--rotate-orders','4',
+             '--rotate-seconds','60','--rotation-flatten','--flatten','--python-strategy']
+    with (STATE/'rotated-active.log').open('x') as log:
+        process=subprocess.Popen(command,cwd=ROOT,stdout=log,stderr=subprocess.STDOUT,start_new_session=True)
+        started=time.monotonic();found=None
+        try:
+            while process.poll() is None and time.monotonic()-started<300:
+                pointer_path=directory/'current.json'
+                if pointer_path.exists():
+                    pointer=json.loads(pointer_path.read_text())['payload']
+                    segment=directory/f"segment-{pointer['index']:06}"
+                    if pointer['index']>=1 and pointer['phase']=='active' and (segment/'actions.jsonl').exists():
+                        actual=account(False)
+                        if actual['positions']:
+                            found=dict(pointer=pointer,account=actual);break
+                time.sleep(1)
+            if found is None:raise ValueError('no active successor exposure within frozen deadline')
+        finally:
+            if process.poll() is None:
+                import signal
+                os.killpg(process.pid,signal.SIGKILL)
+            code=process.wait()
+        if code!=-9:raise ValueError('expected SIGKILL of active lifecycle')
+    found.update(exit=code,killed_at_ms=time.time_ns()//1000000,durable_tree=durable_tree(directory))
+    with (STATE/'rotated-crash-receipt.json').open('x') as stream:
+        json.dump(found,stream,indent=2);stream.flush();os.fsync(stream.fileno())
+    subprocess.run(['sync','-f',str(STATE)],check=True)
+    return found
+
+
+def recover_rotated(native):
+    directory=STATE/'rotation-takeover'
+    receipt=json.loads((STATE/'rotated-crash-receipt.json').read_text())
+    verify_tree(directory,receipt['durable_tree'],False)
+    started=time.monotonic()
+    code=execute([native,'recover-lifecycle','--run-dir',str(directory),'--flatten'],'rotated-host-recovery',180)
+    if code:raise ValueError('original rotated root recovery failed')
+    verify_tree(directory,receipt['durable_tree'],True)
+    pointer=json.loads((directory/'current.json').read_text())['payload']
+    segment=directory/f"segment-{pointer['index']:06}"
+    state=json.loads(subprocess.check_output([str(ROOT/'target/release/mininautilus'),'inspect',str(segment/'journal.jsonl')],text=True))
+    rows=[json.loads(line) for p in segment.glob('*observations*.jsonl') for line in p.read_text().splitlines()]
+    fills=[f for r in rows if r['kind']=='http' and r['request'].get('type')=='userFillsByTime' for f in r['response']]
+    funding=[f for r in rows if r['kind']=='http' and r['request'].get('type')=='userFunding' for f in r['response']]
+    import sys
+    sys.path.insert(0,str(ROOT/'ops'))
+    from live_correspondence import ledger,decimal
+    proof=session_fill_proof(state,json.loads((segment/'session.json').read_text()),fills)
+    independent=ledger(fills,funding)
+    report=json.loads(sorted(segment.glob('recovery-[0-9]*.json'))[-1].read_text())
+    for key,value in independent.items():
+        if key in report['ledger'] and abs(value-Fraction(report['ledger'][key]))>Fraction(1,10**6):raise ValueError('independent ledger discrepancy')
+    return dict(exit=code,recovery_seconds=time.monotonic()-started,after=account(True),fill_proof=proof,
+                independent_ledger={k:decimal(v) for k,v in independent.items()},
+                original_files=len(receipt['durable_tree']),rotations=pointer['index'],original_prefixes_preserved=True)
+
+
 def completed_root(directory):
     report_path=directory/"lifecycle-report.json"
     pointer_path=directory/"current.json"
@@ -156,7 +264,7 @@ def mount(volume, initialize):
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("phase",choices=["mount","rotation","crash","recover","inspect","cleanup"])
+    parser.add_argument("phase",choices=["mount","rotation","crash","recover","crash-rotated","recover-rotated","fixture","inspect","cleanup"])
     parser.add_argument("--volume")
     parser.add_argument("--initialize",action="store_true")
     args = parser.parse_args()
@@ -181,7 +289,19 @@ def main():
     native = str(ROOT/"target/release/native-live")
     evidence = dict(phase=args.phase,started_ms=time.time_ns()//1000000)
     try:
-        if args.phase == "rotation":
+        if args.phase == "fixture":
+            code=execute([str(ROOT/'target/release/native-tests'),'--exact','native::venue::tests::eight_hundred_verified_terminal_facts_plus_four_active_query_only_four_statuses','--nocapture'],'terminal-cache-fixture',30)
+            if code:raise ValueError('800 terminal + 4 active fixture failed')
+            text=(STATE/'terminal-cache-fixture.log').read_text()
+            metrics=[line.split('terminal_cache_fixture=',1)[1] for line in text.splitlines() if 'terminal_cache_fixture=' in line]
+            if len(metrics)!=1:raise ValueError('fixture did not execute exactly once')
+            evidence['metrics']=json.loads(metrics[0])
+        elif args.phase == "crash-rotated":
+            evidence['before']=account(True)
+            evidence['crash']=crash_rotated(native)
+        elif args.phase == "recover-rotated":
+            evidence.update(recover_rotated(native))
+        elif args.phase == "rotation":
             evidence["before"] = account(True)
             for index in (1,2):
                 name = f"rotation-{index}"

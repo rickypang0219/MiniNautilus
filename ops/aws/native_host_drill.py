@@ -35,7 +35,9 @@ def main():
     parser.add_argument("--verify-log",type=Path,required=True)
     parser.add_argument("--host-first",action="store_true",help="collect independent host-recovery evidence before the two live runs")
     parser.add_argument("--host-only",action="store_true",help="repeat retained-EBS recovery without the two rotation runs")
+    parser.add_argument("--rotated-root",action="store_true",help="kill an exposed successor after rotation and recover its complete retained root")
     args=parser.parse_args()
+    if args.rotated_root and not args.host_only:raise ValueError("rotated-root drill requires --host-only")
     if not args.verify_log.read_text().rstrip().endswith("VERIFY OK"):
         raise ValueError("full verify must finish before launch")
     build=json.loads(args.bundle_receipt.read_text());bundle=Path(build["path"])
@@ -50,9 +52,9 @@ def main():
     session=boto3.Session(region_name="ap-northeast-1")
     ec2=session.client("ec2",config=sdk);ssm=session.client("ssm",config=sdk)
     s3=session.client("s3",endpoint_url="https://s3.ap-northeast-1.amazonaws.com",config=Config(connect_timeout=8,read_timeout=60,retries={"max_attempts":2},s3={"addressing_style":"path"}))
-    token="mini-lifecycle-"+str(int(time.time()));prefix="native-readiness-20261017/"+token
+    token="mini-lifecycle-"+str(int(time.time()));prefix="native-readiness-"+time.strftime('%Y%m%d',time.gmtime())+"/"+token
     parameter="/mininautilus/temporary/"+token
-    resources=dict(token=token,region="ap-northeast-1",prefix=prefix,bucket=config["bucket"],instances=[],root_volumes=[],data_volume=None,build=build,cleanup_verified=False,flat_verified=False,verify_sha256=sha(args.verify_log),host_first=args.host_first,host_only=args.host_only,controller_sha256=sha(Path(__file__)),started=time.time())
+    resources=dict(token=token,region="ap-northeast-1",prefix=prefix,bucket=config["bucket"],instances=[],root_volumes=[],data_volume=None,build=build,cleanup_verified=False,flat_verified=False,verify_sha256=sha(args.verify_log),host_first=args.host_first,host_only=args.host_only,rotated_root=args.rotated_root,controller_sha256=sha(Path(__file__)),started=time.time())
     task=dict(bucket=config["bucket"],prefix=prefix,secret_parameter=parameter,bundle_sha256=build["sha256"])
     def save():
         (args.output/"resources.json").write_text(json.dumps(resources,indent=2))
@@ -156,9 +158,10 @@ BOOT
                 elif mapping["Ebs"]["VolumeId"] not in resources["root_volumes"]:resources["root_volumes"].append(mapping["Ebs"]["VolumeId"])
             save();volume=resources["data_volume"]
         command(active,"mount --volume "+volume+" --initialize",120);mounted=True
+        if args.rotated_root:command(active,"fixture",60)
         begin_signed_phase(resources);save()
         if not args.host_first and not args.host_only:command(active,"rotation",2400)
-        command(active,"crash",180);resources["potential_exposure"]=True;save()
+        command(active,"crash-rotated" if args.rotated_root else "crash",420);resources["potential_exposure"]=True;save()
         loss_started=time.monotonic();resources["host_loss_started_epoch"]=time.time();save()
         old=active;terminate(old);active=None;mounted=False
         # No replacement may start until EC2 proves the old signer is terminated.
@@ -169,7 +172,7 @@ BOOT
         ec2.attach_volume(VolumeId=volume,InstanceId=active,Device="/dev/sdf")
         wait_for(lambda:ec2.describe_volumes(VolumeIds=[volume])["Volumes"][0]["State"]=="in-use",120,"retained EBS attach")
         command(active,"mount --volume "+volume,120);mounted=True
-        command(active,"recover",240)
+        command(active,"recover-rotated" if args.rotated_root else "recover",240)
         resources["host_loss_to_recovered_seconds"]=time.monotonic()-loss_started
         resources["flat_verified"]=True;resources["potential_exposure"]=False;save()
         resources["status"]="PASS" if resources["host_loss_to_recovered_seconds"]<=300 else "FAIL_RTO"

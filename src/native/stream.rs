@@ -166,7 +166,8 @@ async fn subscribe_and_read(
     publish: &mut impl FnMut(Observation, Instant) -> Result<()>,
 ) -> Result<bool> {
     let mut subscriptions = vec![
-        json!({"type":"l2Book","coin":instrument.symbol,"nSigFigs":null,"mantissa":null,"fast":false}),
+        json!({"type":"l2Book","coin":instrument.symbol,"nSigFigs":null,"mantissa":null,"fast":true}),
+        json!({"type":"trades","coin":instrument.symbol}),
     ];
     if let Some(user) = account {
         let user = user.to_ascii_lowercase();
@@ -250,7 +251,21 @@ async fn subscribe_and_read(
                     received,
                 )?;
             }
-            Some("orderUpdates" | "userFills") if subscriptions.len() > 1 => {
+            Some("trades") => {
+                for trade in super::venue::rows(&event["data"])? {
+                    if trade["coin"] != instrument.symbol
+                        || !matches!(trade["side"].as_str(), Some("B" | "A"))
+                    {
+                        return Err(fail("public trade identity/side"));
+                    }
+                    instrument.price(&trade["px"])?;
+                    instrument.size(&trade["sz"])?;
+                    number(&trade["time"])?;
+                    number(&trade["tid"])?;
+                }
+                // Evidence for the offline matcher only, never invent a private fill.
+            }
+            Some("orderUpdates" | "userFills") if subscriptions.len() > 2 => {
                 publish(Observation::PrivateWake, received)?
             }
             Some("pong") => {}
@@ -321,17 +336,19 @@ mod tests {
                 let server = tokio::spawn(async move {
                     let (socket, _) = listener.accept().await.unwrap();
                     let mut peer = tokio_tungstenite::accept_async(socket).await.unwrap();
-                    let request: Value = serde_json::from_str(
-                        peer.next().await.unwrap().unwrap().to_text().unwrap(),
-                    )
-                    .unwrap();
-                    peer.send(Message::Text(
-                        json!({"channel":"subscriptionResponse","data":request})
-                            .to_string()
-                            .into(),
-                    ))
-                    .await
-                    .unwrap();
+                    for _ in 0..2 {
+                        let request: Value = serde_json::from_str(
+                            peer.next().await.unwrap().unwrap().to_text().unwrap(),
+                        )
+                        .unwrap();
+                        peer.send(Message::Text(
+                            json!({"channel":"subscriptionResponse","data":request})
+                                .to_string()
+                                .into(),
+                        ))
+                        .await
+                        .unwrap();
+                    }
                     peer.close(Some(CloseFrame {
                         code: CloseCode::Normal,
                         reason: reason.into(),

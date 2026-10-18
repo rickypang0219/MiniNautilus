@@ -81,3 +81,32 @@ class NativeDrillTest(unittest.TestCase):
                         dict(position=0,segments=[dict(cleanup_verified=False,failed=True)])]:
                 (root/"lifecycle-report.json").write_text(json.dumps(bad))
                 self.assertFalse(worker.completed_root(root))
+
+    def test_rotated_tree_proof_requires_every_original_file_and_append_prefix(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root=Path(directory);(root/'segment-000001').mkdir()
+            (root/'current.json').write_text('pointer')
+            (root/'journal-000000.jsonl').write_text('closed\n')
+            (root/'journal-000001.jsonl').write_text('genesis\n')
+            (root/'segment-000001/actions.jsonl').write_text('intent\n')
+            inventory=worker.durable_tree(root)
+            worker.verify_tree(root,inventory,False)
+            with (root/'journal-000001.jsonl').open('a') as f:f.write('recovered\n')
+            with self.assertRaises(ValueError):worker.verify_tree(root,inventory,False)
+            worker.verify_tree(root,inventory,True)
+            (root/'journal-000000.jsonl').write_text('changed\n')
+            with self.assertRaises(ValueError):worker.verify_tree(root,inventory,True)
+
+    def test_generic_rotated_proof_accepts_nonzero_id_floor_and_terminal_unfilled_orders(self):
+        session=dict(session='0123456789abcdef',instrument=dict(symbol='BTC',asset=0,sz_decimals=5))
+        orders={str(i):dict(intent=dict(id=i,side=side,qty=20),filled=n,lifecycle=lc,pending=None,uncertain=False)
+                for i,side,n,lc in [(5,'Buy',20,'Filled'),(6,'Sell',0,'Canceled'),(7,'Sell',20,'Filled')]}
+        fills={str(t+1):dict(execution_id=t+1,order_id=i,qty=20,price=800000) for t,i in [(101,5),(102,7)]}
+        state=dict(position=0,orders=orders,fills=fills)
+        raw=[dict(tid=t,oid=i+100,cloid='0x'+session['session']+f'{i:016x}',coin='BTC',side=side,sz='0.0002',px='80000')
+             for t,i,side in [(101,5,'B'),(102,7,'A')]]
+        self.assertEqual(worker.session_fill_proof(state,session,raw)['unique_fills'],2)
+        for key,value in [('cloid','foreign'),('px','80001'),('sz','0.0001')]:
+            bad=copy.deepcopy(raw);bad[0][key]=value
+            with self.assertRaises(ValueError):worker.session_fill_proof(state,session,bad)
+        with self.assertRaises(ValueError):worker.session_fill_proof(state,session,raw[:1])

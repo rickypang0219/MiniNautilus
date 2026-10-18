@@ -913,6 +913,7 @@ pub fn run_segment(dir: &Path, options: Options, segment: Option<&Segment>) -> R
         let account = session.as_ref().map(|s| s.account.clone());
         let recorder = recorder.clone();
         thread::spawn(move || {
+            let recording_origin = Instant::now();
             let result: Result<()> = (|| {
                 let rt = tokio::runtime::Builder::new_current_thread()
                     .enable_all()
@@ -924,7 +925,7 @@ pub fn run_segment(dir: &Path, options: Options, segment: Option<&Segment>) -> R
                     account,
                     stop,
                     |event, received| match event {
-                        Observation::Raw(event) => recorder.append(json!({"kind":"ws","received_ms":wall_ms(),"generation":generation,"message":event})),
+                        Observation::Raw(event) => recorder.append(json!({"kind":"ws","received_ms":wall_ms(),"received_mono_ns":received.duration_since(recording_origin).as_nanos() as u64,"generation":generation,"message":event})),
                         Observation::Quote {
                             bid,
                             ask,

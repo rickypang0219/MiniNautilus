@@ -84,8 +84,14 @@ impl Server {
                         }
                         Some("orderStatus") => {
                             seen_queries.lock().unwrap().push(request["oid"].clone());
-                            let response =
+                            let mut response =
                                 order_responses[queries.min(order_responses.len() - 1)].clone();
+                            if response == "echoOpen" {
+                                let cloid = request["oid"].as_str().unwrap();
+                                let id =
+                                    u64::from_str_radix(&cloid[cloid.len() - 16..], 16).unwrap();
+                                response = json!({"status":"order","order":{"status":"open","order":{"oid":id,"cloid":cloid,"coin":"BTC","side":"B","origSz":"0.0002","sz":"0.0002","limitPx":"80000"}}});
+                            }
                             queries += 1;
                             response
                         }
@@ -151,6 +157,7 @@ impl Server {
             last_ledger: None,
             last_request: Instant::now() - Duration::from_secs(1),
             resolve_unattempted: false,
+            terminal_facts: BTreeMap::new(),
         }
     }
 }
@@ -606,4 +613,144 @@ fn cancel_race_response_cannot_prove_an_open_order_terminal() {
     assert_eq!(venue.attempts.entries.len(), 1);
     drop(venue);
     std::fs::remove_dir_all(dir).unwrap();
+}
+
+#[test]
+fn repeated_poll_reuses_only_core_verified_terminal_order_status() {
+    let response = json!({"status":"order","order":{"status":"canceled","order":{"oid":123,"cloid":"0x0123456789abcdef0000000000000001","coin":"BTC","side":"B","origSz":"0.0002","sz":"0.0002","limitPx":"80000"}}});
+    let server = Server::start(response);
+    let directory = dir("terminal-cache");
+    let mut venue = server.venue(&directory);
+    let mut core = Core::new(super::super::runtime::config()).unwrap();
+    core.orders.insert(
+        1,
+        Order {
+            intent: intent(),
+            filled: 0,
+            lifecycle: Lifecycle::Canceled,
+            pending: None,
+            deadline: None,
+            uncertain: false,
+        },
+    );
+    venue.poll(&core).unwrap();
+    venue.poll(&core).unwrap();
+    assert_eq!(
+        server.order_queries.lock().unwrap().len(),
+        1,
+        "a verified immutable terminal fact needs no second regular status RPC"
+    );
+    assert_eq!(
+        server.fill_reads.load(Ordering::Acquire),
+        2,
+        "complete fill history must still be checked on every poll"
+    );
+}
+
+#[test]
+fn eight_hundred_verified_terminal_facts_plus_four_active_query_only_four_statuses() {
+    let server = Server::start(json!("echoOpen"));
+    let directory = dir("800-terminal-4-active");
+    let mut venue = server.venue(&directory);
+    let mut core = Core::new(super::super::runtime::config()).unwrap();
+    for id in 1..=804 {
+        let mut i = intent();
+        i.id = id;
+        let terminal = id <= 800;
+        let order = Order {
+            intent: i.clone(),
+            filled: 0,
+            lifecycle: if terminal {
+                Lifecycle::Canceled
+            } else {
+                Lifecycle::Accepted
+            },
+            pending: None,
+            deadline: None,
+            uncertain: false,
+        };
+        if terminal {
+            let remote = json!({"status":"canceled","order":{"oid":id,"cloid":venue.session.cloid(id),"coin":"BTC","side":"B","origSz":"0.0002","sz":"0.0002","limitPx":"80000"}});
+            // The same complete, terms-verified fact used to populate reconciliation's cache.
+            let (fact, _, _) = collect_order(&venue.session.instrument, &i, &remote, &[]).unwrap();
+            venue.remember_terminal(fact, remote, &[]).unwrap();
+        }
+        core.orders.insert(id, order);
+    }
+    let started = Instant::now();
+    venue.poll(&core).unwrap();
+    let queries = server.order_queries.lock().unwrap().clone();
+    assert_eq!(queries.len(), 4);
+    assert_eq!(server.fill_reads.load(Ordering::Acquire), 1);
+    assert_eq!(server.actions.load(Ordering::Acquire), 0);
+    println!(
+        "terminal_cache_fixture={{\"terminal\":800,\"active\":4,\"status_queries\":{},\"elapsed_seconds\":{}}}",
+        queries.len(),
+        started.elapsed().as_secs_f64()
+    );
+    // A corrupt cache or a contradictory local order must stop, not silently fall back.
+    venue.terminal_facts.get_mut(&1).unwrap().proof_sha256 = "corrupt".into();
+    assert!(
+        venue
+            .poll(&core)
+            .unwrap_err()
+            .to_string()
+            .contains("proof mismatch")
+    );
+}
+
+#[test]
+fn terminal_cache_rejects_cross_poll_fee_changes_missing_fills_and_foreign_fills() {
+    let server = Server::start(json!("echoOpen"));
+    let directory = dir("cached-fill-integrity");
+    let mut venue = server.venue(&directory);
+    let mut i = intent();
+    i.id = 1;
+    let raw = json!({"status":"filled","order":{"oid":1,"cloid":venue.session.cloid(1),"coin":"BTC","side":"B","origSz":"0.0002","sz":"0","limitPx":"80000"}});
+    let fill = json!({"tid":1,"oid":1,"time":wall_ms(),"coin":"BTC","side":"B","sz":"0.0002","px":"80000","fee":"0.01","feeToken":"USDC"});
+    let (fact, fills, _) = collect_order(
+        &venue.session.instrument,
+        &i,
+        &raw,
+        std::slice::from_ref(&fill),
+    )
+    .unwrap();
+    let mut core = Core::new(super::super::runtime::config()).unwrap();
+    core.orders.insert(
+        1,
+        Order {
+            intent: i,
+            filled: 20,
+            lifecycle: Lifecycle::Filled,
+            pending: None,
+            deadline: None,
+            uncertain: false,
+        },
+    );
+    core.fills.insert(fills[0].execution_id, fills[0].clone());
+    venue
+        .remember_terminal(fact, raw, std::slice::from_ref(&fill))
+        .unwrap();
+    assert!(
+        venue
+            .poll_orders(&core, std::slice::from_ref(&fill))
+            .unwrap()
+            .is_empty()
+    );
+    let mut changed = fill.clone();
+    changed["fee"] = "0.02".into();
+    assert!(venue.poll_orders(&core, &[changed]).is_err());
+    assert!(venue.poll_orders(&core, &[]).is_err());
+    let mut foreign = fill.clone();
+    foreign["oid"] = 999.into();
+    foreign["tid"] = 999.into();
+    assert!(
+        venue
+            .poll_orders(&core, &[fill, foreign])
+            .unwrap_err()
+            .to_string()
+            .contains("unowned")
+    );
+    core.orders.get_mut(&1).unwrap().uncertain = true;
+    assert!(venue.poll_orders(&core, &[]).is_err());
 }

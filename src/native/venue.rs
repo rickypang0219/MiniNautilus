@@ -9,6 +9,7 @@ use reqwest::blocking::Client;
 use rust_decimal::{Decimal, prelude::ToPrimitive};
 use serde::{Deserialize, Serialize};
 use serde_json::{Value, json};
+use sha2::{Digest, Sha256};
 use std::{
     collections::{BTreeMap, BTreeSet},
     io::Read,
@@ -428,6 +429,25 @@ impl Session {
         })
     }
 }
+// Volatile, session-local evidence. A restart/reconciliation rebuilds it from REST.
+struct TerminalFact {
+    order: VenueOrder,
+    remote: Value,
+    proof_sha256: String,
+}
+fn terminal_proof(order: &VenueOrder, remote: &Value, all: &[Value]) -> Result<String> {
+    let oid = number(&remote["order"]["oid"])?;
+    let selected: Vec<_> = all
+        .iter()
+        .filter(|f| f["oid"].as_u64() == Some(oid))
+        .cloned()
+        .collect();
+    Ok(hex::encode(Sha256::digest(serde_json::to_vec(&(
+        order,
+        remote,
+        unique(&selected, false)?,
+    ))?)))
+}
 pub struct Venue {
     pub http: Http,
     pub session: Session,
@@ -437,6 +457,7 @@ pub struct Venue {
     pub last_ledger: Option<Ledger>,
     last_request: Instant,
     resolve_unattempted: bool,
+    terminal_facts: BTreeMap<u64, TerminalFact>,
 }
 impl Venue {
     fn locally_unsent(&self, core: &Core, id: u64) -> bool {
@@ -473,6 +494,7 @@ impl Venue {
             last_ledger: None,
             last_request: Instant::now() - Duration::from_secs(1),
             resolve_unattempted: false,
+            terminal_facts: BTreeMap::new(),
         };
         v.attempts.carry_nonce(v.session.nonce_floor);
         v.check_binding()?;
@@ -880,10 +902,55 @@ impl Venue {
         }
         unreachable!()
     }
+    fn remember_terminal(&mut self, order: VenueOrder, remote: Value, all: &[Value]) -> Result<()> {
+        if !order.lifecycle.terminal() {
+            return Err(fail("cache requires terminal order"));
+        }
+        let proof_sha256 = terminal_proof(&order, &remote, all)?;
+        self.terminal_facts.insert(
+            order.intent.id,
+            TerminalFact {
+                order,
+                remote,
+                proof_sha256,
+            },
+        );
+        Ok(())
+    }
     fn poll_orders(&mut self, core: &Core, all: &[Value]) -> Result<Vec<Report>> {
         let mut reports = Vec::new();
+        let mut owned = BTreeSet::new();
         for o in core.orders.values() {
-            let (remote, fills, _) = self.collect(&o.intent, all)?;
+            let raw = if let Some(fact) = self.terminal_facts.get(&o.intent.id) {
+                if fact.order.intent != o.intent
+                    || fact.order.filled != o.filled
+                    || fact.order.lifecycle != o.lifecycle
+                    || o.pending.is_some()
+                    || o.uncertain
+                    || terminal_proof(&fact.order, &fact.remote, all)? != fact.proof_sha256
+                {
+                    return Err(fail(
+                        "terminal cache/core/history proof mismatch; full reconciliation required",
+                    ));
+                }
+                fact.remote.clone()
+            } else {
+                self.query(&o.intent)?
+            };
+            let (remote, fills, ids) =
+                collect_order(&self.session.instrument, &o.intent, &raw, all)?;
+            owned.extend(ids);
+            if remote.lifecycle.terminal()
+                && remote.lifecycle == o.lifecycle
+                && remote.filled == o.filled
+                && o.pending.is_none()
+                && !o.uncertain
+                && fills
+                    .iter()
+                    .all(|f| core.fills.get(&f.execution_id) == Some(f))
+            {
+                self.remember_terminal(remote.clone(), raw, all)?;
+            }
             for f in fills {
                 if core.fills.get(&f.execution_id) != Some(&f) {
                     reports.push(Report::Fill(f));
@@ -900,6 +967,14 @@ impl Venue {
                 Lifecycle::Rejected => reports.push(Report::Rejected { id: o.intent.id }),
                 _ => {}
             }
+        }
+        if owned
+            != all
+                .iter()
+                .map(|f| number(&f["tid"]))
+                .collect::<Result<BTreeSet<_>>>()?
+        {
+            return Err(fail("foreign/unowned fill during regular poll"));
         }
         Ok(reports)
     }
@@ -927,6 +1002,8 @@ impl Venue {
         Ok(())
     }
     pub fn reconcile(&mut self, core: &Core) -> Result<Reconciliation> {
+        // Never let a cached status bypass the full terminal REST protocol.
+        self.terminal_facts.clear();
         if core.orders.len() > 1000 {
             return Err(fail("session order cap"));
         }
@@ -970,10 +1047,12 @@ impl Venue {
                 }
                 continue;
             }
-            let (remote, fs, ids) = self.collect(&o.intent, &all)?;
+            let raw = self.query(&o.intent)?;
+            let (remote, fs, ids) = collect_order(&self.session.instrument, &o.intent, &raw, &all)?;
             if !remote.lifecycle.terminal() {
                 return Err(fail("account not quiescent"));
             }
+            self.remember_terminal(remote.clone(), raw, &all)?;
             orders.push(remote);
             fills.extend(fs);
             owned.extend(ids);
