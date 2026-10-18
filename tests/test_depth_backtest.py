@@ -49,6 +49,19 @@ class DepthBacktestTest(unittest.TestCase):
         self.assertEqual(sparse['position'],0);self.assertEqual(deep['position'],0)
         self.assertEqual(sparse['gross_cash'],'-1');self.assertEqual(deep['gross_cash'],'-2')
 
+    def test_minimum_topup_is_refused_once_without_blocking_small_reduction(self):
+        events=[self.book(size='0.00018',bid='80000',ask='80001'),(1,'target',20),(20,'cancel',1),(40,'target',0)]
+        result=self.run_model(events,tick='0.1',lot='0.00001',minimum_open_notional_usdc='10')
+        self.assertEqual([o['intent']['qty'] for o in result['orders']],[20,18])
+        self.assertEqual(result['position'],0)
+        self.assertEqual(len(result['minimum_refusals']),1)
+        self.assertEqual(result['minimum_refusals'][0]['qty'],2)
+        # A small held position can still be closed below the opening minimum.
+        result=self.run_model([self.book(size='0.00002',bid='80000',ask='80001'),(1,'target',20),(20,'cancel',1),(40,'stop',None)],
+                              tick='0.1',lot='0.00001',minimum_open_notional_usdc='10')
+        self.assertEqual([o['intent']['qty'] for o in result['orders']],[20,18,2])
+        self.assertEqual(result['position'],0)
+
     def test_duplicate_and_future_public_trades_cannot_invent_fills(self):
         trade=dict(coin='BTC',time=30,tid=1,side='A',sz='1',px='100')
         events=[self.book(size='1'),(1,'target',2),(30,'trade',trade),(31,'trade',trade)]

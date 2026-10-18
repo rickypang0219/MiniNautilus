@@ -102,6 +102,7 @@ def replay_depth(engine, events, manifest):
     fills = []; positions = []; oracles = []; funding_seen = {}; trade_seen = {}
     cash = fees = funding = F(0); unknown_funding = []; signals = []; failures = []
     stopping = False
+    minimum_refusals = []; minimum_refused_revision = None
     now = pending[0][0]
     quantum = F(manifest['tick']) * F(manifest['lot'])
 
@@ -147,13 +148,14 @@ def replay_depth(engine, events, manifest):
                 failures.append(dict(at_ms=now,effect=effect))
 
     def dispatch_target():
+        nonlocal minimum_refused_revision
         state = engine.state; target = state.get('target')
         if now<execution_free_at or not target or target['valid_until'] < now or state.open_orders or state['health'] != 'Healthy':
             return
         if agent_book is None or now-agent_book_at > manifest.get('max_agent_quote_age_ms',5000):
             return
         delta = target['position'] - state['position']
-        if not delta:
+        if not delta or minimum_refused_revision==target['revision']:
             return
         side = 'Buy' if delta > 0 else 'Sell'
         touch = integer_units(agent_book['levels'][1 if delta>0 else 0][0]['px'],manifest['tick'])
@@ -162,6 +164,11 @@ def replay_depth(engine, events, manifest):
             value=touch*F(manifest['tick'])*F(1001 if delta>0 else 999,1000)
             whole=-(-value.numerator//value.denominator) if delta>0 else value.numerator//value.denominator
             limit=integer_units(str(whole),manifest['tick'])
+        reducing=state['position']!=0 and delta*state['position']<0 and abs(delta)<=abs(state['position'])
+        if not reducing and abs(delta)*limit*quantum < F(manifest.get('minimum_open_notional_usdc','0')):
+            minimum_refused_revision=target['revision']
+            minimum_refusals.append(dict(at_ms=now,revision=target['revision'],qty=abs(delta),limit=limit))
+            return
         intent = dict(id=next_order_id(state),side=side,qty=abs(delta),limit=limit,based_on_seq=state['seq'],valid_until=now+3000)
         effects = engine.send(now,{'SubmitTargeted':dict(intent=intent,revision=target['revision'],expected_position=state['position'])})
         schedule_effects(effects)
@@ -276,7 +283,7 @@ def replay_depth(engine, events, manifest):
         raise ValueError('undelivered modeled executions at replay end')
     mark = (F(book['levels'][0][0]['px'])+F(book['levels'][1][0]['px']))/2 if book else None
     equity = cash + engine.state['position']*F(manifest['lot'])*mark if mark is not None else None
-    return dict(orders=list(orders.values()),fills=fills,signals=signals,failures=failures,
+    return dict(orders=list(orders.values()),fills=fills,signals=signals,failures=failures,minimum_refusals=minimum_refusals,
                 position=engine.state['position'],venue_position=venue_position,gross_cash=str(cash),fees=str(fees),funding=str(funding),
                 funding_settlements=len(funding_seen),unknown_funding=unknown_funding,
                 gross_marked=str(equity) if equity is not None else None,

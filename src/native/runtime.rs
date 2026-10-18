@@ -338,6 +338,7 @@ fn execute(
     venue
 }
 struct Writer {
+    instrument: Option<Instrument>,
     recovery_attempts: u32,
     recovery_not_before: Option<Instant>,
     execution_recoveries: u64,
@@ -639,6 +640,13 @@ impl Writer {
             based_on_seq: core.seq,
             valid_until: wall_ms() + 3000,
         };
+        if self.instrument.as_ref().is_some_and(|instrument| {
+            venue::below_opening_minimum(instrument, &intent, core.position)
+        }) {
+            self.telemetry.emit(json!({"kind":"target_minimum_refused","revision":core.last_target_revision,"position":core.position,"qty":intent.qty,"limit":intent.limit}));
+            self.target = None;
+            return Ok(());
+        }
         self.process(
             Event::SubmitTargeted {
                 intent,
@@ -850,6 +858,7 @@ pub fn run_segment(dir: &Path, options: Options, segment: Option<&Segment>) -> R
     }
     let mut http = Http::new(false)?;
     let instrument = Instrument::from_meta(&http.info("meta", json!({}))?, "BTC")?;
+    let admission_instrument = options.signed.then(|| instrument.clone());
     let lock = if options.signed && segment.is_none() {
         Some(account_lock(
             &std::env::var("HL_MAIN_ADDRESS").map_err(|_| fail("account missing"))?,
@@ -1035,6 +1044,7 @@ pub fn run_segment(dir: &Path, options: Options, segment: Option<&Segment>) -> R
         })
     };
     let mut writer = Writer {
+        instrument: admission_instrument,
         recovery_attempts: 0,
         recovery_not_before: None,
         execution_recoveries: 0,
@@ -1336,10 +1346,11 @@ pub fn recover_with_proof(dir: &Path, flatten: bool, resolve_unsent: bool) -> Re
     let _lock = account_lock(&session.account)?;
     recover_locked_with_proof(dir, flatten, resolve_unsent)
 }
-pub(super) fn recover_locked(dir: &Path, flatten: bool) -> Result<Value> {
-    recover_locked_with_proof(dir, flatten, false)
-}
-fn recover_locked_with_proof(dir: &Path, flatten: bool, resolve_unsent: bool) -> Result<Value> {
+pub(super) fn recover_locked_with_proof(
+    dir: &Path,
+    flatten: bool,
+    resolve_unsent: bool,
+) -> Result<Value> {
     if !dir.join("actions.jsonl").is_file() || !dir.join("journal.jsonl").is_file() {
         return Err(fail(
             "original action/journal history missing; recovery cannot create replacements",
@@ -1514,6 +1525,7 @@ mod isolation_tests {
             telemetry.emit(json!({"blocked":"cold sink"}));
         }
         let mut writer = Writer {
+            instrument: None,
             recovery_attempts: 0,
             recovery_not_before: None,
             execution_recoveries: 0,

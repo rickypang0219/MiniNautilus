@@ -1,0 +1,309 @@
+{
+  "schema": 1,
+  "created_utc": "2026-10-18T09:16:26.951217+00:00",
+  "scope": "native readiness continuation: takeovers, history poll, exact cash and causal closed-loop holdout",
+  "gates": [
+    {
+      "gate_id": "rotated_root_takeover",
+      "status": "PASS",
+      "sample_count": 3,
+      "observed": [
+        79.65814718299953,
+        68.8538936519999,
+        74.6144439030013
+      ],
+      "limit": 300,
+      "unit": "seconds",
+      "source_commit": "046358c75b5753aed97ef15c3c9de0e4f7db68ca",
+      "binary_sha256": "f5d734687ef23a42e6649c4c5d5d938c6c990c733be4d18a557f6d6201778095",
+      "manifest_sha256": "91a797205faffa7e1592886dbd7ee90ed094722837e04073ef767dfe99aacf0a",
+      "run_ids": [
+        "rotated-1",
+        "rotated-2",
+        "rotated-3"
+      ],
+      "reason": "real exposed successor after rotation, old-host termination before replacement, original EBS prefix/fill/cash proof; surviving EBS only"
+    },
+    {
+      "gate_id": "terminal_status_rpcs",
+      "status": "PASS",
+      "sample_count": 3,
+      "observed": [
+        4,
+        4,
+        4
+      ],
+      "limit": 4,
+      "unit": "statusRPCs/cycle",
+      "source_commit": "046358c75b5753aed97ef15c3c9de0e4f7db68ca",
+      "binary_sha256": "42dc49a59401338bd5d3205c1345fd451f7c949c1024f5284f7c95bd76e18b43",
+      "manifest_sha256": "91a797205faffa7e1592886dbd7ee90ed094722837e04073ef767dfe99aacf0a",
+      "reason": "EC2 release libtest:800 verified canceled terminal+4 active with full history check; not804 live trades or filled-history throughput proof"
+    }
+  ],
+  "takeover_trials": [
+    {
+      "trial": 1,
+      "checked_utc": "2026-10-18T07:54:47.787704+00:00",
+      "rto_seconds": 79.65814718299953,
+      "status": "PASS",
+      "cleanup_verified": true,
+      "segments": [
+        {
+          "segment": "segment-000000",
+          "orders": 2,
+          "fills": 2,
+          "cash_discrepancy_usdc": "0",
+          "position": 0,
+          "execution_proof": {
+            "unique_fills": 2,
+            "filled_lots_by_order": {
+              "1": 20,
+              "2": 20
+            },
+            "position": 0
+          },
+          "journal_sha256": "8892b6aa371797dc891f83ba874bbfc9425f01460d71ff694506100723e3a723"
+        },
+        {
+          "segment": "segment-000001",
+          "orders": 2,
+          "fills": 2,
+          "cash_discrepancy_usdc": "0",
+          "position": 0,
+          "execution_proof": {
+            "unique_fills": 2,
+            "filled_lots_by_order": {
+              "3": 20,
+              "4": 20
+            },
+            "position": 0
+          },
+          "journal_sha256": "66fa78b0bd25123b66a8797b3f15ec21b360e36d0817851aa7ac4e48bc17d177"
+        }
+      ],
+      "original_tree_prefixes_preserved": true,
+      "validator_source_commit": "ee60a8d0b0176080e3d91d461a0433be1b96a5ba",
+      "validator_binary_sha256": "cd50d23c34e1bbf4d9f21d5417a1d01111156f01711bd62ee3650e3632db4599",
+      "core_model_journal_sources_unchanged_since_runtime": true,
+      "runtime_source_commit": "046358c75b5753aed97ef15c3c9de0e4f7db68ca",
+      "runtime_bundle_sha256": "57fa51cfac7e3213863cc55d96522d5ef0a1f6dc720fddeef3a1a4652a36b0b5",
+      "cache_fixture": {
+        "terminal": 800,
+        "active": 4,
+        "status_queries": 4,
+        "elapsed_seconds": 0.404871025
+      },
+      "raw_uri": "s3://mininautilushost-artifacts82dd59a1-jimhxpumwqyb/native-readiness-20261018/mini-lifecycle-1792307871/recover-rotated-final.tar.gz",
+      "raw_sha256": "23a460db149d3d9be403f6b4182c10edcb63c37ae67c23d68a82d2881c405594"
+    },
+    {
+      "trial": 2,
+      "checked_utc": "2026-10-18T07:54:47.802033+00:00",
+      "rto_seconds": 68.8538936519999,
+      "status": "PASS",
+      "cleanup_verified": true,
+      "segments": [
+        {
+          "segment": "segment-000000",
+          "orders": 3,
+          "fills": 4,
+          "cash_discrepancy_usdc": "0",
+          "position": 0,
+          "execution_proof": {
+            "unique_fills": 4,
+            "filled_lots_by_order": {
+              "1": 20,
+              "2": 40,
+              "3": 20
+            },
+            "position": 0
+          },
+          "journal_sha256": "ecac97f517ec771a8986e4465796bc957d8498ce24dd8a27e9bd30caf185b399"
+        },
+        {
+          "segment": "segment-000001",
+          "orders": 2,
+          "fills": 2,
+          "cash_discrepancy_usdc": "0",
+          "position": 0,
+          "execution_proof": {
+            "unique_fills": 2,
+            "filled_lots_by_order": {
+              "4": 20,
+              "5": 20
+            },
+            "position": 0
+          },
+          "journal_sha256": "016764afcd0719a5303a684a29f6b3290f8499dbe9752ff7ab6d0547b9747b6d"
+        }
+      ],
+      "original_tree_prefixes_preserved": true,
+      "validator_source_commit": "ee60a8d0b0176080e3d91d461a0433be1b96a5ba",
+      "validator_binary_sha256": "cd50d23c34e1bbf4d9f21d5417a1d01111156f01711bd62ee3650e3632db4599",
+      "core_model_journal_sources_unchanged_since_runtime": true,
+      "runtime_source_commit": "046358c75b5753aed97ef15c3c9de0e4f7db68ca",
+      "runtime_bundle_sha256": "57fa51cfac7e3213863cc55d96522d5ef0a1f6dc720fddeef3a1a4652a36b0b5",
+      "cache_fixture": {
+        "terminal": 800,
+        "active": 4,
+        "status_queries": 4,
+        "elapsed_seconds": 0.400983222
+      },
+      "raw_uri": "s3://mininautilushost-artifacts82dd59a1-jimhxpumwqyb/native-readiness-20261018/mini-lifecycle-1792308112/recover-rotated-final.tar.gz",
+      "raw_sha256": "5323639b000a7fb17083f0d8d21373af11b472ef4027c7d068ee17aa50e142ab"
+    },
+    {
+      "trial": 3,
+      "checked_utc": "2026-10-18T07:54:47.815368+00:00",
+      "rto_seconds": 74.6144439030013,
+      "status": "PASS",
+      "cleanup_verified": true,
+      "segments": [
+        {
+          "segment": "segment-000000",
+          "orders": 3,
+          "fills": 3,
+          "cash_discrepancy_usdc": "0",
+          "position": 0,
+          "execution_proof": {
+            "unique_fills": 3,
+            "filled_lots_by_order": {
+              "1": 20,
+              "2": 40,
+              "3": 20
+            },
+            "position": 0
+          },
+          "journal_sha256": "40535e53f2834ef5550dd63d56872c36af99db7fcaa414ee75bd26ac7968fcdb"
+        },
+        {
+          "segment": "segment-000001",
+          "orders": 2,
+          "fills": 2,
+          "cash_discrepancy_usdc": "0",
+          "position": 0,
+          "execution_proof": {
+            "unique_fills": 2,
+            "filled_lots_by_order": {
+              "4": 20,
+              "5": 20
+            },
+            "position": 0
+          },
+          "journal_sha256": "a8f35b567102ce26e2265079ce16623b2a1b7fdd698f11b73ac9d602914f5d75"
+        }
+      ],
+      "original_tree_prefixes_preserved": true,
+      "validator_source_commit": "ee60a8d0b0176080e3d91d461a0433be1b96a5ba",
+      "validator_binary_sha256": "cd50d23c34e1bbf4d9f21d5417a1d01111156f01711bd62ee3650e3632db4599",
+      "core_model_journal_sources_unchanged_since_runtime": true,
+      "runtime_source_commit": "046358c75b5753aed97ef15c3c9de0e4f7db68ca",
+      "runtime_bundle_sha256": "57fa51cfac7e3213863cc55d96522d5ef0a1f6dc720fddeef3a1a4652a36b0b5",
+      "cache_fixture": {
+        "terminal": 800,
+        "active": 4,
+        "status_queries": 4,
+        "elapsed_seconds": 0.405157424
+      },
+      "raw_uri": "s3://mininautilushost-artifacts82dd59a1-jimhxpumwqyb/native-readiness-20261018/mini-lifecycle-1792308338/recover-rotated-final.tar.gz",
+      "raw_sha256": "552fc69c353046369b692b2e1951ecc2ba7149ae061d1159f879040b3007a941"
+    }
+  ],
+  "retained_failures": [
+    {
+      "run": "closed-loop-v1",
+      "status": "FAIL",
+      "source_commit": "ee60a8d0b0176080e3d91d461a0433be1b96a5ba",
+      "bundle_sha256": "d370c8a4641d6a7649f86c6887142a49893999b0bcde21c9f2eb52f3400cd8d8",
+      "failure": "RuntimeError: SSM phase failed: correspondence",
+      "cleanup_failure": "RuntimeError: SSM phase failed: cleanup",
+      "raw_prefix": "s3://mininautilushost-artifacts82dd59a1-jimhxpumwqyb/native-readiness-20261018/mini-lifecycle-1792309977/",
+      "later_recovery": "original-recovery-v2"
+    },
+    {
+      "run": "original-recovery-v1",
+      "status": "FAIL",
+      "source_commit": "ee60a8d0b0176080e3d91d461a0433be1b96a5ba",
+      "bundle_sha256": "d370c8a4641d6a7649f86c6887142a49893999b0bcde21c9f2eb52f3400cd8d8",
+      "failure": "RuntimeError: SSM phase failed: cleanup",
+      "cleanup_failure": "RuntimeError: SSM phase failed: cleanup",
+      "raw_prefix": "s3://mininautilushost-artifacts82dd59a1-jimhxpumwqyb/native-readiness-20261018/mini-lifecycle-1792310471/",
+      "later_recovery": "original-recovery-v2"
+    },
+    {
+      "run": "clock-v2",
+      "status": "FAIL",
+      "source_commit": "1493013648b6a1ee7f71bb50301f764dcd47aa74",
+      "bundle_sha256": "64ddbfae24a946f4084536aac969494c65c556b5f94f07aeccd92888e8572bc8",
+      "failure": "RuntimeError: SSM phase failed: correspondence",
+      "cleanup_failure": "RuntimeError: SSM phase failed: cleanup",
+      "raw_prefix": "s3://mininautilushost-artifacts82dd59a1-jimhxpumwqyb/native-readiness-20261018/mini-lifecycle-1792312056/",
+      "later_recovery": "clock-v2-recovery"
+    },
+    {
+      "run": "clock-v2b",
+      "status": "FAIL",
+      "reason": "2-lot opening topup below USD10; original HTTP transport cleanup failed"
+    },
+    {
+      "run": "clock-v2b-recovery",
+      "status": "FAIL",
+      "reason": "retired EC2 DescribeInstances returned empty; fixed guarded absence handling"
+    },
+    {
+      "run": "clock-v2b-recovery-v2",
+      "status": "FAIL",
+      "reason": "local unsent order25 cannot be resolved by default REST absence handling"
+    }
+  ],
+  "original_recoveries": [
+    {
+      "run": "original-recovery-v2",
+      "status": "PASS",
+      "source_commit": "915d6ab1d94a78992274065286e7a3a8c3d389d8",
+      "bundle_sha256": "9ecee4eb747c0cb46ad0e7d261e948035c85d2fa9726c3f03f2116472c718ff2",
+      "cleanup_verified": true,
+      "volume_cleanup": {
+        "vol-0217d8dd7f224fcaa": "deleted",
+        "vol-090ca48e3d5105368": "deleted"
+      },
+      "raw_prefix": "s3://mininautilushost-artifacts82dd59a1-jimhxpumwqyb/native-readiness-20261018/mini-lifecycle-1792311051/"
+    },
+    {
+      "run": "clock-v2-recovery",
+      "status": "PASS",
+      "source_commit": "26c602f83187eebfd5cf7d157279e72e0f4bdd38",
+      "bundle_sha256": "ca7739f063df00f19677def251644d14c09779565daa90b756389f9bd8f29fcb",
+      "cleanup_verified": true,
+      "volume_cleanup": {
+        "vol-0c6bd154b2145e231": "deleted",
+        "vol-062e68cc595160360": "deleted"
+      },
+      "raw_prefix": "s3://mininautilushost-artifacts82dd59a1-jimhxpumwqyb/native-readiness-20261018/mini-lifecycle-1792313652/"
+    }
+  ],
+  "correspondence": {
+    "status": "FAIL",
+    "collection_state": "clock-v2b failed in segment12; recovery pending",
+    "source_commit": "1fd10b86acfd0fd2be961e18dd3b4c06ac464e30",
+    "manifest_sha256": "6fe4579b822f6dc78de1db03edc9263f28f48b7cc5efe2503aa5aee54fa86f46",
+    "next_manifest": "comparisons/native-readiness/closed-loop-v3.json"
+  },
+  "long_qualification": {
+    "status": "BLOCKED",
+    "elapsed_hours": 0,
+    "reason": "correspondence not accepted; original operations gates also remain separate"
+  },
+  "relative_runtime_performance": {
+    "status": "NOT_MEASURED",
+    "reason": "no frozen A/A and repeated A/B this iteration"
+  },
+  "limitations": [
+    "single BTC Testnet account; no mainnet/portfolio readiness",
+    "takeover test covers retained EBS, not EBS/AZ loss",
+    "original failures remain failures after successful cleanup",
+    "strategy resets at flat segment boundaries; no continuous PCA validation",
+    "cold archive/retention, persistent human stop, upgrade/rollback and alert exercises remain unaccepted"
+  ]
+}

@@ -245,7 +245,7 @@ pub fn run(root: &Path, options: Options, policy: Policy) -> Result<Value> {
 }
 
 /// Original current segment only. This does not authorize a replacement signer.
-pub fn recover(root: &Path, flatten: bool) -> Result<Value> {
+pub fn recover(root: &Path, flatten: bool, resolve_unsent: bool) -> Result<Value> {
     let root = fs::canonicalize(root)?;
     let mut pointer = load(&root)?;
     if std::env::var("HL_MAIN_ADDRESS").as_deref() != Ok(&pointer.account)
@@ -280,7 +280,7 @@ pub fn recover(root: &Path, flatten: bool) -> Result<Value> {
     if fs::canonicalize(dir.join("journal.jsonl"))? != journal_path(&root, pointer.index) {
         return Err(fail("current journal pointer mismatch"));
     }
-    runtime::recover_locked(&dir, flatten)
+    runtime::recover_locked_with_proof(&dir, flatten, resolve_unsent)
 }
 
 /// Resume only a proven publication transaction; never infer a lost mutation.

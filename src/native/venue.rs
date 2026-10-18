@@ -232,6 +232,18 @@ pub fn closeout_limit(instrument: &Instrument, ticks: i64, buy: bool) -> Result<
     let price = reference * Decimal::new(if buy { 1001 } else { 999 }, 3);
     instrument.price(&json!(wire(if buy { price.ceil() } else { price.floor() })))
 }
+/// Venue opening minimum never prevents a pure position reduction.
+pub fn below_opening_minimum(instrument: &Instrument, intent: &Intent, position: i64) -> bool {
+    let reducing = position != 0
+        && position.signum() != intent.side.sign()
+        && intent.qty.unsigned_abs() <= position.unsigned_abs();
+    !reducing
+        && Decimal::from(intent.qty)
+            * instrument.lot()
+            * Decimal::from(intent.limit)
+            * instrument.tick()
+            < Decimal::from(10)
+}
 pub fn parse_quote(i: &Instrument, book: &Value, now: u64) -> Result<(i64, i64)> {
     if book["coin"] != i.symbol {
         return Err(fail("wrong book instrument"));
@@ -641,7 +653,7 @@ impl Venue {
         let reducing = position_lots != 0
             && position_lots.signum() != i.side.sign()
             && i.qty.unsigned_abs() <= position_lots.unsigned_abs();
-        if (notional < Decimal::from(10) && !reducing)
+        if below_opening_minimum(instrument, i, position_lots)
             || notional > dec(&json!(self.session.max_notional))?
         {
             return Err(fail("order notional outside cap/minimum"));

@@ -34,6 +34,19 @@ def original_volume(original):
     return original['data_volume']
 
 
+def signer_fenced(original, identity, instances):
+    """Absent retired EC2 is safe only with the original termination receipt.
+
+    Call only after a successful DescribeInstances; API failures never become
+    absence. A currently visible nonterminated signer overrides older receipts.
+    """
+    if identity not in original['instances']:
+        return False
+    if instances:
+        return len(instances)==1 and instances[0]['InstanceId']==identity and instances[0]['State']['Name']=='terminated'
+    return identity in original.get('terminated',[])
+
+
 def main():
     parser=argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--bundle-receipt",type=Path,required=True)
@@ -46,7 +59,9 @@ def main():
     parser.add_argument("--correspondence-manifest",type=Path,default=Path('comparisons/native-readiness/closed-loop-v2.json'))
     parser.add_argument("--correspondence-only",action="store_true",help="two frozen 900-second closed-loop correspondence holdouts; no host replacement")
     parser.add_argument("--recover-original",type=Path,help="recover the exact retained EBS from a failed task; no new trading session")
+    parser.add_argument("--resolve-unsent",action="store_true",help="original recovery only: use the native durable no-attempt proof; never infer absence from REST")
     args=parser.parse_args()
+    if args.resolve_unsent and not args.recover_original:raise ValueError("no-attempt proof requires original recovery")
     if args.recover_original and (args.correspondence_only or args.host_only or args.host_first or args.rotated_root):raise ValueError("exclusive recovery mode")
     if args.correspondence_only and (args.host_only or args.host_first or args.rotated_root):raise ValueError("exclusive drill modes")
     if args.rotated_root and not args.host_only:raise ValueError("rotated-root drill requires --host-only")
@@ -74,7 +89,7 @@ def main():
     s3=session.client("s3",endpoint_url="https://s3.ap-northeast-1.amazonaws.com",config=Config(connect_timeout=8,read_timeout=60,retries={"max_attempts":2},s3={"addressing_style":"path"}))
     token="mini-lifecycle-"+str(int(time.time()));prefix="native-readiness-"+time.strftime('%Y%m%d',time.gmtime())+"/"+token
     parameter="/mininautilus/temporary/"+token
-    resources=dict(token=token,region="ap-northeast-1",prefix=prefix,bucket=config["bucket"],instances=[],root_volumes=[],data_volume=None,build=build,cleanup_verified=False,flat_verified=False,verify_sha256=sha(args.verify_log),host_first=args.host_first,host_only=args.host_only,rotated_root=args.rotated_root,correspondence_only=args.correspondence_only,controller_sha256=sha(Path(__file__)),started=time.time())
+    resources=dict(token=token,region="ap-northeast-1",prefix=prefix,bucket=config["bucket"],instances=[],root_volumes=[],data_volume=None,build=build,cleanup_verified=False,flat_verified=False,verify_sha256=sha(args.verify_log),host_first=args.host_first,host_only=args.host_only,rotated_root=args.rotated_root,correspondence_only=args.correspondence_only,controller_sha256=sha(Path(__file__)),resolve_unsent=args.resolve_unsent,started=time.time())
     original=json.loads(args.recover_original.read_text()) if args.recover_original else None
     if original is not None:
         resources['data_volume']=original_volume(original)
@@ -175,7 +190,10 @@ BOOT
         resources["secret_created"]=True;save()
         s3.upload_file(str(bundle),config["bucket"],prefix+"/bundle.tar.gz");put("task.json",json.dumps(task).encode())
         if original is not None:
-            if any(state(identity)!='terminated' for identity in original['instances']):raise ValueError('old signer not fenced')
+            for identity in original['instances']:
+                response=ec2.describe_instances(InstanceIds=[identity])
+                instances=[item for reservation in response['Reservations'] for item in reservation['Instances']]
+                if not signer_fenced(original,identity,instances):raise ValueError('old signer not fenced')
             volume=resources['data_volume'];item=ec2.describe_volumes(VolumeIds=[volume])['Volumes'][0]
             tags={t['Key']:t['Value'] for t in item.get('Tags',[])}
             if item['State']!='available' or tags.get('Name')!=original['token'] or tags.get('Purpose')!='temporary-native-lifecycle-drill':raise ValueError('original retained volume binding/state mismatch')
@@ -183,7 +201,7 @@ BOOT
             ec2.attach_volume(VolumeId=volume,InstanceId=active,Device='/dev/sdf')
             wait_for(lambda:ec2.describe_volumes(VolumeIds=[volume])['Volumes'][0]['State']=='in-use',120,'original EBS attach')
             command(active,'mount --volume '+volume,120);mounted=True
-            command(active,'cleanup',300)
+            command(active,'cleanup'+(' --resolve-unsent' if args.resolve_unsent else ''),300)
             resources.update(status='PASS_ORIGINAL_RECOVERY',flat_verified=True,potential_exposure=False);save()
         else:
             active=launch(True)
@@ -228,7 +246,7 @@ BOOT
     finally:
         if active and mounted and not state_volume_safe(resources):
             try:
-                command(active,"cleanup",600);resources["flat_verified"]=True;resources["potential_exposure"]=False
+                command(active,"cleanup"+(" --resolve-unsent" if args.resolve_unsent else ""),600);resources["flat_verified"]=True;resources["potential_exposure"]=False
             except BaseException as error:resources["cleanup_failure"]=type(error).__name__+": "+str(error)
         # Preserve a state volume if original-account cleanup cannot be proven.
         for identity in resources["instances"]:

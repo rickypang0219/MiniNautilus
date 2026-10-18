@@ -9,6 +9,11 @@ fn writer(name: &str) -> (Writer, Receiver<Job>, Receiver<Value>, std::path::Pat
     let (jobs, receiver) = bounded(32);
     let (queue, trace) = bounded(1024);
     let mut writer = Writer {
+        instrument: Some(Instrument {
+            symbol: "BTC".into(),
+            asset: 3,
+            sz_decimals: 5,
+        }),
         recovery_attempts: 0,
         recovery_not_before: None,
         execution_recoveries: 0,
@@ -361,6 +366,92 @@ fn expiry_blocks_queued_send_without_inventing_a_rejection() {
     );
     assert_eq!(writer.engine.core().position, 0);
     assert_eq!(writer.engine.core().fills.len(), 0);
+    drop(writer);
+    std::fs::remove_dir_all(dir).unwrap();
+}
+
+#[test]
+fn partial_fill_dust_topup_is_not_submitted_but_reduction_remains_available() {
+    let (mut writer, jobs, _trace, dir) = writer("minimum-topup");
+    let now = Instant::now();
+    writer
+        .process(
+            Event::Submit(Intent {
+                id: 1,
+                side: Side::Buy,
+                qty: 20,
+                limit: 800000,
+                based_on_seq: writer.engine.core().seq,
+                valid_until: wall_ms() + 3000,
+            }),
+            now,
+        )
+        .unwrap();
+    jobs.recv().unwrap();
+    writer
+        .control(Control::Done {
+            epoch: 0,
+            reports: vec![
+                Report::Fill(Fill {
+                    execution_id: 1,
+                    order_id: 1,
+                    qty: 18,
+                    price: 800000,
+                }),
+                Report::Canceled {
+                    id: 1,
+                    cumulative_filled: 18,
+                },
+            ],
+            heartbeat: true,
+        })
+        .unwrap();
+    writer
+        .process(
+            Event::SetTarget(Target {
+                revision: 1,
+                position: 20,
+                valid_until: wall_ms() + 3000,
+            }),
+            now,
+        )
+        .unwrap();
+    writer.target = Some((20, wall_ms() + 3000, now));
+    writer.dispatch_target().unwrap();
+    assert!(
+        jobs.try_recv().is_err(),
+        "USD1.60 topup must not create a venue intent"
+    );
+    assert_eq!(writer.engine.core().orders.len(), 1);
+    assert_eq!(writer.engine.core().position, 18);
+    assert_eq!(writer.engine.core().health, Health::Healthy);
+    assert!(
+        writer.target.is_none(),
+        "refusal must not loop until the order cap"
+    );
+    writer
+        .process(
+            Event::SetTarget(Target {
+                revision: 2,
+                position: 0,
+                valid_until: wall_ms() + 3000,
+            }),
+            now,
+        )
+        .unwrap();
+    writer.target = Some((0, wall_ms() + 3000, now));
+    writer.dispatch_target().unwrap();
+    assert!(matches!(
+        jobs.recv().unwrap(),
+        Job::Submit {
+            intent: Intent {
+                qty: 18,
+                side: Side::Sell,
+                ..
+            },
+            ..
+        }
+    ));
     drop(writer);
     std::fs::remove_dir_all(dir).unwrap();
 }

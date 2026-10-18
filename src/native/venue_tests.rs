@@ -826,3 +826,21 @@ fn btc_display_pnl_is_not_an_exact_wallet_cash_posting() {
     wrong[2]["closedPnl"] = "-0.00172".into();
     assert!(account_ledger("BTC", &wrong, &[]).is_err());
 }
+
+#[test]
+fn opening_minimum_never_blocks_dust_reduction_or_allows_cross_zero_opening() {
+    let instrument = Instrument {
+        symbol: "BTC".into(),
+        asset: 3,
+        sz_decimals: 5,
+    };
+    let mut i = intent();
+    i.qty = 2;
+    assert!(below_opening_minimum(&instrument, &i, 18));
+    i.side = Side::Sell;
+    assert!(!below_opening_minimum(&instrument, &i, 2));
+    i.qty = 3;
+    assert!(below_opening_minimum(&instrument, &i, 2));
+    i.qty = 20;
+    assert!(!below_opening_minimum(&instrument, &i, 0));
+}

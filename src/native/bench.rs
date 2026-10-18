@@ -76,6 +76,7 @@ pub fn run(dir: &Path, manifest: Manifest) -> Result<Value> {
         thread::spawn(move || execute(None, job_rx, critical_tx, circuit, telemetry))
     };
     let mut writer = Writer {
+        instrument: None,
         recovery_attempts: 0,
         recovery_not_before: None,
         execution_recoveries: 0,

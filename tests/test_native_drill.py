@@ -111,6 +111,16 @@ class NativeDrillTest(unittest.TestCase):
             with self.assertRaises(ValueError):worker.session_fill_proof(state,session,bad)
         with self.assertRaises(ValueError):worker.session_fill_proof(state,session,raw[:1])
 
+    def test_retired_signer_requires_prior_termination_receipt_and_successful_fresh_query(self):
+        original=dict(instances=['i-old'],terminated=['i-old'])
+        self.assertTrue(controller.signer_fenced(original,'i-old',[]))
+        self.assertFalse(controller.signer_fenced(dict(instances=['i-old']),'i-old',[]))
+        self.assertFalse(controller.signer_fenced(original,'i-other',[]))
+        for state in ['running','stopped','shutting-down']:
+            self.assertFalse(controller.signer_fenced(original,'i-old',[dict(InstanceId='i-old',State=dict(Name=state))]))
+        self.assertTrue(controller.signer_fenced(original,'i-old',[dict(InstanceId='i-old',State=dict(Name='terminated'))]))
+        self.assertFalse(controller.signer_fenced(original,'i-old',[dict(InstanceId='i-other',State=dict(Name='terminated'))]))
+
     def test_original_volume_recovery_cannot_select_unrelated_or_already_deleted_state(self):
         original=dict(token='mini-lifecycle-123',data_volume='vol-original',instances=['i-original'],potential_exposure=True,cleanup_verified=False)
         self.assertEqual(controller.original_volume(original),'vol-original')

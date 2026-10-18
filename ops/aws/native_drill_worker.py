@@ -291,6 +291,7 @@ def main():
     parser.add_argument("phase",choices=["mount","rotation","crash","recover","crash-rotated","recover-rotated","fixture","correspondence","inspect","cleanup"])
     parser.add_argument("--volume")
     parser.add_argument("--initialize",action="store_true")
+    parser.add_argument("--resolve-unsent",action="store_true")
     args = parser.parse_args()
     if args.phase == "mount":
         mount(args.volume,args.initialize)
@@ -421,7 +422,7 @@ def main():
                     pointer=json.loads((directory/"current.json").read_text())["payload"]
                     segment=directory/f"segment-{pointer['index']:06}"
                     if (segment/"actions.jsonl").exists():
-                        code=execute([native,"recover-lifecycle","--run-dir",str(directory),"--flatten"],directory.name+"-final-cleanup-"+label,180)
+                        code=execute([native,"recover-lifecycle","--run-dir",str(directory),"--flatten"]+(["--resolve-unsent"] if args.resolve_unsent else []),directory.name+"-final-cleanup-"+label,180)
                         if code: raise ValueError("lifecycle cleanup unresolved")
             directory=STATE/"crash-original"
             if (directory/"session.json").exists() and not completed_diagnostic():

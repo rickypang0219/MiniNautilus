@@ -122,7 +122,8 @@ fn run() -> Result<()> {
                 "{}",
                 native::lifecycle::recover(
                     &dir.ok_or_else(|| fail("--run-dir required"))?,
-                    flatten
+                    flatten,
+                    resolve_unsent
                 )?
             );
         }
