@@ -101,3 +101,9 @@ class DepthBacktestTest(unittest.TestCase):
         result=self.run_model(public_events(rows))
         self.assertEqual([o['intent']['side'] for o in result['orders']],['Sell'])
         self.assertEqual(result['position'],-20)
+
+    def test_stop_during_submit_cannot_confirm_cancel_before_order_arrival(self):
+        result=self.run_model([self.book(),(1,'target',2),(20,'stop',None)],arrival_delay_ms=100,cancel_delay_ms=1)
+        self.assertEqual(result['position'],0)
+        self.assertGreaterEqual(result['orders'][0]['cancel_effective_ms'],result['orders'][0]['arrived_ms'])
+        self.assertEqual(result['orders'][1]['intent']['qty'],2)

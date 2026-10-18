@@ -127,7 +127,10 @@ def replay_depth(engine, events, manifest):
                 heapq.heappush(pending,(now+manifest['arrival_delay_ms'],1,serial,'arrival',intent['id']))
             elif 'SendCancel' in effect:
                 serial += 1
-                heapq.heappush(pending,(now+manifest['cancel_delay_ms'],1,serial,'cancel',effect['SendCancel']['id']))
+                identity=effect['SendCancel']['id']
+                # The live execution owner serializes submit before its cancel.
+                due=max(now+manifest['cancel_delay_ms'],orders[identity]['submitted_ms']+manifest['arrival_delay_ms'])
+                heapq.heappush(pending,(due,1,serial,'cancel',identity))
             else:
                 failures.append(dict(at_ms=now,effect=effect))
 
@@ -221,7 +224,7 @@ def replay_depth(engine, events, manifest):
             for order in list(engine.state.open_orders.values()):
                 schedule_effects(engine.send(now,{'Cancel':dict(id=order['intent']['id'])}))
         elif kind == 'cancel':
-            order=orders[data];order['canceled']=True
+            order=orders[data];order['canceled']=True;order['cancel_effective_ms']=now
             report({'Canceled':dict(id=data,cumulative_filled=order['filled'])})
         elif kind == 'oracle':
             if F(data['price'])<=0:raise ValueError('nonpositive oracle')
