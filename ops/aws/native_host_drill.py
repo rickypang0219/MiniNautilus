@@ -57,7 +57,7 @@ def main():
     parser.add_argument("--host-only",action="store_true",help="repeat retained-EBS recovery without the two rotation runs")
     parser.add_argument("--rotated-root",action="store_true",help="kill an exposed successor after rotation and recover its complete retained root")
     parser.add_argument("--correspondence-manifest",type=Path,default=Path('comparisons/native-readiness/closed-loop-v2.json'))
-    parser.add_argument("--correspondence-only",action="store_true",help="two frozen 900-second closed-loop correspondence holdouts; no host replacement")
+    parser.add_argument("--correspondence-only",action="store_true",help="frozen 900-second closed-loop correspondence holdouts; no host replacement")
     parser.add_argument("--recover-original",type=Path,help="recover the exact retained EBS from a failed task; no new trading session")
     parser.add_argument("--resolve-unsent",action="store_true",help="original recovery only: use the native durable no-attempt proof; never infer absence from REST")
     args=parser.parse_args()

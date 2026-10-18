@@ -255,6 +255,12 @@
       "run": "clock-v2b-recovery-v2",
       "status": "FAIL",
       "reason": "local unsent order25 cannot be resolved by default REST absence handling"
+    },
+    {
+      "run": "clock-v2b-recovery-v3",
+      "status": "FAIL",
+      "reason": "first cleanup polled locally rejected unsent order; final cleanup PASS is separate",
+      "cleanup_verified": true
     }
   ],
   "original_recoveries": [
@@ -281,11 +287,22 @@
         "vol-062e68cc595160360": "deleted"
       },
       "raw_prefix": "s3://mininautilushost-artifacts82dd59a1-jimhxpumwqyb/native-readiness-20261018/mini-lifecycle-1792313652/"
+    },
+    {
+      "run": "clock-v2b-recovery-v3",
+      "status": "PASS_FINAL_CLEANUP_ONLY",
+      "controller_status": "FAIL",
+      "cleanup_verified": true,
+      "flat_verified": true,
+      "independent_segments": 13,
+      "unique_fills": 27,
+      "independent_gross_cash_error_usdc": "0",
+      "raw_prefix": "s3://mininautilushost-artifacts82dd59a1-jimhxpumwqyb/native-readiness-20261018/mini-lifecycle-1792334960/"
     }
   ],
   "correspondence": {
     "status": "FAIL",
-    "collection_state": "clock-v2b failed in segment12; recovery pending",
+    "collection_state": "clock-v2b incomplete; original account now recovered, fresh v3 pending",
     "source_commit": "1fd10b86acfd0fd2be961e18dd3b4c06ac464e30",
     "manifest_sha256": "6fe4579b822f6dc78de1db03edc9263f28f48b7cc5efe2503aa5aee54fa86f46",
     "next_manifest": "comparisons/native-readiness/closed-loop-v3.json"
@@ -305,5 +322,6 @@
     "original failures remain failures after successful cleanup",
     "strategy resets at flat segment boundaries; no continuous PCA validation",
     "cold archive/retention, persistent human stop, upgrade/rollback and alert exercises remain unaccepted"
-  ]
+  ],
+  "updated_utc": "2026-10-18T14:55:32.582249+00:00"
 }

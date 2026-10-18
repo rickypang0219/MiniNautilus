@@ -844,3 +844,48 @@ fn opening_minimum_never_blocks_dust_reduction_or_allows_cross_zero_opening() {
     i.qty = 20;
     assert!(!below_opening_minimum(&instrument, &i, 0));
 }
+
+#[test]
+fn poll_preserves_reconciled_no_attempt_proof_but_rejects_contradictory_fills() {
+    let server = Server::start(json!({"status":"unknownOid"}));
+    let dir = dir("reconciled-unsent-poll");
+    let mut venue = server.venue(&dir);
+    let mut core = Core::new(super::super::runtime::config()).unwrap();
+    for event in [
+        Event::Heartbeat { epoch: 0 },
+        Event::Quote {
+            bid: 800000,
+            ask: 800000,
+        },
+        Event::Submit(intent()),
+        Event::Reconnect,
+        Event::Reconcile(Reconciliation {
+            epoch: 1,
+            watermark: 0,
+            position: 0,
+            orders: vec![],
+            fills: vec![],
+            absent: vec![1],
+        }),
+    ] {
+        core.apply(&Envelope {
+            seq: core.seq + 1,
+            at: wall_ms(),
+            event,
+        })
+        .unwrap();
+    }
+    assert_eq!(core.orders[&1].lifecycle, Lifecycle::Rejected);
+    assert!(!venue.locally_unsent(&core, 1));
+    venue.enable_local_unsent_proof();
+    assert!(venue.poll(&core).unwrap().is_empty());
+    assert!(
+        server.order_queries.lock().unwrap().is_empty(),
+        "a proven unsent order has no venue status"
+    );
+    assert!(
+        venue.poll_orders(&core, &[json!({"tid":99})]).is_err(),
+        "no-attempt proof must not hide any unowned execution"
+    );
+    assert_eq!(server.actions.load(Ordering::Acquire), 0);
+}

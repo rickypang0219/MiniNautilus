@@ -971,6 +971,16 @@ impl Venue {
         let mut reports = Vec::new();
         let mut owned = BTreeSet::new();
         for o in core.orders.values() {
+            // Only an already reconciled rejection may reuse the explicit
+            // durable no-attempt proof. The complete history ownership check
+            // below still rejects a fill contradicting that proof.
+            if self.locally_unsent(core, o.intent.id)
+                && o.lifecycle == Lifecycle::Rejected
+                && o.pending.is_none()
+                && !o.uncertain
+            {
+                continue;
+            }
             let raw = if let Some(fact) = self.terminal_facts.get(&o.intent.id) {
                 if fact.order.intent != o.intent
                     || fact.order.filled != o.filled

@@ -293,6 +293,8 @@ def main():
     parser.add_argument("--initialize",action="store_true")
     parser.add_argument("--resolve-unsent",action="store_true")
     args = parser.parse_args()
+    if args.resolve_unsent and args.phase != "cleanup":
+        raise ValueError("no-attempt proof is cleanup-only")
     if args.phase == "mount":
         mount(args.volume,args.initialize)
         return

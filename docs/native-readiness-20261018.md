@@ -8,7 +8,7 @@ Created UTC: 2026-10-18. Machine-readable evidence: [native-readiness-20261018.j
 |800 terminal+4 active polling | PASS,3 EC2 fixtures | Exactly4 regular status RPCs each, complete fill-history/proof checks retained. Fixture terminal orders are canceled/unfilled; this is not804 real orders or a filled-history throughput benchmark. |
 | Repeatable recovery attempts | PASS for exercised failure | Original failure logs/results remain immutable; new attempts use new names. Both interrupted original volumes subsequently recovered and were deleted only after native reconciliation and fresh actual flat/no-order proof. |
 | Exact wallet vs API PnL presentation | Captured regression fixed and original root recovered | Execution loss−0.00175USDC agrees with the wallet; reported closedPnl−0.00174 is separately validated. The0.00001 display delta is never booked. Financial tolerance remains0.000001USDC. |
-| Closed-loop market correspondence | FAIL retained; corrective recovery in progress | Separate venue event time/agent receive time; own simulated private fills drive Core inventory and future orders. Frozen arrival960ms/report390ms/cancel520ms. Next frozen v3: three900s sessions,30s rotation;≥100 actual and modeled orders,≤5% lot/count differences,≤2bps max grouped VWAP. |
+| Closed-loop market correspondence | FAIL retained; original account recovered | Separate venue event time/agent receive time; own simulated private fills drive Core inventory and future orders. Frozen arrival960ms/report390ms/cancel520ms. Next frozen v3: three900s sessions,30s rotation;≥100 actual and modeled orders,≤5% lot/count differences,≤2bps max grouped VWAP. |
 |24h qualification | Not started | Conditional on correspondence and operations evidence. A short soak cannot replace24 elapsed hours. |
 | Relative performance improvement | Not measured | No A/A or repeated A/B; RPC count and takeover RTO are functional/absolute gates. |
 
@@ -37,7 +37,7 @@ locally unsent order25. The existing strict `--resolve-unsent` proof is now expo
 through `recover-lifecycle` and a recovery-only controller flag. It is opt-in:
 original journals/action hashes, zero fills, no action attempt, no contradictory
 open order and complete fill/wallet reconciliation remain mandatory. No change
-to default absence handling or financial tolerance. Recovery is not yet accepted.
+to default absence handling or financial tolerance. The first explicit recovery failed while polling a locally rejected order after sending the flatten. Its final cleanup re-reconciled the original session and succeeded; the controller result remains FAIL, with cleanup_verified=true. Fresh actual position/open orders are zero; both task volumes and the temporary secret were deleted. A regression now requires regular polls to retain that reconciled no-attempt proof, while still rejecting any unowned fill.
 
 Live target preflight now refuses such an opening delta once per target, before
 allocating an order. Small pure reductions remain eligible. Replay uses the same
