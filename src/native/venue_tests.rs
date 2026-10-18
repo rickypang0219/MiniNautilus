@@ -796,3 +796,33 @@ fn http_failure_records_numeric_status_without_reusable_signature_or_response_bo
         "no mutation retry on HTTP failure"
     );
 }
+
+#[test]
+fn btc_display_pnl_is_not_an_exact_wallet_cash_posting() {
+    let fixture: Value = serde_json::from_str(include_str!(
+        "../../tests/fixtures/native/entry-display.json"
+    ))
+    .unwrap();
+    let fills = rows(&fixture["fills"]).unwrap();
+    let ledger = account_ledger("BTC", fills, &[]).unwrap();
+    assert_eq!(ledger.realized, dec(&fixture["exact_realized"]).unwrap());
+    assert_eq!(
+        ledger.cash_change,
+        dec(&fixture["flat_cash"]).unwrap() - dec(&fixture["baseline_cash"]).unwrap()
+    );
+    assert_eq!(
+        ledger.reported_realized,
+        dec(&fixture["reported_realized"]).unwrap()
+    );
+    assert_eq!(
+        ledger.display_pnl_difference,
+        dec(&fixture["display_pnl_difference"]).unwrap()
+    );
+    assert_ne!(
+        ledger.cash_change,
+        ledger.reported_realized - ledger.fees + ledger.funding
+    );
+    let mut wrong = fills.clone();
+    wrong[2]["closedPnl"] = "-0.00172".into();
+    assert!(account_ledger("BTC", &wrong, &[]).is_err());
+}

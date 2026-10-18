@@ -85,3 +85,14 @@ class CorrespondenceTest(unittest.TestCase):
         self.assertEqual(audit.strategy_parity(rows)["status"],"PASS")
         rows[-1]["answer"]["target"]=-20
         self.assertEqual(audit.strategy_parity(rows)["status"],"FAIL")
+
+    def test_btc_display_pnl_keeps_exact_execution_and_wallet_accounting(self):
+        import json
+        f=json.loads((Path(__file__).resolve().parents[1]/'tests/fixtures/native/entry-display.json').read_text())
+        result=audit.ledger(f['fills'],[])
+        self.assertEqual(result['realized'],audit.F(f['exact_realized']))
+        self.assertEqual(result['cash_change'],audit.F(f['flat_cash'])-audit.F(f['baseline_cash']))
+        self.assertEqual(result['reported_realized'],audit.F(f['reported_realized']))
+        self.assertEqual(result['display_pnl_difference'],audit.F(f['display_pnl_difference']))
+        wrong=copy.deepcopy(f['fills']);wrong[2]['closedPnl']='-0.00172'
+        with self.assertRaisesRegex(ValueError,'realized PnL'):audit.ledger(wrong,[])

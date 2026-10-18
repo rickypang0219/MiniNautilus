@@ -6,7 +6,7 @@ use super::{
 };
 use crate::{core::Core, model::*};
 use reqwest::blocking::Client;
-use rust_decimal::{Decimal, prelude::ToPrimitive};
+use rust_decimal::{Decimal, RoundingStrategy, prelude::ToPrimitive};
 use serde::{Deserialize, Serialize};
 use serde_json::{Value, json};
 use sha2::{Digest, Sha256};
@@ -272,6 +272,11 @@ pub struct Ledger {
     pub entry: Decimal,
     #[serde(serialize_with = "decimal_string")]
     pub realized: Decimal,
+    /// Informational API projection, not a wallet cash posting.
+    #[serde(serialize_with = "decimal_string")]
+    pub reported_realized: Decimal,
+    #[serde(serialize_with = "decimal_string")]
+    pub display_pnl_difference: Decimal,
     #[serde(serialize_with = "decimal_string")]
     pub fees: Decimal,
     #[serde(serialize_with = "decimal_string")]
@@ -283,11 +288,16 @@ fn decimal_string<S: serde::Serializer>(v: &Decimal, s: S) -> std::result::Resul
     s.serialize_str(&wire(*v))
 }
 pub fn account_ledger(symbol: &str, fills: &[Value], funding: &[Value]) -> Result<Ledger> {
+    if symbol != "BTC" {
+        return Err(fail("unsupported ledger display precision"));
+    }
     let fills = chronological_fills(fills)?;
     let mut out = Ledger {
         position: Decimal::ZERO,
         entry: Decimal::ZERO,
         realized: Decimal::ZERO,
+        reported_realized: Decimal::ZERO,
+        display_pnl_difference: Decimal::ZERO,
         fees: Decimal::ZERO,
         funding: Decimal::ZERO,
         cash_change: Decimal::ZERO,
@@ -325,8 +335,24 @@ pub fn account_ledger(symbol: &str, fills: &[Value], funding: &[Value]) -> Resul
         } else {
             Decimal::ZERO
         };
+        // BTC's informational closedPnl uses the 0.1 display-price projection.
+        // Executions and wallet cash retain full precision; never book this UI delta.
+        let displayed_entry = out
+            .entry
+            .round_dp_with_strategy(1, RoundingStrategy::ToZero);
+        let displayed_pnl = if closing {
+            out.position.abs().min(qty)
+                * (px - displayed_entry)
+                * if out.position > Decimal::ZERO {
+                    Decimal::ONE
+                } else {
+                    -Decimal::ONE
+                }
+        } else {
+            Decimal::ZERO
+        };
         let reported = dec(&f["closedPnl"])?;
-        if (pnl - reported).abs() > Decimal::new(1, 6) {
+        if (displayed_pnl - reported).abs() > Decimal::new(1, 6) {
             return Err(fail("realized PnL disagreement"));
         }
         let after = out.position + delta;
@@ -340,7 +366,8 @@ pub fn account_ledger(symbol: &str, fills: &[Value], funding: &[Value]) -> Resul
             out.entry = px;
         }
         out.position = after;
-        out.realized += reported;
+        out.realized += pnl;
+        out.reported_realized += reported;
         out.fees += dec(&f["fee"])?;
     }
     for f in unique(funding, true)? {
@@ -349,6 +376,7 @@ pub fn account_ledger(symbol: &str, fills: &[Value], funding: &[Value]) -> Resul
         }
         out.funding += dec(&f["delta"]["usdc"])?;
     }
+    out.display_pnl_difference = out.reported_realized - out.realized;
     out.cash_change = out.realized - out.fees + out.funding;
     Ok(out)
 }

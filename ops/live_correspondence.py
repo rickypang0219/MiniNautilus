@@ -38,7 +38,7 @@ def unique(rows, key):
 
 def ledger(fills, funding):
     """Independent rational average-cost accounting, including cross-zero fills."""
-    position = entry = realized = fees = F(0)
+    position = entry = realized = reported_realized = fees = F(0)
     for row in chronological_fills(fills):
         if row["coin"] != "BTC" or row["feeToken"] != "USDC" or row["side"] not in ("B", "A"):
             raise ValueError("unsupported instrument, fee or side")
@@ -50,7 +50,10 @@ def ledger(fills, funding):
         delta = qty if row["side"] == "B" else -qty
         closing = position * delta < 0
         pnl = min(abs(position), qty) * (price-entry) * (1 if position > 0 else -1) if closing else F(0)
-        if abs(pnl-fraction(row["closedPnl"])) > F(1, 10**6):
+        # This BTC API field projects entry to0.1; exact cash comes from fills.
+        displayed_entry=F(int(entry*10),10)
+        displayed_pnl=min(abs(position),qty)*(price-displayed_entry)*(1 if position>0 else -1) if closing else F(0)
+        if abs(displayed_pnl-fraction(row["closedPnl"])) > F(1, 10**6):
             raise ValueError("venue realized PnL disagreement")
         after = position + delta
         if position * delta >= 0:
@@ -61,13 +64,15 @@ def ledger(fills, funding):
             entry = price
         position = after
         realized += pnl
+        reported_realized += fraction(row["closedPnl"])
         fees += fraction(row["fee"])
     cash_funding = F(0)
     for row in unique(funding, lambda f: (f["time"], f["hash"], f["delta"]["coin"])):
         if row["delta"]["coin"] != "BTC" or row["delta"]["type"] != "funding":
             raise ValueError("foreign funding")
         cash_funding += fraction(row["delta"]["usdc"])
-    return dict(position=position, entry=entry, realized=realized, fees=fees,
+    return dict(position=position, entry=entry, realized=realized, reported_realized=reported_realized,
+                display_pnl_difference=reported_realized-realized, fees=fees,
                 funding=cash_funding, cash_change=realized-fees+cash_funding)
 
 
