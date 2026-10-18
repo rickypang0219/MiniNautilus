@@ -42,6 +42,8 @@ def public_events(rows):
             yield row['planned_stop_ms'], 'stop', None
         elif kind == 'http' and row['path']=='/info' and row['request'].get('type')=='l2Book':
             yield row['received_ms'], 'book', row['response']
+        elif kind == 'strategy_publication':
+            yield row['available_ms'], 'publish', row['bar_open_ms']
         elif kind == 'strategy':
             yield row['received_ms'], 'bar', row['request']['bar']
         elif kind == 'asset_context':
@@ -175,8 +177,11 @@ def replay_depth(engine, events, manifest):
                 continue
             target = strategy.target if strategy.ready else None
             signals.append(dict(open_ms=data['open_ms'],target=target))
-            if not stopping and target is not None and data['close_ms'] + 65000 >= now:
-                schedule_effects(engine.send(now,{'SetTarget':dict(revision=engine.state['last_target_revision']+1,position=target,valid_until=data['close_ms']+65000)}))
+        elif kind == 'publish':
+            if strategy.last is None or strategy.last.open_ms != data:
+                raise ValueError('publication missing causal bounded inputs')
+            if not stopping and strategy.ready and strategy.last.close_ms + 65000 >= now:
+                schedule_effects(engine.send(now,{'SetTarget':dict(revision=engine.state['last_target_revision']+1,position=strategy.target,valid_until=strategy.last.close_ms+65000)}))
         elif kind == 'target':  # Explicit synthetic policy fixtures, never recovered live orders.
             schedule_effects(engine.send(now,{'SetTarget':dict(revision=engine.state['last_target_revision']+1,position=data,valid_until=now+65000)}))
         elif kind == 'arrival':

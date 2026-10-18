@@ -819,6 +819,11 @@ fn candle_worker(
                 received,
             });
         }
+        if let Some(Control::Target { request, .. }) = &latest
+            && let Some(recorder) = &http.recorder
+        {
+            recorder.append(json!({"kind":"strategy_publication","available_ms":wall_ms(),"bar_open_ms":request.bar.open_ms,"revision":request.revision}))?;
+        }
         if let Some(message) = latest {
             circuit.publish(&critical, message)?;
         }

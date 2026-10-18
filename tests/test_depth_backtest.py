@@ -1,6 +1,8 @@
 """Closed-loop historical matching must use the real Core, without a second paper venue."""
 from pathlib import Path
 import sys
+import tempfile
+import json
 import unittest
 ROOT=Path(__file__).resolve().parents[1]
 sys.path.insert(0,str(ROOT/'python'))
@@ -22,8 +24,11 @@ class DepthBacktestTest(unittest.TestCase):
                       max_book_age_ms=5000,tick='1',lot='1',cash_quantum='0.000001',
                       maker_fee_rate='0.00015',taker_fee_rate='0.00045',max_oracle_age_ms=2000)
         manifest.update(settings)
-        with Engine(sim=True,time_mode='historical',extra_args=('--external-venue',)) as engine:
-            return replay_depth(engine,events,manifest)
+        with tempfile.TemporaryDirectory() as directory:
+            config=Path(directory)/'config.json'
+            config.write_text(json.dumps(dict(max_abs_position=20,max_order_qty=40,max_order_notional=40000000,request_timeout_ms=20000,market_stale_ms=5000,private_stale_ms=30000,max_signal_lag=10000)))
+            with Engine(sim=True,config=config,time_mode='historical',extra_args=('--external-venue',)) as engine:
+                return replay_depth(engine,events,manifest)
 
     @staticmethod
     def book(at=1, size='2', ask='100', bid='99'):
@@ -85,3 +90,14 @@ class DepthBacktestTest(unittest.TestCase):
         self.assertEqual(result['orders'][1]['intent']['qty'],1)
         self.assertEqual(result['orders'][0]['coverage'],'PASSIVE_QUEUE_UNVALIDATED')
         self.assertEqual(result['accounting'],'PASS')
+
+    def test_warmup_batch_publishes_only_latest_target_without_intermediate_order(self):
+        from mininautilus.depth_backtest import public_events
+        at=540001
+        rows=[dict(kind='ws',received_ms=at,message=dict(channel='l2Book',data=self.book(at)[2]))]
+        for i,price in enumerate([100]*6+[101,102,90]):
+            rows.append(dict(kind='strategy',received_ms=at,request=dict(bar=dict(open_ms=i*60000,close_ms=i*60000+59999,price=price))))
+        rows.append(dict(kind='strategy_publication',available_ms=at,bar_open_ms=480000))
+        result=self.run_model(public_events(rows))
+        self.assertEqual([o['intent']['side'] for o in result['orders']],['Sell'])
+        self.assertEqual(result['position'],-20)

@@ -104,7 +104,23 @@ impl Server {
                     }
                 };
                 let body = response.to_string();
-                write!(stream,"HTTP/1.1 200 OK\r\nContent-Type: application/json\r\nContent-Length: {}\r\nConnection: close\r\n\r\n{}",body.len(),body).unwrap();
+                // A real deadline client can close while this mock is replying.
+                // Its timeout/absence assertions still run; only peer disconnects
+                // are expected here, not an arbitrary mock-server I/O failure.
+                if let Err(error) = write!(
+                    stream,
+                    "HTTP/1.1 200 OK\r\nContent-Type: application/json\r\nContent-Length: {}\r\nConnection: close\r\n\r\n{}",
+                    body.len(),
+                    body
+                ) {
+                    assert!(
+                        matches!(
+                            error.kind(),
+                            std::io::ErrorKind::BrokenPipe | std::io::ErrorKind::ConnectionReset
+                        ),
+                        "mock response: {error}"
+                    );
+                }
             }
         });
         Self {
