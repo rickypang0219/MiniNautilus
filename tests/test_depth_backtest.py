@@ -20,14 +20,21 @@ class DepthBacktestTest(unittest.TestCase):
 
     def run_model(self, events, **settings):
         from mininautilus.depth_backtest import replay_depth
-        manifest=dict(model='causal-depth-trade-v1',arrival_delay_ms=10,cancel_delay_ms=10,
+        manifest=dict(model='causal-depth-trade-v2',arrival_delay_ms=10,cancel_delay_ms=10,
                       max_book_age_ms=5000,tick='1',lot='1',cash_quantum='0.000001',
                       maker_fee_rate='0.00015',taker_fee_rate='0.00045',max_oracle_age_ms=2000)
+        calls=settings.pop('capture_calls',None)
         manifest.update(settings)
         with tempfile.TemporaryDirectory() as directory:
             config=Path(directory)/'config.json'
             config.write_text(json.dumps(dict(max_abs_position=20,max_order_qty=40,max_order_notional=40000000,request_timeout_ms=20000,market_stale_ms=5000,private_stale_ms=30000,max_signal_lag=10000)))
             with Engine(sim=True,config=config,time_mode='historical',extra_args=('--external-venue',)) as engine:
+                if calls is not None:
+                    send=engine.send
+                    def observed_send(at,event,**kwargs):
+                        calls.append((at,event,engine.state['position']))
+                        return send(at,event,**kwargs)
+                    engine.send=observed_send
                 return replay_depth(engine,events,manifest)
 
     @staticmethod
@@ -107,3 +114,22 @@ class DepthBacktestTest(unittest.TestCase):
         self.assertEqual(result['position'],0)
         self.assertGreaterEqual(result['orders'][0]['cancel_effective_ms'],result['orders'][0]['arrived_ms'])
         self.assertEqual(result['orders'][1]['intent']['qty'],2)
+
+    def test_exchange_book_time_matches_without_leaking_late_quote_into_order_terms(self):
+        from mininautilus.depth_backtest import public_events
+        first=dict(kind='ws',received_ms=1,message=dict(channel='l2Book',data=self.book()[2]))
+        delayed=dict(kind='ws',received_ms=100,message=dict(channel='l2Book',data=self.book(2,ask='99',bid='98')[2]))
+        events=list(public_events([first,delayed]))+[(1,'target',2)]
+        result=self.run_model(events)
+        self.assertEqual(result['orders'][0]['intent']['limit'],100)
+        self.assertEqual(result['fills'][0]['price'],99)
+
+    def test_private_report_delay_preserves_physical_funding_inventory(self):
+        calls=[]
+        events=[(1,'oracle',dict(price='100')),self.book(),(1,'target',2),
+                (100,'funding',dict(coin='BTC',time=50,fundingRate='0.01'))]
+        result=self.run_model(events,report_delay_ms=1000,capture_calls=calls)
+        deliveries=[at for at,event,_ in calls if isinstance(event,dict) and 'Fill' in event.get('Execution',{}).get('report',{})]
+        self.assertEqual(deliveries,[1011])
+        self.assertEqual(result['funding'],'-2')
+        self.assertTrue(any(at==100 and position==0 for at,_,position in calls))

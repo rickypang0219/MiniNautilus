@@ -128,6 +128,7 @@ def analyze(roots,manifest,binary):
     incomplete=count<manifest['minimum_orders'] or simulated_count<manifest['minimum_orders'] or not qty or uncovered or actual_uncovered or unknown or not segments
     return dict(schema=1,status='FAIL' if failed else 'INCONCLUSIVE' if incomplete else 'PASS_COVERED_CLASS',
                 scope='per-segment 3/8 SMA plus explicitly scheduled operational flatten; immediate-cross class only, no general passive/impact/PCA acceptance',
+                distinct_strategy_bar_times=len({signal['open_ms'] for s in segments for signal in s['simulated']['signals']}),
                 actual_orders=count,simulated_orders=simulated_count,order_count_error_fraction=float(order_count_error),actual_lots=qty,filled_lot_error_fraction=float(qty_error),max_vwap_error_bps=max(prices) if prices else None,
                 uncovered_simulated_orders=uncovered,actual_nonfilled_ack_orders=actual_uncovered,unknown_funding_settlements=unknown,core_or_model_failures=failures,
                 backtest_binary_sha256=sha(binary),analyzer_source_sha256=sha(Path(__file__)),segments=segments)

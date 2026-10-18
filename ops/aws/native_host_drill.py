@@ -43,6 +43,7 @@ def main():
     parser.add_argument("--host-first",action="store_true",help="collect independent host-recovery evidence before the two live runs")
     parser.add_argument("--host-only",action="store_true",help="repeat retained-EBS recovery without the two rotation runs")
     parser.add_argument("--rotated-root",action="store_true",help="kill an exposed successor after rotation and recover its complete retained root")
+    parser.add_argument("--correspondence-manifest",type=Path,default=Path('comparisons/native-readiness/closed-loop-v2.json'))
     parser.add_argument("--correspondence-only",action="store_true",help="two frozen 900-second closed-loop correspondence holdouts; no host replacement")
     parser.add_argument("--recover-original",type=Path,help="recover the exact retained EBS from a failed task; no new trading session")
     args=parser.parse_args()
@@ -53,6 +54,14 @@ def main():
         raise ValueError("full verify must finish before launch")
     build=json.loads(args.bundle_receipt.read_text());bundle=Path(build["path"])
     if sha(bundle)!=build["sha256"]:raise ValueError("bundle digest")
+    comparison=None
+    if args.correspondence_only:
+        import tarfile
+        from native_drill_worker import validate_holdout
+        with tarfile.open(bundle) as archive:files=json.load(archive.extractfile('BUILD.json'))['files']
+        name=str(args.correspondence_manifest)
+        if name not in files or sha(args.correspondence_manifest)!=files[name]:raise ValueError('holdout manifest is not the bundled immutable input')
+        comparison=json.loads(args.correspondence_manifest.read_text());validate_holdout(comparison)
     config=json.loads(args.config.read_text());args.output.mkdir(parents=True,exist_ok=False)
     # The user selected this account via injected credentials; no local named profile exists.
     for key in ("AWS_PROFILE","AWS_DEFAULT_PROFILE"):os.environ.pop(key,None)
@@ -72,7 +81,7 @@ def main():
         resources['original_resources_sha256']=sha(args.recover_original)
         resources['original_token']=original['token']
         begin_signed_phase(resources)
-    task=dict(bucket=config["bucket"],prefix=prefix,secret_parameter=parameter,bundle_sha256=build["sha256"])
+    task=dict(bucket=config["bucket"],prefix=prefix,secret_parameter=parameter,bundle_sha256=build["sha256"],comparison_manifest=str(args.correspondence_manifest))
     def save():
         (args.output/"resources.json").write_text(json.dumps(resources,indent=2))
     def log(message):print(json.dumps(dict(at=time.time(),message=message)),flush=True)
@@ -190,7 +199,7 @@ BOOT
             if args.rotated_root:command(active,"fixture",60)
             begin_signed_phase(resources);save()
             if args.correspondence_only:
-                command(active,"correspondence",2400)
+                command(active,"correspondence",comparison['holdout']['runs']*900+600)
                 result=json.loads(s3.get_object(Bucket=config['bucket'],Key=prefix+'/correspondence-result.json')['Body'].read())
                 resources.update(status=result['comparison']['status'],flat_verified=True,potential_exposure=False);save()
             else:

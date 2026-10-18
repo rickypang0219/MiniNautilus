@@ -127,3 +127,21 @@ class NativeDrillTest(unittest.TestCase):
                 self.assertNotEqual(first,'cleanup');self.assertNotEqual(first,second)
                 self.assertEqual((root/'cleanup-result.json').read_text(),'original failure')
             finally:worker.STATE=original
+
+    def test_holdout_manifest_rejects_tampered_or_unbounded_signed_workload(self):
+        manifest=dict(schema=1,model='causal-depth-trade-v2',holdout=dict(runs=3,seconds_per_run=900,rotation_age_seconds=30,rotation_orders=800,flatten=True,python_sma=True))
+        worker.validate_holdout(manifest)
+        for field,value in [('runs',4),('seconds_per_run',3600),('rotation_age_seconds',0),('rotation_orders',1001),('flatten',False)]:
+            bad=copy.deepcopy(manifest);bad['holdout'][field]=value
+            with self.subTest(field=field),self.assertRaises(ValueError):worker.validate_holdout(bad)
+
+        with tempfile.TemporaryDirectory() as temporary:
+            root=Path(temporary);original=worker.ROOT;worker.ROOT=root
+            try:
+                path=root/'frozen.json';path.write_text(json.dumps(manifest))
+                (root/'BUILD.json').write_text(json.dumps(dict(files={'frozen.json':worker.sha(path)})))
+                self.assertEqual(worker.load_holdout_manifest(dict(comparison_manifest='frozen.json'))[1],manifest)
+                path.write_text('{}')
+                with self.assertRaises(ValueError):worker.load_holdout_manifest(dict(comparison_manifest='frozen.json'))
+                with self.assertRaises(ValueError):worker.load_holdout_manifest(dict(comparison_manifest='../unbundled.json'))
+            finally:worker.ROOT=original

@@ -24,6 +24,25 @@ def phase_label(phase):
     return phase if not (STATE/(phase+'-result.json')).exists() else phase+'-'+str(time.time_ns())
 
 
+def validate_holdout(manifest):
+    h=manifest.get('holdout',{})
+    if (manifest.get('schema')!=1 or manifest.get('model')!='causal-depth-trade-v2'
+        or type(h.get('runs')) is not int or h['runs'] not in (2,3) or h.get('seconds_per_run')!=900
+        or h.get('rotation_age_seconds')!=30 or h.get('rotation_orders')!=800
+        or h.get('flatten') is not True or h.get('python_sma') is not True):
+        raise ValueError('unsupported/unbounded frozen holdout workload')
+
+
+def load_holdout_manifest(task):
+    name=task.get('comparison_manifest','comparisons/native-readiness/closed-loop-v2.json')
+    files=json.loads((ROOT/'BUILD.json').read_text())['files']
+    if name not in files:raise ValueError('holdout manifest is not in verified bundle')
+    path=ROOT/name
+    if sha(path)!=files[name]:raise ValueError('holdout manifest digest mismatch')
+    manifest=json.loads(path.read_text());validate_holdout(manifest)
+    return path,manifest
+
+
 def recovered_fill_proof(state, session, observations):
     """Match all original venue executions; one order may have many fills."""
     if session["instrument"].get("symbol")!="BTC" or session["instrument"].get("sz_decimals")!=5:
@@ -297,21 +316,23 @@ def main():
     try:
         if args.phase == "correspondence":
             evidence['before']=account(True)
+            manifest_path,manifest=load_holdout_manifest(task);h=manifest['holdout']
+            evidence['manifest_sha256']=sha(manifest_path)
             roots=[]
-            for index in (1,2):
+            for index in range(1,h['runs']+1):
                 name=f'rotation-holdout-{index}';directory=STATE/name;roots.append(directory)
-                code=execute([native,'lifecycle','--run-dir',str(directory),'--seconds','900',
-                    '--rotate-orders','800','--rotate-seconds','10','--rotation-flatten','--flatten','--python-strategy'],name,1200)
+                code=execute([native,'lifecycle','--run-dir',str(directory),'--seconds',str(h['seconds_per_run']),
+                    '--rotate-orders',str(h['rotation_orders']),'--rotate-seconds',str(h['rotation_age_seconds']),'--rotation-flatten','--flatten','--python-strategy'],name,1200)
                 if code:raise ValueError('original holdout lifecycle failed; cleanup must recover it')
                 evidence[name]=dict(report=json.loads((directory/'lifecycle-report.json').read_text()),after=account(True))
                 output=STATE/f'closed-loop-holdout-{index}.json'
                 code=execute([os.environ['PYTHON'],str(ROOT/'ops/closed_loop_correspondence.py'),str(directory),
-                    '--manifest',str(ROOT/'comparisons/native-readiness/closed-loop-v1.json'),'--output',str(output)],name+'-analyze',180)
+                    '--manifest',str(manifest_path),'--output',str(output)],name+'-analyze',180)
                 archive(s3,task,name)
                 if code:raise ValueError('frozen first-pass correspondence guard failed; no retuning on holdout')
             output=STATE/'closed-loop-combined.json'
             code=execute([os.environ['PYTHON'],str(ROOT/'ops/closed_loop_correspondence.py'),*(str(p) for p in roots),
-                '--manifest',str(ROOT/'comparisons/native-readiness/closed-loop-v1.json'),'--output',str(output)],'combined-holdout-analyze',180)
+                '--manifest',str(manifest_path),'--output',str(output)],'combined-holdout-analyze',180)
             if code:raise ValueError('frozen combined correspondence guard failed')
             evidence['comparison']=json.loads(output.read_text())
         elif args.phase == "fixture":
