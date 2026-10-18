@@ -217,7 +217,7 @@ BOOT
         resources["status"]="FAIL";resources["failure"]=type(error).__name__+": "+str(error);save()
         raise
     finally:
-        if active and mounted:
+        if active and mounted and not state_volume_safe(resources):
             try:
                 command(active,"cleanup",600);resources["flat_verified"]=True;resources["potential_exposure"]=False
             except BaseException as error:resources["cleanup_failure"]=type(error).__name__+": "+str(error)

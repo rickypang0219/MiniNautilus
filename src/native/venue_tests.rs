@@ -103,13 +103,14 @@ impl Server {
                         other => panic!("unexpected request {other:?}"),
                     }
                 };
+                let status = response["__http_status"].as_u64().unwrap_or(200);
                 let body = response.to_string();
                 // A real deadline client can close while this mock is replying.
                 // Its timeout/absence assertions still run; only peer disconnects
                 // are expected here, not an arbitrary mock-server I/O failure.
                 if let Err(error) = write!(
                     stream,
-                    "HTTP/1.1 200 OK\r\nContent-Type: application/json\r\nContent-Length: {}\r\nConnection: close\r\n\r\n{}",
+                    "HTTP/1.1 {status} Test\r\nContent-Type: application/json\r\nContent-Length: {}\r\nConnection: close\r\n\r\n{}",
                     body.len(),
                     body
                 ) {
@@ -769,4 +770,29 @@ fn terminal_cache_rejects_cross_poll_fee_changes_missing_fills_and_foreign_fills
     );
     core.orders.get_mut(&1).unwrap().uncertain = true;
     assert!(venue.poll_orders(&core, &[]).is_err());
+}
+
+#[test]
+fn http_failure_records_numeric_status_without_reusable_signature_or_response_body() {
+    let server = Server::script(
+        vec![json!({})],
+        Some(json!({"__http_status":429,"echo":"NEVER_RECORD_BODY"})),
+    );
+    let directory = dir("http-error-status");
+    let mut venue = server.venue(&directory);
+    let path = directory.join("observations.jsonl");
+    venue.http.recorder = Some(super::super::record::Recorder::create(&path).unwrap());
+    let error=venue.http.post("/exchange",&json!({"action":{"type":"order"},"signature":{"r":"NEVER_RECORD_SIGNATURE"},"nonce":7})).unwrap_err();
+    assert!(error.to_string().contains("HTTP 429"), "{error}");
+    let raw = std::fs::read_to_string(path).unwrap();
+    assert!(!raw.contains("NEVER_RECORD"));
+    let row: Value = serde_json::from_str(raw.trim()).unwrap();
+    assert_eq!(row["kind"], "http_error");
+    assert_eq!(row["status"], 429);
+    assert_eq!(row["operation"], "order");
+    assert_eq!(
+        server.actions.load(Ordering::Acquire),
+        1,
+        "no mutation retry on HTTP failure"
+    );
 }

@@ -116,3 +116,14 @@ class NativeDrillTest(unittest.TestCase):
         self.assertEqual(controller.original_volume(original),'vol-original')
         for bad in [dict(original,data_volume=None),dict(original,instances=[]),dict(original,cleanup_verified=True),dict(original,token='user-stack')]:
             with self.assertRaises(ValueError):controller.original_volume(bad)
+
+    def test_repeated_cleanup_keeps_original_receipt_and_uses_new_attempt_paths(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            root=Path(temporary);original=worker.STATE;worker.STATE=root
+            try:
+                self.assertEqual(worker.phase_label('cleanup'),'cleanup')
+                (root/'cleanup-result.json').write_text('original failure')
+                first=worker.phase_label('cleanup');second=worker.phase_label('cleanup')
+                self.assertNotEqual(first,'cleanup');self.assertNotEqual(first,second)
+                self.assertEqual((root/'cleanup-result.json').read_text(),'original failure')
+            finally:worker.STATE=original

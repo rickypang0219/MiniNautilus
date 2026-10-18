@@ -19,6 +19,11 @@ def sha(path):
     return hashlib.sha256(path.read_bytes()).hexdigest()
 
 
+def phase_label(phase):
+    # An original failure is immutable evidence, not an obstacle to a fresh attempt.
+    return phase if not (STATE/(phase+'-result.json')).exists() else phase+'-'+str(time.time_ns())
+
+
 def recovered_fill_proof(state, session, observations):
     """Match all original venue executions; one order may have many fills."""
     if session["instrument"].get("symbol")!="BTC" or session["instrument"].get("sz_decimals")!=5:
@@ -287,7 +292,8 @@ def main():
         if sha(ROOT/name) != digest:
             raise ValueError("bundle identity mismatch: "+name)
     native = str(ROOT/"target/release/native-live")
-    evidence = dict(phase=args.phase,started_ms=time.time_ns()//1000000)
+    label=phase_label(args.phase)
+    evidence = dict(phase=args.phase,attempt_label=label,started_ms=time.time_ns()//1000000)
     try:
         if args.phase == "correspondence":
             evidence['before']=account(True)
@@ -394,11 +400,11 @@ def main():
                     pointer=json.loads((directory/"current.json").read_text())["payload"]
                     segment=directory/f"segment-{pointer['index']:06}"
                     if (segment/"actions.jsonl").exists():
-                        code=execute([native,"recover-lifecycle","--run-dir",str(directory),"--flatten"],directory.name+"-final-cleanup",180)
+                        code=execute([native,"recover-lifecycle","--run-dir",str(directory),"--flatten"],directory.name+"-final-cleanup-"+label,180)
                         if code: raise ValueError("lifecycle cleanup unresolved")
             directory=STATE/"crash-original"
             if (directory/"session.json").exists() and not completed_diagnostic():
-                code=execute([native,"recover","--run-dir",str(directory),"--flatten"],"crash-final-cleanup",180)
+                code=execute([native,"recover","--run-dir",str(directory),"--flatten"],"crash-final-cleanup-"+label,180)
                 if code: raise ValueError("original crash cleanup unresolved")
             evidence["account"]=account(True)
         else:
@@ -410,10 +416,10 @@ def main():
         raise
     finally:
         evidence["finished_ms"] = time.time_ns()//1000000
-        with (STATE/(args.phase+"-result.json")).open("x") as stream:
+        with (STATE/(label+"-result.json")).open("x") as stream:
             json.dump(evidence,stream,indent=2)
-        s3.put_object(Bucket=task["bucket"],Key=task["prefix"]+"/"+args.phase+"-result.json",Body=json.dumps(evidence).encode())
-        archive(s3,task,args.phase+"-final")
+        s3.put_object(Bucket=task["bucket"],Key=task["prefix"]+"/"+label+"-result.json",Body=json.dumps(evidence).encode())
+        archive(s3,task,label+"-final")
 
 
 if __name__ == "__main__":

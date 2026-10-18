@@ -29,6 +29,23 @@ impl Recorder {
             .sync_all()?;
         Ok(())
     }
+    pub fn http_error(
+        &self,
+        path: &str,
+        request: &Value,
+        status: u16,
+        started_ms: u64,
+        elapsed_ns: u64,
+    ) -> Result<()> {
+        // An HTTP failure must be diagnosable without persisting reusable auth/body echoes.
+        let operation = request["type"]
+            .as_str()
+            .or(request["action"]["type"].as_str());
+        self.append(
+            json!({"kind":"http_error","path":path,"operation":operation,"status":status,
+            "requested_ms":started_ms,"received_ms":wall_ms(),"elapsed_ns":elapsed_ns}),
+        )
+    }
     pub fn response(
         &self,
         path: &str,

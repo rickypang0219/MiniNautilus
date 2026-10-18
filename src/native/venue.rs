@@ -173,7 +173,17 @@ impl Http {
                 )
             })?;
         if !response.status().is_success() {
-            return Err(fail("HTTP error; outcome may be unknown"));
+            let status = response.status().as_u16();
+            if let Some(recorder) = &self.recorder {
+                recorder.http_error(
+                    path,
+                    payload,
+                    status,
+                    started_ms,
+                    started.elapsed().as_nanos() as u64,
+                )?;
+            }
+            return Err(fail(&format!("HTTP {status}; outcome may be unknown")));
         }
         let mut raw = Vec::new();
         response
