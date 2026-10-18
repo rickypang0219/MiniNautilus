@@ -3,6 +3,14 @@
 Created: 2026-10-16T19:29:00Z (UTC).
 Mode: dedicated-account **Hyperliquid Testnet**. The selected first real strategy is Cluster-PCA **shadow, without orders**.
 
+**Status update,2026-10-18 UTC:** Consult [current acceptance](native-readiness-20261018.md)
+and its JSON before using the historical preparation steps below. Retained-EBS
+takeover of a real rotated root now passed three fresh trials; the800+4 polling
+fixture passed. Closed-loop correspondence remains unaccepted, and v5's second
+native root failed read visibility before successful original-session recovery.
+No24h qualification or persistent deployment was started. The volume template
+below is still undeployed; temporary tests used the explicit drill controller.
+
 This runbook prepares a supervised rollout. It does not establish an unattended production service. Current implementation and failed attempts are recorded in [migration results](rust-native-runtime-results.md); the subsequent implementation/drill scope is [production readiness proposal](native-production-readiness-proposal.md).
 
 ## Release and evidence

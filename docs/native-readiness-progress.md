@@ -2,6 +2,15 @@
 
 Created: **2026-10-17T01:55:05Z (UTC)**.
 
+**2026-10-18 continuation:** The [latest acceptance record](native-readiness-20261018.md)
+supersedes the pending-work/status statements below. Three fresh takeovers of an
+active rotated root passed (68.854–79.658s), and three800-terminal+4-active polling
+fixtures passed with four status RPCs. Closed-loop v5 first run is INCONCLUSIVE;
+its second native root failed acknowledged-order read visibility, then the original
+session recovered. All continuation resources/account cleanup were independently
+verified.24h and unattended operations remain unaccepted. Older sections retain
+their historical results; they are not current readiness claims.
+
 This implements the owner's two priorities together: test whether simulated execution corresponds to live facts, and close the bounded session/host recovery gaps. It extends [the existing readiness scope](native-production-readiness-proposal.md); it does not replace its stricter gates or treat short tests as 24-hour qualification.
 
 ## Scope and implementation

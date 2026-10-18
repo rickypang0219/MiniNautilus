@@ -54,3 +54,15 @@ one natural proof is required to call the new branch live-measured; otherwise ma
 NOT_MEASURED. Counterfactual previous results remain FAIL/INCONCLUSIVE.
 Passive queue assumptions, later network-service modeling and24h/operations
 qualification are still independent gates; this change cannot certify them.
+
+## Forward evidence,2026-10-18 UTC
+
+Frozen v5 first900s root naturally exercised27 successful proofs on one distinct
+order; every proof independently matched complete fills and original remaining
+quantity. The root completed26 rotations with zero execution recoveries.
+This meets the natural-case proof condition, not broad API-behavior coverage.
+Correspondence stayed INCONCLUSIVE (54/54 orders, zero grouped-lot error,
+0.86332bps max VWAP, three uncovered cases). A second root failed a separate
+acknowledged-but-unqueryable order deadline; its original recovery succeeded.
+See [final acceptance](native-readiness-20261018.md) for preserved failures,
+source/binary hashes and cleanup receipts. No model thresholds were changed.
