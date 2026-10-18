@@ -32,3 +32,8 @@ class ClosedLoopComparisonTest(unittest.TestCase):
         self.assertEqual(result['actual_lots'],20)
         self.assertEqual(len(result['groups']),2)
         self.assertIsNone(result['max_vwap_error_bps'])
+
+    def test_partial_filled_ack_is_not_counted_as_full_coverage(self):
+        self.assertFalse(audit.fully_filled_ack([{'filled':{'totalSz':'0.00005'}}],20,'0.00001'))
+        self.assertTrue(audit.fully_filled_ack([{'filled':{'totalSz':'0.0002'}}],20,'0.00001'))
+        self.assertFalse(audit.fully_filled_ack([{'resting':{'oid':1}}],20,'0.00001'))

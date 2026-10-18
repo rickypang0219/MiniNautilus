@@ -62,6 +62,12 @@ def verify_core_cash(state, actual, quantum, tolerance):
         raise ValueError('independent actual/Core gross cash discrepancy')
 
 
+def fully_filled_ack(statuses, quantity, lot):
+    if len(statuses)!=1 or 'filled' not in statuses[0]:return False
+    size=statuses[0]['filled'].get('totalSz')
+    return isinstance(size,str) and F(size)==quantity*F(lot)
+
+
 def analyze_segment(segment,manifest,binary):
     journal=segment.parent/f'journal-{int(segment.name.split("-")[1]):06}.jsonl'
     state=json.loads(subprocess.check_output([str(binary),'inspect',str(journal)],text=True))
@@ -103,7 +109,8 @@ def analyze_segment(segment,manifest,binary):
         if row['kind']=='http' and row['path']=='/exchange' and row['request'].get('type')=='order':
             key=nonces[row['request']['nonce']]
             statuses=row['response'].get('response',{}).get('data',{}).get('statuses',[])
-            if len(statuses)==1 and 'filled' in statuses[0]:filled_ack.add(key)
+            order=state['orders'][key.removeprefix('order-')]
+            if fully_filled_ack(statuses,order['intent']['qty'],manifest['lot']):filled_ack.add(key)
     actual_uncovered=sum(f'order-{i}' in attempted and f'order-{i}' not in filled_ack for i in state['orders'])
     return dict(segment=segment.name,accounting='PASS',signals=parity,comparison=comparison,
                 actual_orders=sum(f'order-{i}' in attempted for i in state['orders']),actual_nonfilled_ack_orders=actual_uncovered,actual_unique_fills=len(raw_fills),
