@@ -214,6 +214,71 @@ fn intent() -> Intent {
 }
 
 #[test]
+fn regular_poll_cannot_drop_replace_or_regress_already_committed_facts() {
+    for case in ["missing", "changed", "replaced", "terminal"] {
+        let at = wall_ms();
+        let raw = json!({"status":"order","order":{"status":"open","order":{"oid":123,"cloid":"0x0123456789abcdef0000000000000001","coin":"BTC","side":"B","origSz":"0.0002","sz":if case == "missing" {"0.0002"} else {"0.0001"},"limitPx":"80000"}}});
+        let fill = json!({"time":at,"oid":123,"coin":"BTC","side":"B","tid":if case == "replaced" {2} else {1},"sz":"0.0001","px":if case == "changed" {"79999"} else {"80000"}});
+        let server = Server::with_fills(
+            vec![raw],
+            None,
+            vec![if case == "missing" {
+                json!([])
+            } else {
+                json!([fill])
+            }],
+        );
+        let dir = dir(&format!("known-facts-{case}"));
+        let mut venue = server.venue(&dir);
+        venue.session.started_ms = at - 1;
+        let mut core = Core::new(super::super::runtime::config()).unwrap();
+        let mut events = vec![
+            Event::Heartbeat { epoch: 0 },
+            Event::Quote {
+                bid: 800000,
+                ask: 800000,
+            },
+            Event::Submit(intent()),
+            Event::Execution {
+                epoch: 0,
+                venue_seq: 1,
+                report: Report::Fill(Fill {
+                    execution_id: 2,
+                    order_id: 1,
+                    qty: 10,
+                    price: 800000,
+                }),
+            },
+        ];
+        if case == "terminal" {
+            events.push(Event::Execution {
+                epoch: 0,
+                venue_seq: 2,
+                report: Report::Canceled {
+                    id: 1,
+                    cumulative_filled: 10,
+                },
+            });
+        }
+        for event in events {
+            core.apply(&Envelope {
+                seq: core.seq + 1,
+                at,
+                event,
+            })
+            .unwrap();
+        }
+        let before = core.clone();
+        assert!(
+            venue.poll(&core).is_err(),
+            "{case}: stale or contradictory REST evidence must not become reports"
+        );
+        assert_eq!(core, before);
+        assert_eq!(server.actions.load(Ordering::Acquire), 0);
+    }
+}
+
+#[test]
 fn dust_is_allowed_only_when_fresh_position_makes_it_strictly_reduce_only() {
     let server = Server::start(json!({"status":"unknownOid"}));
     let dir = dir("dust-reduce");

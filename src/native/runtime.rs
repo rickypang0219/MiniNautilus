@@ -132,7 +132,7 @@ impl Telemetry {
         ))
     }
 }
-#[derive(Debug)]
+#[derive(Clone, Copy, Debug)]
 struct Market {
     generation: u64,
     bid: i64,
@@ -170,6 +170,9 @@ enum Job {
         intent: Intent,
         epoch: u64,
         received: Instant,
+        market_received: Instant,
+        market_valid_until: u64,
+        market_max_age: Duration,
     },
     Cancel {
         intent: Intent,
@@ -195,11 +198,19 @@ fn execute(
         };
         let result: Result<Control> = (|| match job {
             Job::Submit {
-                intent,
+                mut intent,
                 epoch,
                 received,
+                market_received,
+                market_valid_until,
+                market_max_age,
             } => {
-                if circuit.permit.load(Ordering::Acquire) != 1 || wall_ms() >= intent.valid_until {
+                // The strategy TTL must not renew the lifetime of its pricing input.
+                intent.valid_until = intent.valid_until.min(market_valid_until);
+                if circuit.permit.load(Ordering::Acquire) != 1
+                    || wall_ms() >= intent.valid_until
+                    || market_received.elapsed() > market_max_age
+                {
                     return Err(fail(
                         "stale queued action blocked; durable intent requires reconciliation",
                     ));
@@ -355,6 +366,7 @@ struct Writer {
     reconciled_generation: u64,
     reconnect_pending: bool,
     stale_market_discarded: u64,
+    last_market: Option<Market>,
     poll_requested: bool,
     target: Option<(i64, u64, Instant)>,
     processed: u64,
@@ -397,6 +409,13 @@ impl Writer {
                     self.circuit.publish(
                         &self.jobs,
                         Job::Submit {
+                            market_received: self.last_market.map_or(received, |m| m.received),
+                            market_valid_until: self.engine.core().quote.map_or(0, |q| {
+                                q.2.saturating_add(self.engine.core().config.market_stale_ms)
+                            }),
+                            market_max_age: Duration::from_millis(
+                                self.engine.core().config.market_stale_ms,
+                            ),
                             intent,
                             epoch: self.engine.core().epoch,
                             received,
@@ -472,6 +491,8 @@ impl Writer {
                 self.stream_ready = false;
                 self.reconnect_pending = true;
                 self.target = None;
+                self.last_market = None;
+                self.process(Event::MarketUnavailable, Instant::now())?;
                 self.telemetry.emit(
                     json!({"kind":"source_expired","generation":generation,"at_ms":wall_ms()}),
                 );
@@ -563,7 +584,21 @@ impl Writer {
         Ok(())
     }
     fn market(&mut self, message: Market) -> Result<()> {
-        if message.generation != self.source_generation {
+        let now = wall_ms();
+        let max_age = self.engine.core().config.market_stale_ms;
+        if message.generation != self.source_generation
+            || message.generation != self.circuit.source_generation.load(Ordering::Acquire)
+            || message.observed_at > now
+            || message.exchange_time > message.observed_at
+            || now.saturating_sub(message.exchange_time) > max_age
+            || message.received.elapsed() > Duration::from_millis(max_age)
+            || self.last_market.is_some_and(|last| {
+                message.exchange_time < last.exchange_time
+                    || (message.exchange_time == last.exchange_time
+                        && message.bid == last.bid
+                        && message.ask == last.ask)
+            })
+        {
             self.stale_market_discarded += 1;
             self.telemetry.emit(json!({"kind":"stale_market_discarded","generation":message.generation,"current_generation":self.source_generation}));
             return Ok(());
@@ -573,7 +608,9 @@ impl Writer {
             Event::QuoteObserved {
                 bid: message.bid,
                 ask: message.ask,
-                observed_at: message.observed_at,
+                // Preserve source age as well as transport age. A late snapshot
+                // must not acquire a fresh quote TTL at receipt or dequeue.
+                observed_at: message.exchange_time.min(message.observed_at),
             },
             message.received,
             Some(EventTime {
@@ -582,7 +619,9 @@ impl Writer {
                 source: Some("hyperliquid-testnet:BTC:l2Book".into()),
                 ..EventTime::default()
             }),
-        )
+        )?;
+        self.last_market = Some(message);
+        Ok(())
     }
     fn dispatch_target(&mut self) -> Result<()> {
         if self.busy
@@ -595,6 +634,21 @@ impl Writer {
             || self.circuit.failed.load(Ordering::Acquire)
             || self.engine.core().health != Health::Healthy
         {
+            return Ok(());
+        }
+        let core = self.engine.core();
+        if core
+            .quote
+            .is_none_or(|q| wall_ms().saturating_sub(q.2) > core.config.market_stale_ms)
+            || self.last_market.is_some_and(|m| {
+                m.received.elapsed() > Duration::from_millis(core.config.market_stale_ms)
+            })
+        {
+            self.circuit.close();
+            if core.quote.is_some() {
+                self.target = None;
+                self.process(Event::MarketUnavailable, Instant::now())?;
+            }
             return Ok(());
         }
         if !self.circuit.resume_source(self.source_generation) {
@@ -654,7 +708,8 @@ impl Writer {
             qty: delta.abs(),
             limit: if delta > 0 { ask } else { bid },
             based_on_seq: core.seq,
-            valid_until: wall_ms() + 3000,
+            valid_until: (wall_ms() + 3000)
+                .min(observed.saturating_add(core.config.market_stale_ms)),
         };
         if self.instrument.as_ref().is_some_and(|instrument| {
             venue::below_opening_minimum(instrument, &intent, core.position)
@@ -777,6 +832,9 @@ fn candle_worker(
     let mut revision = start_revision;
     let mut cached = std::collections::VecDeque::<strategy::Bar>::new();
     while !stop.load(Ordering::Acquire) {
+        // Fence the entire REST/strategy batch at request start. A response
+        // crossing a reconnect cannot be relabelled with the new Core epoch.
+        let batch_epoch = epoch.load(Ordering::Acquire);
         let boundary = wall_ms() / 60000 * 60000;
         let start = last.map_or(boundary - 9 * 60000, |v: u64| v.saturating_sub(60000));
         let fetched = strategy::bars(&http, &instrument, start, boundary - 1)?;
@@ -822,7 +880,7 @@ fn candle_worker(
             revision += 1;
             let request = Request {
                 session: session.clone(),
-                epoch: epoch.load(Ordering::Acquire),
+                epoch: batch_epoch,
                 revision,
                 deadline_ms: wall_ms() + 1200,
                 bar: bar.clone(),
@@ -1077,6 +1135,7 @@ pub fn run_segment(dir: &Path, options: Options, segment: Option<&Segment>) -> R
         reconciled_generation: 0,
         reconnect_pending: false,
         stale_market_discarded: 0,
+        last_market: None,
         poll_requested: false,
         target: None,
         processed: 0,
@@ -1505,6 +1564,9 @@ mod tests {
             },
             epoch: 0,
             received: Instant::now(),
+            market_received: Instant::now(),
+            market_valid_until: wall_ms() + 5000,
+            market_max_age: Duration::from_secs(5),
         })
         .unwrap();
         drop(jobs);
@@ -1560,6 +1622,7 @@ mod isolation_tests {
             reconciled_generation: 0,
             reconnect_pending: false,
             stale_market_discarded: 0,
+            last_market: None,
             poll_requested: false,
             target: None,
             processed: 0,

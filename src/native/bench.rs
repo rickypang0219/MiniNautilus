@@ -93,6 +93,7 @@ pub fn run(dir: &Path, manifest: Manifest) -> Result<Value> {
         reconciled_generation: 0,
         reconnect_pending: false,
         stale_market_discarded: 0,
+        last_market: None,
         poll_requested: false,
         target: None,
         processed: 0,
