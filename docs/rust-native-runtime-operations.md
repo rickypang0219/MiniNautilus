@@ -14,6 +14,12 @@ Rust uses a dedicated account writer, a single blocking REST execution worker, a
 
 ## Build and commands
 
+Admission requires a fresh current-generation quote; subscription ACKs alone
+cannot enable it. Older/duplicate books cannot renew freshness, queued submits
+cannot outlive pricing input, and REST observations cannot drop or rewrite known
+fills or regress terminal status. Candle batches retain the pre-fetch epoch.
+See [feed consistency and offline fault tests](native-feed-consistency.md).
+
 ```sh
 scripts/verify.sh
 cargo build --locked --release --features native-runtime --bin native-live

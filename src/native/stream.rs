@@ -207,6 +207,7 @@ async fn subscribe_and_read(
             Ok(Some(m)) => m?,
         };
         let received = Instant::now();
+        let received_ms = wall_ms();
         last = received;
         let raw = match message {
             Message::Text(t) => t,
@@ -241,12 +242,12 @@ async fn subscribe_and_read(
                 }
             }
             Some("l2Book") => {
-                let (bid, ask) = parse_quote(&instrument, &event["data"], wall_ms())?;
+                let (bid, ask) = parse_quote(&instrument, &event["data"], received_ms)?;
                 publish(
                     Observation::Quote {
                         bid,
                         ask,
-                        observed_at: wall_ms(),
+                        observed_at: received_ms,
                         exchange_time: number(&event["data"]["time"])?,
                     },
                     received,

@@ -80,6 +80,12 @@ duplicates, gaps, old epochs and reordered reports. The Binance REST adapter's
 sequence is only a local delivery sequence; it does **not** claim to detect missing
 exchange stream packets. WebSocket feed sequencing is a future adapter extension.
 
+The native Hyperliquid adapter additionally fences market snapshots by connection
+generation, source age and monotonic receive age. Subscription acknowledgement
+alone cannot admit orders. Regular REST polling must retain committed fill
+identities/payloads and terminal lifecycles. See [native feed consistency](native-feed-consistency.md)
+for enforced boundaries, regression cases and limits of timestamp ordering.
+
 ## Persistence and the uncertain-send window
 
 1. Prepare an owned transition while leaving published state unchanged.

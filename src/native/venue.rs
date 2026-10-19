@@ -122,6 +122,20 @@ pub struct Http {
     test_transport: bool,
 }
 impl Http {
+    #[cfg(test)]
+    pub(super) fn local_test(base: String) -> Self {
+        assert!(base.starts_with("http://127.0.0.1:"));
+        Self {
+            client: Client::builder()
+                .no_proxy()
+                .timeout(Duration::from_secs(2))
+                .build()
+                .unwrap(),
+            base,
+            recorder: None,
+            test_transport: true,
+        }
+    }
     pub fn new(mainnet: bool) -> Result<Self> {
         let mut builder = Client::builder()
             .redirect(reqwest::redirect::Policy::none())
@@ -971,6 +985,10 @@ impl Venue {
         let mut reports = Vec::new();
         let mut owned = BTreeSet::new();
         let mut current_open = None;
+        let mut known_fill_counts = BTreeMap::<u64, usize>::new();
+        for fill in core.fills.values() {
+            *known_fill_counts.entry(fill.order_id).or_default() += 1;
+        }
         for o in core.orders.values() {
             // Only an already reconciled rejection may reuse the explicit
             // durable no-attempt proof. The complete history ownership check
@@ -1060,6 +1078,29 @@ impl Venue {
                 }
                 result => result?,
             };
+            // A later REST response is not necessarily a later venue fact.
+            // Apply this check to every path, including ordinary active orders
+            // and the first poll after restart, not only the partial-open proof.
+            let mut retained = 0;
+            for fill in &fills {
+                match core.fills.get(&fill.execution_id) {
+                    Some(known) if fill != known => {
+                        return Err(fail("REST changed a committed fill"));
+                    }
+                    Some(_) => retained += 1,
+                    None => {}
+                }
+            }
+            if retained != known_fill_counts.get(&o.intent.id).copied().unwrap_or(0)
+                || remote.filled < o.filled
+                || (o.lifecycle.terminal() && remote.lifecycle != o.lifecycle)
+            {
+                return Err(std::io::Error::new(
+                    std::io::ErrorKind::WouldBlock,
+                    "REST status regresses committed order facts",
+                )
+                .into());
+            }
             owned.extend(ids);
             if remote.lifecycle.terminal()
                 && remote.lifecycle == o.lifecycle
