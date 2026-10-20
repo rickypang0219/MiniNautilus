@@ -1,5 +1,9 @@
 //! Durable input-before-effect processing. Replay NEVER dispatches historical effects.
-use crate::{core::Core, model::*};
+use crate::{
+    cold::{self, ColdIndex, RetiredOrder},
+    core::{Carry, Core},
+    model::*,
+};
 use serde::{Deserialize, Serialize};
 use std::{
     fs::{self, File, OpenOptions},
@@ -24,8 +28,26 @@ fn checksum(previous: u64, bytes: &[u8]) -> u64 {
 
 #[derive(Serialize, Deserialize)]
 enum Payload {
-    Genesis { schema: u32, config: Config },
+    Genesis {
+        schema: u32,
+        config: Config,
+        /// Present when this journal continues a rotated predecessor (H4).
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        carry: Option<Carried>,
+    },
     Input(RecordedInput),
+    /// Final record of a rotated journal; nothing may follow it.
+    Closed {
+        successor: String,
+    },
+}
+
+#[derive(Serialize, Deserialize)]
+struct Carried {
+    // Nested, not flattened: serde's flatten buffer cannot hold i128 cash.
+    carry: Carry,
+    /// Chain link to the predecessor's last record, for audit tooling.
+    predecessor_checksum: u64,
 }
 /// Display/audit timestamps. They never drive Core ordering, expiry, or risk.
 #[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
@@ -76,12 +98,83 @@ struct Snapshot {
     core: Core,
 }
 
+/// When the journal is forced to stable storage (see docs/acceptance.md, L3).
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+pub enum SyncPolicy {
+    /// `sync_all` after every input (the original contract).
+    #[default]
+    EveryInput,
+    /// Every input is written before its effects are published, but `sync_all`
+    /// runs only before an input whose effects leave the process (SendOrder,
+    /// SendCancel). That sync also covers every earlier unsynced input, so any
+    /// external action is preceded by its durable cause history. A process crash
+    /// loses nothing (the OS still holds written pages); an OS/power failure may
+    /// lose a suffix of inputs that produced no external action, which recovery's
+    /// forced Disconnect and venue reconciliation re-establish. A torn middle
+    /// frame still fails closed at recovery.
+    Outbox,
+}
+impl std::str::FromStr for SyncPolicy {
+    type Err = String;
+    fn from_str(s: &str) -> Result<Self, String> {
+        match s {
+            "every" => Ok(Self::EveryInput),
+            "outbox" => Ok(Self::Outbox),
+            _ => Err("sync policy must be every or outbox".into()),
+        }
+    }
+}
+
+/// Wall time of each durable-path stage for one input (L2 profiling).
+#[derive(Clone, Copy, Debug, Default, Serialize)]
+pub struct Stages {
+    pub prepare_ns: u64,
+    pub encode_ns: u64,
+    pub write_ns: u64,
+    pub sync_ns: u64,
+    pub commit_ns: u64,
+    pub synced: bool,
+    pub written_bytes: u64,
+    /// Bytes pending sync, including this input; zero when this input does not sync.
+    pub sync_pending_bytes: u64,
+}
+
 pub struct DurableEngine {
     core: Core,
     file: File,
     checksum: u64,
     poisoned: bool,
     journal_path: PathBuf,
+    sync: SyncPolicy,
+    unsynced: bool,
+    pending_bytes: u64,
+    /// Verified lazily on the first report about a retired order; never read by Core.
+    cold: Option<ColdIndex>,
+    cold_verification: crate::cold_pages::Verification,
+    cold_integrity_failed: bool,
+}
+impl Drop for DurableEngine {
+    fn drop(&mut self) {
+        let _ = self.file.unlock();
+    }
+}
+// File locks belong to logical owners, not fork-before-exec descriptor copies.
+struct LockedFile(File);
+impl std::ops::Deref for LockedFile {
+    type Target = File;
+    fn deref(&self) -> &File {
+        &self.0
+    }
+}
+impl std::ops::DerefMut for LockedFile {
+    fn deref_mut(&mut self) -> &mut File {
+        &mut self.0
+    }
+}
+impl Drop for LockedFile {
+    fn drop(&mut self) {
+        let _ = self.0.unlock();
+    }
 }
 
 impl DurableEngine {
@@ -99,8 +192,18 @@ impl DurableEngine {
             checksum: 0,
             poisoned: false,
             journal_path: fs::canonicalize(path)?,
+            sync: SyncPolicy::EveryInput,
+            unsynced: false,
+            pending_bytes: 0,
+            cold: None,
+            cold_verification: crate::cold_pages::Verification::Full,
+            cold_integrity_failed: false,
         };
-        engine.append(&Payload::Genesis { schema: 1, config })?;
+        engine.append(&Payload::Genesis {
+            schema: 1,
+            config,
+            carry: None,
+        })?;
         sync_parent(path)?;
         Ok(engine)
     }
@@ -132,18 +235,116 @@ impl DurableEngine {
             checksum: previous,
             poisoned: false,
             journal_path: fs::canonicalize(path)?,
+            sync: SyncPolicy::EveryInput,
+            unsynced: false,
+            pending_bytes: 0,
+            cold: None,
+            cold_verification: crate::cold_pages::Verification::Full,
+            cold_integrity_failed: false,
         };
+        engine.revalidate_known_cold_damage()?;
         // A recovered local state is not proof of current venue state.
         engine.process(engine.core.now, Event::Disconnect)?;
         Ok(engine)
+    }
+
+    pub fn set_cold_verification(
+        &mut self,
+        verification: crate::cold_pages::Verification,
+    ) -> io::Result<()> {
+        self.cold_verification = verification;
+        self.cold = None;
+        if verification == crate::cold_pages::Verification::PathVerified
+            && let Some(reference) = self.core.cold.as_ref()
+        {
+            self.cold = Some(ColdIndex::open_with(
+                self.journal_path.parent().unwrap(),
+                reference,
+                verification,
+            )?);
+        }
+        Ok(())
+    }
+
+    fn integrity_marker(&self) -> Option<PathBuf> {
+        self.core.cold.as_ref().map(|r| {
+            self.journal_path
+                .parent()
+                .unwrap()
+                .join(format!(".cold-integrity-stop-{:016x}", r.checksum))
+        })
+    }
+    fn revalidate_known_cold_damage(&mut self) -> io::Result<()> {
+        let Some(marker) = self.integrity_marker() else {
+            return Ok(());
+        };
+        if self.cold_integrity_failed || marker.exists() {
+            let reference = self.core.cold.as_ref().unwrap();
+            let verified = ColdIndex::open(self.journal_path.parent().unwrap(), reference)?;
+            if marker.exists() {
+                fs::remove_file(&marker)?;
+                sync_parent(&marker)?;
+            }
+            self.cold = Some(verified);
+            self.cold_integrity_failed = false;
+        }
+        Ok(())
+    }
+    fn remember_cold_damage(&mut self) -> io::Result<()> {
+        let Some(marker) = self.integrity_marker() else {
+            return Ok(());
+        };
+        self.cold_integrity_failed = true;
+        let file = OpenOptions::new()
+            .write(true)
+            .create(true)
+            .truncate(false)
+            .open(&marker)?;
+        file.sync_all()?;
+        sync_parent(&marker)
+    }
+
+    pub fn retry_cold_reclamation(&mut self) -> io::Result<crate::cold_gc::Report> {
+        self.cold = None; // release our own page-reader lease before sweeping
+        match &self.core.cold {
+            Some(r) => crate::cold_gc::retry_with(
+                self.journal_path.parent().unwrap(),
+                r,
+                self.cold_verification,
+            ),
+            None => Ok(crate::cold_gc::Report::default()),
+        }
     }
 
     pub fn core(&self) -> &Core {
         &self.core
     }
 
+    /// Record written order/fill IDs for compact responses (not journaled state).
+    pub fn track_changes(&mut self) {
+        self.core.track_changes();
+    }
+
+    pub fn take_changes(&mut self) -> Option<crate::core::Changes> {
+        self.core.take_changes()
+    }
+
     pub fn process(&mut self, at: Time, event: Event) -> io::Result<Vec<Effect>> {
         self.process_timed(at, event, None)
+    }
+
+    pub fn set_sync_policy(&mut self, policy: SyncPolicy) {
+        self.sync = policy;
+    }
+
+    /// Force every written input to stable storage (for example at shutdown).
+    pub fn sync(&mut self) -> io::Result<()> {
+        if self.poisoned {
+            return Err(io::Error::other("journal failed; restart and reconcile"));
+        }
+        sync_file(&self.file, &mut self.unsynced, &mut self.poisoned)?;
+        self.pending_bytes = 0;
+        Ok(())
     }
 
     pub fn process_timed(
@@ -152,12 +353,56 @@ impl DurableEngine {
         event: Event,
         time: Option<EventTime>,
     ) -> io::Result<Vec<Effect>> {
+        self.process_staged(at, event, time, None)
+    }
+
+    /// `process_timed` that also reports how long each stage took.
+    pub fn process_profiled(
+        &mut self,
+        at: Time,
+        event: Event,
+        time: Option<EventTime>,
+    ) -> io::Result<(Vec<Effect>, Stages)> {
+        let mut stages = Stages::default();
+        let effects = self.process_staged(at, event, time, Some(&mut stages))?;
+        Ok((effects, stages))
+    }
+
+    fn process_staged(
+        &mut self,
+        at: Time,
+        event: Event,
+        time: Option<EventTime>,
+        mut stages: Option<&mut Stages>,
+    ) -> io::Result<Vec<Effect>> {
+        if matches!(
+            &event,
+            Event::Reconcile(_)
+                | Event::Submit(_)
+                | Event::SubmitTargeted { .. }
+                | Event::SetTarget(_)
+        ) {
+            self.revalidate_known_cold_damage()?;
+        }
+        let clock = stages.as_ref().map(|_| std::time::Instant::now());
+        let lap = |field: fn(&mut Stages) -> &mut u64, stages: &mut Option<&mut Stages>| {
+            if let (Some(stages), Some(clock)) = (stages.as_deref_mut(), clock) {
+                let total = clock.elapsed().as_nanos() as u64;
+                let spent: u64 = stages.prepare_ns
+                    + stages.encode_ns
+                    + stages.write_ns
+                    + stages.sync_ns
+                    + stages.commit_ns;
+                *field(stages) = total - spent;
+            }
+        };
         if let Some(t) = &time {
             t.validate()?;
         }
         if self.poisoned {
             return Err(io::Error::other("journal failed; restart and reconcile"));
         }
+        let event = self.resolve_retired(event)?;
         let input = Envelope {
             seq: self
                 .core
@@ -167,43 +412,193 @@ impl DurableEngine {
             at,
             event,
         };
-        let mut next = self.core.clone();
-        let effects = next.apply(&input).map_err(invalid)?;
-        // No effect is exposed before the durable write acknowledges.
-        self.append(&Payload::Input(RecordedInput { input, time }))?;
-        self.core = next;
-        Ok(effects)
-    }
-
-    fn append(&mut self, payload: &Payload) -> io::Result<()> {
-        let payload = serde_json::to_string(payload).map_err(invalid)?;
-        let hash = checksum(self.checksum, payload.as_bytes());
-        let frame = Frame {
-            previous: self.checksum,
-            checksum: hash,
-            payload,
-        };
-        let mut bytes = serde_json::to_vec(&frame).map_err(invalid)?;
-        bytes.push(b'\n');
-        if let Err(error) = self
-            .file
-            .write_all(&bytes)
-            .and_then(|()| self.file.sync_all())
-        {
+        let prepared = self.core.prepare(&input).map_err(invalid)?;
+        lap(|s| &mut s.prepare_ns, &mut stages);
+        let sync = self.sync == SyncPolicy::EveryInput
+            || prepared
+                .effects()
+                .iter()
+                .any(|effect| matches!(effect, Effect::SendOrder(_) | Effect::SendCancel { .. }));
+        // The Core is still unchanged. The token holds its exclusive borrow while
+        // disjoint journal fields are written. On error, dropping it aborts safely.
+        let (bytes, hash) = encode_frame(
+            self.checksum,
+            &Payload::Input(RecordedInput { input, time }),
+        )?;
+        lap(|s| &mut s.encode_ns, &mut stages);
+        if let Err(error) = self.file.write_all(&bytes) {
             self.poisoned = true;
             return Err(error);
         }
         self.checksum = hash;
-        Ok(())
+        self.unsynced = true;
+        self.pending_bytes += bytes.len() as u64;
+        if let Some(stages) = stages.as_deref_mut() {
+            stages.written_bytes = bytes.len() as u64;
+            stages.sync_pending_bytes = if sync { self.pending_bytes } else { 0 };
+        }
+        lap(|s| &mut s.write_ns, &mut stages);
+        if sync {
+            sync_file(&self.file, &mut self.unsynced, &mut self.poisoned)?;
+            self.pending_bytes = 0;
+        }
+        lap(|s| &mut s.sync_ns, &mut stages);
+        // No published state or effect precedes the durable write acknowledgment
+        // (under Outbox: no external effect precedes it).
+        let effects = prepared.commit();
+        lap(|s| &mut s.commit_ns, &mut stages);
+        if let Some(stages) = stages {
+            stages.synced = sync;
+        }
+        Ok(effects)
     }
 
-    pub fn snapshot(&self, path: &Path) -> io::Result<()> {
+    /// Reports about orders retired by rotation get a verdict from the cold index
+    /// before journaling, so the pure Core and replay never do I/O (ADR §3).
+    fn resolve_retired(&mut self, event: Event) -> io::Result<Event> {
+        let Event::Execution {
+            epoch,
+            venue_seq,
+            report,
+        } = event
+        else {
+            return Ok(event);
+        };
+        if matches!(report, Report::Retired { .. }) {
+            return Err(invalid(
+                "retired verdicts are assigned by the journal, not callers",
+            ));
+        }
+        let id = report.order_id();
+        let floor = self.core.id_floor;
+        if floor == 0 || id > floor || self.core.orders.contains_key(&id) {
+            return Ok(Event::Execution {
+                epoch,
+                venue_seq,
+                report,
+            });
+        }
+        let verdict = match self.cold_index() {
+            Some(index) => index
+                .verdict(&report)
+                .unwrap_or(RetiredVerdict::Unavailable),
+            None => RetiredVerdict::Unavailable,
+        };
+        if verdict == RetiredVerdict::Unavailable {
+            self.remember_cold_damage()?;
+        }
+        Ok(Event::Execution {
+            epoch,
+            venue_seq,
+            report: Report::Retired {
+                report: Box::new(report),
+                verdict,
+            },
+        })
+    }
+
+    fn cold_index(&mut self) -> Option<&ColdIndex> {
+        if self.cold.is_none() {
+            let reference = self.core.cold.as_ref()?;
+            let directory = self.journal_path.parent()?;
+            self.cold = ColdIndex::open_with(directory, reference, self.cold_verification).ok();
+        }
+        self.cold.as_ref()
+    }
+
+    fn append(&mut self, payload: &Payload) -> io::Result<()> {
+        append_frame(
+            &mut self.file,
+            &mut self.checksum,
+            &mut self.poisoned,
+            payload,
+        )
+    }
+
+    /// Consumes this writer before the existing crash-safe offline rotation.
+    /// The successor remains gated until the caller reconciles its venue.
+    pub fn rotate_into(self, successor: &Path) -> io::Result<Self> {
+        self.rotate_into_with(successor, false, false, false)
+    }
+
+    /// Live rotation: also writes the cold index that keeps exact dedup evidence
+    /// for every retired order and fill (docs/adr-live-rotation.md).
+    pub fn rotate_into_retaining(self, successor: &Path) -> io::Result<Self> {
+        self.rotate_into_with(successor, true, false, false)
+    }
+
+    /// Opt-in reclamation of only this writer's superseded cold generation.
+    /// Pinned readers retain their generation; old journals are never removed.
+    pub fn rotate_into_retaining_with_gc(self, successor: &Path) -> io::Result<Self> {
+        self.rotate_into_with(successor, true, true, false)
+    }
+
+    /// Opt-in immutable pages. Complete first-use verification remains mandatory.
+    pub fn rotate_into_retaining_paged(self, successor: &Path) -> io::Result<Self> {
+        self.rotate_into_with(successor, true, false, true)
+    }
+
+    pub fn rotate_into_retaining_paged_with_gc(self, successor: &Path) -> io::Result<Self> {
+        self.rotate_into_with(successor, true, true, true)
+    }
+
+    fn rotate_into_with(
+        mut self,
+        successor: &Path,
+        retain: bool,
+        reclaim: bool,
+        paged: bool,
+    ) -> io::Result<Self> {
+        self.core.rotation_ready().map_err(invalid)?;
+        self.sync()?;
+        let old = self.journal_path.clone();
+        let previous_cold = self.core.cold.clone();
+        if reclaim
+            && fs::canonicalize(old.parent().unwrap())?
+                != fs::canonicalize(successor.parent().unwrap_or(Path::new(".")))?
+        {
+            return Err(invalid(
+                "cold reclamation requires the same journal directory",
+            ));
+        }
+        if reclaim {
+            crate::cold_gc::preflight(
+                old.parent().unwrap(),
+                previous_cold.as_ref(),
+                self.core.orders.len(),
+                self.core.fills.len(),
+                paged || self.cold.as_ref().is_some_and(|p| p.is_paged()),
+            )?;
+        }
+        let policy = self.sync;
+        let verification = self.cold_verification;
+        drop(self);
+        rotate_with_format(&old, successor, retain, paged, verification)?;
+        let mut next = Self::recover(successor, None)?;
+        next.set_sync_policy(policy);
+        next.set_cold_verification(verification)?;
+        if reclaim && let (Some(previous), Some(current)) = (previous_cold, next.core.cold.as_ref())
+        {
+            next.cold = None;
+            crate::cold_gc::register_and_sweep_with(
+                old.parent().unwrap(),
+                &previous,
+                current,
+                verification,
+            )?;
+        }
+        Ok(next)
+    }
+
+    /// Syncs the journal first: a snapshot must never be ahead of durable input.
+    pub fn snapshot(&mut self, path: &Path) -> io::Result<()> {
         if path.exists() && fs::canonicalize(path)? == self.journal_path {
             return Err(invalid("snapshot cannot overwrite its journal"));
         }
         if self.poisoned {
             return Err(io::Error::other("cannot snapshot failed journal"));
         }
+        self.sync()?;
         write_snapshot(
             path,
             &Snapshot {
@@ -213,6 +608,47 @@ impl DurableEngine {
             },
         )
     }
+}
+
+// Disjoint field borrows: callable while a Prepared token borrows the Core.
+fn sync_file(file: &File, unsynced: &mut bool, poisoned: &mut bool) -> io::Result<()> {
+    if *unsynced {
+        if let Err(error) = file.sync_all() {
+            *poisoned = true;
+            return Err(error);
+        }
+        *unsynced = false;
+    }
+    Ok(())
+}
+
+/// One checksummed journal line and its chained hash.
+fn encode_frame(previous: u64, payload: &Payload) -> io::Result<(Vec<u8>, u64)> {
+    let payload = serde_json::to_string(payload).map_err(invalid)?;
+    let hash = checksum(previous, payload.as_bytes());
+    let frame = Frame {
+        previous,
+        checksum: hash,
+        payload,
+    };
+    let mut bytes = serde_json::to_vec(&frame).map_err(invalid)?;
+    bytes.push(b'\n');
+    Ok((bytes, hash))
+}
+
+fn append_frame(
+    file: &mut File,
+    previous: &mut u64,
+    poisoned: &mut bool,
+    payload: &Payload,
+) -> io::Result<()> {
+    let (bytes, hash) = encode_frame(*previous, payload)?;
+    if let Err(error) = file.write_all(&bytes).and_then(|()| file.sync_all()) {
+        *poisoned = true;
+        return Err(error);
+    }
+    *previous = hash;
+    Ok(())
 }
 
 fn write_snapshot(path: &Path, snapshot: &Snapshot) -> io::Result<()> {
@@ -239,10 +675,38 @@ fn sync_parent(path: &Path) -> io::Result<()> {
     File::open(parent)?.sync_all()
 }
 
+fn genesis(config: Config, carry: Option<Carried>) -> io::Result<Core> {
+    match carry {
+        None => Core::new(config),
+        Some(carried) => Core::from_carry(config, &carried.carry),
+    }
+    .map_err(invalid)
+}
+
+/// Replays a journal; `Scanned::closed` names the successor of a rotated one.
+struct Scanned {
+    core: Core,
+    checksum: u64,
+    closed: Option<String>,
+    predecessor_anchor: u64,
+}
+
 fn scan(bytes: &[u8], snapshot: Option<&Snapshot>) -> io::Result<(Core, u64)> {
+    let scanned = scan_all(bytes, snapshot)?;
+    if let Some(successor) = scanned.closed {
+        return Err(invalid(format!(
+            "journal was rotated; continue from successor {successor}"
+        )));
+    }
+    Ok((scanned.core, scanned.checksum))
+}
+
+fn scan_all(bytes: &[u8], snapshot: Option<&Snapshot>) -> io::Result<Scanned> {
     let mut snapshot_matched = snapshot.is_none();
     let mut previous = 0;
     let mut core = None;
+    let mut closed = None;
+    let mut predecessor_anchor = 0;
     for (index, line) in bytes
         .split(|b| *b == b'\n')
         .filter(|s| !s.is_empty())
@@ -256,8 +720,20 @@ fn scan(bytes: &[u8], snapshot: Option<&Snapshot>) -> io::Result<(Core, u64)> {
         }
         let payload: Payload = serde_json::from_str(&frame.payload).map_err(invalid)?;
         match (index, payload) {
-            (0, Payload::Genesis { schema: 1, config }) => {
-                core = Some(Core::new(config).map_err(invalid)?)
+            (
+                0,
+                Payload::Genesis {
+                    schema: 1,
+                    config,
+                    carry,
+                },
+            ) => core = Some(genesis(config, carry)?),
+            (_, Payload::Closed { successor }) if closed.is_none() => {
+                predecessor_anchor = previous;
+                closed = Some(successor);
+            }
+            (_, Payload::Input(_)) if closed.is_some() => {
+                return Err(invalid("input after journal was closed by rotation"));
             }
             (_, Payload::Input(event)) => {
                 if let Some(time) = &event.time {
@@ -286,20 +762,205 @@ fn scan(bytes: &[u8], snapshot: Option<&Snapshot>) -> io::Result<(Core, u64)> {
         return Err(invalid("snapshot is ahead of journal"));
     }
     let core = core.ok_or_else(|| invalid("empty or torn genesis"))?;
-    Ok((core, previous))
+    Ok(Scanned {
+        core,
+        checksum: previous,
+        predecessor_anchor: if closed.is_some() {
+            predecessor_anchor
+        } else {
+            previous
+        },
+        closed,
+    })
+}
+
+/// Offline H4 rotation: archive `old` and start `new` from its carried account
+/// state. Requires no other writer, a complete journal, and a healthy book with
+/// no open orders (for example after a clean shutdown reconciliation). The old
+/// journal is closed first (naming its successor); if the process stops before
+/// `new` exists, running the same rotation again completes it.
+pub fn rotate(old: &Path, new: &Path) -> io::Result<Core> {
+    rotate_with(old, new, false)
+}
+
+/// `rotate` plus the live cold index (ADR §2): written before the predecessor closes.
+/// Paper sessions restart venue execution IDs per session, so they keep plain H4.
+pub fn rotate_retaining(old: &Path, new: &Path) -> io::Result<Core> {
+    rotate_with(old, new, true)
+}
+
+/// Operator repair only: the validated predecessor must already be Closed to
+/// this exact successor. Never substitutes for a live reconciliation barrier.
+pub fn repair_retaining(old: &Path, new: &Path) -> io::Result<Core> {
+    let scanned = scan_all(&fs::read(old)?, None)?;
+    if scanned.closed.as_deref() != Some(new.display().to_string().as_str()) {
+        return Err(invalid(
+            "repair requires a Closed predecessor naming this successor",
+        ));
+    }
+    rotate_with(old, new, true)
+}
+
+fn rotate_with(old: &Path, new: &Path, retain: bool) -> io::Result<Core> {
+    rotate_with_format(
+        old,
+        new,
+        retain,
+        false,
+        crate::cold_pages::Verification::Full,
+    )
+}
+
+fn rotate_with_format(
+    old: &Path,
+    new: &Path,
+    retain: bool,
+    paged: bool,
+    verification: crate::cold_pages::Verification,
+) -> io::Result<Core> {
+    let file = OpenOptions::new().read(true).write(true).open(old)?;
+    file.try_lock().map_err(io::Error::other)?;
+    let mut file = LockedFile(file);
+    let mut bytes = Vec::new();
+    file.read_to_end(&mut bytes)?;
+    if !bytes.ends_with(b"\n") {
+        return Err(invalid("incomplete journal; recover before rotating"));
+    }
+    let scanned = scan_all(&bytes, None)?;
+    let successor = new.display().to_string();
+    match &scanned.closed {
+        None => scanned.core.rotation_ready().map_err(invalid)?,
+        Some(existing) if *existing != successor => {
+            return Err(invalid(format!("journal already rotated to {existing}")));
+        }
+        Some(_) if new.exists() => return Err(invalid("rotation already completed")),
+        Some(_) => {}
+    }
+    // Retired evidence first (ADR §2): previous cold index plus this segment.
+    let cold = if retain {
+        Some(write_cold(old, new, &scanned.core, paged, verification)?)
+    } else {
+        scanned.core.cold.clone()
+    };
+    match &scanned.closed {
+        Some(_) => {}
+        None => {
+            let mut checksum = scanned.checksum;
+            let mut poisoned = false;
+            file.seek(SeekFrom::End(0))?;
+            cold::fault_point("closed_before")?;
+            append_frame(
+                &mut file,
+                &mut checksum,
+                &mut poisoned,
+                &Payload::Closed {
+                    successor: successor.clone(),
+                },
+            )?;
+        }
+    }
+    cold::fault_point("closed_durable_after")?;
+    let config = scanned.core.config.clone();
+    let mut carry = scanned.core.carry();
+    carry.cold = cold;
+    let core = Core::from_carry(config.clone(), &carry).map_err(invalid)?;
+    let mut next = OpenOptions::new().write(true).create_new(true).open(new)?;
+    let (mut checksum, mut poisoned) = (0, false);
+    cold::fault_point("genesis_before")?;
+    append_frame(
+        &mut next,
+        &mut checksum,
+        &mut poisoned,
+        &Payload::Genesis {
+            schema: 1,
+            config,
+            carry: Some(Carried {
+                carry,
+                predecessor_checksum: scanned.predecessor_anchor,
+            }),
+        },
+    )?;
+    cold::fault_point("genesis_fsync_after")?;
+    sync_parent(new)?;
+    cold::fault_point("genesis_dirsync_after")?;
+    Ok(core)
+}
+
+/// `<successor>.cold`: the predecessor's cold index (verified) extended by every
+/// order and fill of the closing segment. Deterministic, so a rerun is idempotent.
+fn write_cold(
+    old: &Path,
+    new: &Path,
+    core: &Core,
+    paged: bool,
+    verification: crate::cold_pages::Verification,
+) -> io::Result<cold::ColdRef> {
+    let directory = old
+        .parent()
+        .filter(|p| !p.as_os_str().is_empty())
+        .unwrap_or(Path::new("."));
+    let previous = core
+        .cold
+        .as_ref()
+        .map(|reference| ColdIndex::open_with(directory, reference, verification))
+        .transpose()?;
+    let mut orders = Vec::with_capacity(core.orders.len());
+    let mut fills = Vec::with_capacity(core.fills.len());
+    for (id, order) in &core.orders {
+        if orders
+            .last()
+            .is_some_and(|last: &RetiredOrder| last.id >= *id)
+        {
+            return Err(invalid("segment order IDs overlap retired orders"));
+        }
+        orders.push(RetiredOrder {
+            id: *id,
+            filled: order.filled,
+            lifecycle: order.lifecycle,
+        });
+    }
+    fills.extend(core.fills.values().cloned());
+    fills.sort_by_key(|fill| fill.execution_id);
+    let name = new
+        .file_name()
+        .and_then(|n| n.to_str())
+        .ok_or_else(|| invalid("successor needs a UTF-8 file name"))?;
+    if paged && previous.as_ref().is_some_and(|p| !p.is_paged()) {
+        return Err(invalid(
+            "legacy cold archive requires explicit offline migration",
+        ));
+    }
+    if paged && previous.is_none() {
+        return crate::cold_pages::extend(
+            &new.with_file_name(format!("{name}.cold")),
+            None,
+            &orders,
+            &fills,
+        )
+        .map(|r| r.0);
+    }
+
+    cold::extend(
+        &new.with_file_name(format!("{name}.cold")),
+        previous.as_ref(),
+        &orders,
+        &fills,
+    )
 }
 
 /// Read-only validated replay. Refuses an active writer or an incomplete tail.
 /// No transport effects are returned, and no recovery event is appended.
 pub fn replay(path: &Path) -> io::Result<Core> {
-    let mut file = File::open(path)?;
+    let file = File::open(path)?;
     file.try_lock_shared().map_err(io::Error::other)?;
+    let mut file = LockedFile(file);
     let mut bytes = Vec::new();
     file.read_to_end(&mut bytes)?;
     if !bytes.ends_with(b"\n") {
         return Err(invalid("incomplete journal; recover before analysis"));
     }
-    Ok(scan(&bytes, None)?.0)
+    // A rotated (closed) journal is an archive: its final state is still valid.
+    Ok(scan_all(&bytes, None)?.core)
 }
 
 /// Create an offline checkpoint without appending to or changing the source journal.
@@ -425,10 +1086,19 @@ impl JournalFollower {
             }
             let payload: Payload = serde_json::from_str(&frame.payload).map_err(invalid)?;
             match (self.records, payload) {
-                (0, Payload::Genesis { schema: 1, config }) => {
-                    self.core = Some(Core::new(config).map_err(invalid)?);
+                (
+                    0,
+                    Payload::Genesis {
+                        schema: 1,
+                        config,
+                        carry,
+                    },
+                ) => {
+                    self.core = Some(genesis(config, carry)?);
                     observe(self.core.as_ref().unwrap(), None, &[], None);
                 }
+                // A rotated journal ends here; the successor is a separate session.
+                (_, Payload::Closed { .. }) => {}
                 (_, Payload::Input(input)) => {
                     let core = self
                         .core
@@ -455,6 +1125,95 @@ impl JournalFollower {
 mod tests {
     use super::*;
     #[test]
+    fn writer_owner_drop_releases_lock_despite_inherited_descriptor() {
+        let path = std::env::temp_dir().join(format!("journal-inherited-{}", std::process::id()));
+        let _ = fs::remove_file(&path);
+        let owner = DurableEngine::create(&path, Config::default()).unwrap();
+        let inherited = owner.file.try_clone().unwrap();
+        assert!(DurableEngine::recover(&path, None).is_err());
+        drop(owner);
+        let next = DurableEngine::recover(&path, None).unwrap();
+        drop(inherited);
+        assert!(DurableEngine::recover(&path, None).is_err());
+        drop(next);
+        fs::remove_file(path).unwrap();
+    }
+    #[test]
+    fn failed_journal_discards_market_fill_cancel_and_rebuild_transitions() {
+        for case in 0..6 {
+            let path = std::env::temp_dir().join(format!(
+                "mini-prepared-failure-{}-{case}",
+                std::process::id()
+            ));
+            let mut engine = DurableEngine::create(&path, Config::default()).unwrap();
+            engine
+                .process(0, Event::Quote { bid: 99, ask: 101 })
+                .unwrap();
+            let intent = Intent {
+                id: 1,
+                side: Side::Buy,
+                qty: 3,
+                limit: 100,
+                based_on_seq: 1,
+                valid_until: 100,
+            };
+            engine.process(0, Event::Submit(intent.clone())).unwrap();
+            engine
+                .process(
+                    0,
+                    Event::Execution {
+                        epoch: 0,
+                        venue_seq: 1,
+                        report: Report::Accepted { id: 1 },
+                    },
+                )
+                .unwrap();
+            if case == 5 {
+                engine.process(0, Event::Reconnect).unwrap();
+            }
+            let event = match case {
+                0 => Event::Quote { bid: 102, ask: 103 },
+                1 => Event::Execution {
+                    epoch: 0,
+                    venue_seq: 2,
+                    report: Report::Fill(Fill {
+                        execution_id: 1,
+                        order_id: 1,
+                        qty: 1,
+                        price: 100,
+                    }),
+                },
+                2 => Event::Cancel { id: 1 },
+                3 => Event::Quote { bid: 0, ask: 1 }, // would gate only after commit
+                4 => Event::Disconnect,
+                _ => Event::Reconcile(Reconciliation {
+                    epoch: 1,
+                    watermark: 1,
+                    orders: vec![VenueOrder {
+                        intent,
+                        filled: 0,
+                        lifecycle: Lifecycle::Accepted,
+                    }],
+                    fills: vec![],
+                    position: 0,
+                    absent: vec![],
+                }),
+            };
+            let original = engine.core.clone();
+            let checksum = engine.checksum;
+            let bytes = fs::read(&path).unwrap();
+            engine.file = File::open(&path).unwrap();
+            assert!(engine.process(1, event).is_err());
+            assert_eq!(engine.core, original, "case {case}");
+            assert_eq!(engine.checksum, checksum);
+            assert_eq!(fs::read(&path).unwrap(), bytes);
+            assert!(engine.poisoned);
+            drop(engine);
+            fs::remove_file(path).unwrap();
+        }
+    }
+
+    #[test]
     fn persistence_error_exposes_no_effects_and_poison_is_sticky() {
         let path =
             std::env::temp_dir().join(format!("mini-journal-failure-{}", std::process::id()));
@@ -479,5 +1238,101 @@ mod tests {
         assert!(engine.process(1, Event::Tick).is_err());
         drop(engine);
         fs::remove_file(path).unwrap();
+    }
+
+    #[cfg(target_os = "linux")]
+    #[test]
+    fn disk_full_sync_error_and_partial_write_never_commit_or_publish() {
+        use std::os::fd::FromRawFd;
+        for case in 0..3 {
+            let path = std::env::temp_dir().join(format!(
+                "mini-persistence-window-{}-{case}",
+                std::process::id()
+            ));
+            let mut engine = DurableEngine::create(&path, Config::default()).unwrap();
+            engine
+                .process(0, Event::Quote { bid: 99, ask: 101 })
+                .unwrap();
+            let original = engine.core.clone();
+            let original_bytes = fs::read(&path).unwrap();
+            let mut reader = None;
+            let event = if case < 2 {
+                // Real Linux descriptors: /dev/full returns ENOSPC. /dev/null
+                // accepts write_all but rejects fsync with EINVAL.
+                engine.file = OpenOptions::new()
+                    .write(true)
+                    .open(if case == 0 { "/dev/full" } else { "/dev/null" })
+                    .unwrap();
+                Event::Submit(Intent {
+                    id: 1,
+                    side: Side::Buy,
+                    qty: 1,
+                    limit: 100,
+                    based_on_seq: 1,
+                    valid_until: 100,
+                })
+            } else {
+                let mut fds = [-1; 2];
+                // SAFETY: pipe2 initializes two owned descriptors on success;
+                // each is transferred exactly once into a File.
+                assert_eq!(
+                    unsafe { libc::pipe2(fds.as_mut_ptr(), libc::O_NONBLOCK) },
+                    0
+                );
+                reader = Some(unsafe { File::from_raw_fd(fds[0]) });
+                engine.file = unsafe { File::from_raw_fd(fds[1]) };
+                // SAFETY: fds[1] is a live pipe descriptor. Linux supports a
+                // one-page pipe; a frame larger than it makes write_all write
+                // a prefix, then fail with EAGAIN rather than commit.
+                assert_eq!(
+                    unsafe { libc::fcntl(fds[1], libc::F_SETPIPE_SZ, 4096) },
+                    4096
+                );
+                Event::Reconcile(Reconciliation {
+                    epoch: 0,
+                    watermark: 0,
+                    position: 0,
+                    fills: vec![],
+                    absent: vec![],
+                    orders: (1..=200)
+                        .map(|id| VenueOrder {
+                            intent: Intent {
+                                id,
+                                side: Side::Buy,
+                                qty: 1,
+                                limit: 100,
+                                based_on_seq: 1,
+                                valid_until: 100,
+                            },
+                            filled: 0,
+                            lifecycle: Lifecycle::Accepted,
+                        })
+                        .collect(),
+                })
+            };
+            let error = engine.process(1, event).unwrap_err();
+            assert_eq!(
+                engine.core, original,
+                "failed persistence committed case {case}"
+            );
+            assert!(engine.poisoned);
+            assert!(engine.process(2, Event::Tick).is_err());
+            assert_eq!(fs::read(&path).unwrap(), original_bytes);
+            match case {
+                0 => assert_eq!(error.raw_os_error(), Some(libc::ENOSPC)),
+                1 => assert_eq!(error.raw_os_error(), Some(libc::EINVAL)),
+                _ => {
+                    assert_eq!(error.kind(), io::ErrorKind::WouldBlock);
+                    let mut prefix = vec![0; 4096];
+                    assert_eq!(reader.as_mut().unwrap().read(&mut prefix).unwrap(), 4096);
+                    assert!(
+                        !prefix.ends_with(b"\n"),
+                        "only an incomplete prefix was written"
+                    );
+                }
+            }
+            drop(engine);
+            fs::remove_file(path).unwrap();
+        }
     }
 }

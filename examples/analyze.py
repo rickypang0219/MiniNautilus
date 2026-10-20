@@ -9,6 +9,7 @@ import json
 from pathlib import Path
 import sqlite3
 import subprocess
+from contextlib import closing
 from decimal import Decimal, localcontext
 from fractions import Fraction
 
@@ -42,20 +43,30 @@ def analyze(journal, database):
     if position != state["position"]:
         raise ValueError("analysis position does not match Rust")
     mark_index = 1 if position < 0 else 0
-    mark = Fraction(state["quote"][mark_index]) if state["quote"] else average
-    unrealized = (mark - average) * position
-    gross = Fraction(state["cash"]) + position * mark
-    if realized + unrealized != gross:
+    mark = Fraction(state["quote"][mark_index]) if state["quote"] else None
+    if mark is not None:
+        unrealized = (mark - average) * position
+        gross = Fraction(state["cash"]) + position * mark
+        mark_basis = "last_ask" if position < 0 else "last_bid"
+    elif position == 0:
+        unrealized, gross = Fraction(0), Fraction(state["cash"])
+        mark_basis = "flat_position"
+    else:
+        unrealized = gross = None
+        mark_basis = "unavailable"
+    if gross is not None and realized + unrealized != gross:
         raise ValueError("PnL components do not reconcile")
     def decimal_string(value):
+        if value is None:
+            return None
         with localcontext() as context:
             context.prec = 80
             return str(Decimal(value.numerator) / Decimal(value.denominator))
     summary = {"seq": state["seq"], "position_lots": position,
                "realized_gross_tick_lots": decimal_string(realized), "unrealized_gross_tick_lots": decimal_string(unrealized),
                "total_gross_tick_lots": decimal_string(gross), "fees_included": False,
-               "mark_basis": ("last_ask" if position < 0 else "last_bid") if state["quote"] else "average_cost_fallback"}
-    with sqlite3.connect(database) as db:
+               "mark_basis": mark_basis}
+    with closing(sqlite3.connect(database)) as db, db:
         db.execute("CREATE TABLE fills (execution_id TEXT PRIMARY KEY, order_id TEXT, side TEXT, qty INTEGER, price INTEGER)")
         db.executemany("INSERT INTO fills VALUES (?,?,?,?,?)", rows)
         db.execute("CREATE TABLE summary (json TEXT NOT NULL)")

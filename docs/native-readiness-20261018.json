@@ -1,0 +1,1267 @@
+{
+  "schema": 2,
+  "created_utc": "2026-10-18T09:16:26.951217+00:00",
+  "updated_utc": "2026-10-18T23:01:49.742135+00:00",
+  "scope": "native Testnet continuation; actual acceptance separated from model fidelity and operations readiness",
+  "source_commit": "2093ba6d3d68dfd015c90423738c9263faafc21e",
+  "runtime_binary_sha256": "7ef20dfc8300ef1c877f5cdb729ef6d17e3498b9924a7de8735e917a454e01df",
+  "backtest_binary_sha256": "704ba76060af91d615eaa2e96723f574e8f2b409f696e82f7a39b9b894209d4a",
+  "bundle_sha256": "4eac07e2eb5be03cf68274b477f0d74d66cadd938f6298694fcfe0f861dc28a4",
+  "manifest_sha256": "c9ff0ce9be391b29e3a72576fc642e3e96bd08cab754c4802e6186a42270e88c",
+  "gates": [
+    {
+      "gate_id": "rotated_root_takeover",
+      "status": "PASS",
+      "sample_count": 3,
+      "observed": [
+        79.65814718299953,
+        68.8538936519999,
+        74.6144439030013
+      ],
+      "limit": 300,
+      "unit": "seconds",
+      "source_commit": "046358c75b5753aed97ef15c3c9de0e4f7db68ca",
+      "binary_sha256": "f5d734687ef23a42e6649c4c5d5d938c6c990c733be4d18a557f6d6201778095",
+      "manifest_sha256": "91a797205faffa7e1592886dbd7ee90ed094722837e04073ef767dfe99aacf0a",
+      "run_ids": [
+        "rotated-1",
+        "rotated-2",
+        "rotated-3"
+      ],
+      "reason": "real exposed successor after rotation, old-host termination before replacement, original EBS prefix/fill/cash proof; surviving EBS only",
+      "measured_at": "2026-10-18T07:54:47.815368+00:00",
+      "raw_uri": "s3://mininautilushost-artifacts82dd59a1-jimhxpumwqyb/native-readiness-20261018/mini-lifecycle-1792340480/final-review-1792364342/independent-takeover-summary-v2.json",
+      "raw_sha256": "d8692a5454932958678ad5271d96724928dd55913092957cec07012745d3a0a3"
+    },
+    {
+      "gate_id": "terminal_status_rpcs",
+      "status": "PASS",
+      "sample_count": 3,
+      "observed": [
+        4,
+        4,
+        4
+      ],
+      "limit": 4,
+      "unit": "statusRPCs/cycle",
+      "source_commit": "046358c75b5753aed97ef15c3c9de0e4f7db68ca",
+      "binary_sha256": "42dc49a59401338bd5d3205c1345fd451f7c949c1024f5284f7c95bd76e18b43",
+      "manifest_sha256": "91a797205faffa7e1592886dbd7ee90ed094722837e04073ef767dfe99aacf0a",
+      "reason": "EC2 release libtest:800 verified canceled terminal+4 active with full history check; not804 live trades or filled-history throughput proof",
+      "measured_at": "2026-10-18T07:54:47.815368+00:00",
+      "run_ids": [
+        "rotated-1",
+        "rotated-2",
+        "rotated-3"
+      ],
+      "raw_uri": "s3://mininautilushost-artifacts82dd59a1-jimhxpumwqyb/native-readiness-20261018/mini-lifecycle-1792340480/final-review-1792364342/independent-takeover-summary-v2.json",
+      "raw_sha256": "d8692a5454932958678ad5271d96724928dd55913092957cec07012745d3a0a3"
+    },
+    {
+      "gate_id": "current_partial_open_proof",
+      "status": "PASS",
+      "measured_at": "2026-10-18T23:01:49.742135+00:00",
+      "source_commit": "2093ba6d3d68dfd015c90423738c9263faafc21e",
+      "binary_sha256": "7ef20dfc8300ef1c877f5cdb729ef6d17e3498b9924a7de8735e917a454e01df",
+      "manifest_sha256": "c9ff0ce9be391b29e3a72576fc642e3e96bd08cab754c4802e6186a42270e88c",
+      "run_ids": [
+        "clock-v5"
+      ],
+      "sample_count": 1,
+      "observed": {
+        "distinct_orders": 1,
+        "proof_observations": 27
+      },
+      "limit": {
+        "distinct_orders_min": 1,
+        "quantity_or_identity_errors_max": 0
+      },
+      "unit": "natural orders",
+      "reason": "One distinct natural order verified27 times; not27 independent cases",
+      "raw_uri": "s3://mininautilushost-artifacts82dd59a1-jimhxpumwqyb/native-readiness-20261018/mini-lifecycle-1792340480/final-review-1792364342/clock-v5-final-independent-audit.json",
+      "raw_sha256": "54a6e5aeee20ab62657cc9ff83df4f993a7f1bf12c751b791a5e2e15753b9051"
+    },
+    {
+      "gate_id": "v5_actual_original_accounting",
+      "status": "PASS",
+      "measured_at": "2026-10-18T23:01:49.742135+00:00",
+      "source_commit": "2093ba6d3d68dfd015c90423738c9263faafc21e",
+      "binary_sha256": "7ef20dfc8300ef1c877f5cdb729ef6d17e3498b9924a7de8735e917a454e01df",
+      "manifest_sha256": "c9ff0ce9be391b29e3a72576fc642e3e96bd08cab754c4802e6186a42270e88c",
+      "run_ids": [
+        "clock-v5"
+      ],
+      "sample_count": 64,
+      "observed": {
+        "unique_fills": 64,
+        "segments": 32,
+        "cash_error_usdc": "0",
+        "position_error_lots": 0,
+        "original_prefix_errors": 0
+      },
+      "limit": {
+        "cash_error_usdc_max": "0.000001",
+        "position_error_lots_max": 0,
+        "original_prefix_errors_max": 0
+      },
+      "unit": "fills / USDC / lots",
+      "reason": "Original failed second root audited after recovery; its experiment remainsFAIL",
+      "raw_uri": "s3://mininautilushost-artifacts82dd59a1-jimhxpumwqyb/native-readiness-20261018/mini-lifecycle-1792340480/final-review-1792364342/clock-v5-final-recovery-and-cleanup-proof.json",
+      "raw_sha256": "07a0248bd587b2cd2ab2fd331e50b8ca598cf500216f104603de408053746bf3"
+    },
+    {
+      "gate_id": "closed_loop_correspondence",
+      "status": "FAIL",
+      "measured_at": "2026-10-18T23:01:49.742135+00:00",
+      "source_commit": "2093ba6d3d68dfd015c90423738c9263faafc21e",
+      "binary_sha256": "7ef20dfc8300ef1c877f5cdb729ef6d17e3498b9924a7de8735e917a454e01df",
+      "manifest_sha256": "c9ff0ce9be391b29e3a72576fc642e3e96bd08cab754c4802e6186a42270e88c",
+      "run_ids": [
+        "clock-v5"
+      ],
+      "sample_count": 1,
+      "observed": {
+        "completed_runs": 1,
+        "interrupted_runs": 1,
+        "first_run_grade": "INCONCLUSIVE",
+        "actual_orders": 54,
+        "modeled_orders": 54,
+        "grouped_lot_error_fraction": 0,
+        "max_grouped_vwap_error_bps": 0.863323548999778,
+        "uncovered_modeled_orders": 3
+      },
+      "limit": {
+        "minimum_actual_and_modeled_orders": 100,
+        "max_filled_lot_error_fraction": 0.05,
+        "max_order_count_error_fraction": 0.05,
+        "max_vwap_error_bps": 2,
+        "uncovered_orders_max": 0,
+        "native_failures_max": 0
+      },
+      "unit": "orders / fraction / bps",
+      "reason": "Root2 failed visibility deadline; root1 sample and class coverage insufficient; guard stopped run3",
+      "raw_uri": "s3://mininautilushost-artifacts82dd59a1-jimhxpumwqyb/native-readiness-20261018/mini-lifecycle-1792340480/final-review-1792364342/clock-v5-final-independent-audit.json",
+      "raw_sha256": "54a6e5aeee20ab62657cc9ff83df4f993a7f1bf12c751b791a5e2e15753b9051"
+    },
+    {
+      "gate_id": "final_cloud_and_account_cleanup",
+      "status": "PASS",
+      "measured_at": "2026-10-18T23:01:49.742135+00:00",
+      "source_commit": "2093ba6d3d68dfd015c90423738c9263faafc21e",
+      "binary_sha256": "7ef20dfc8300ef1c877f5cdb729ef6d17e3498b9924a7de8735e917a454e01df",
+      "manifest_sha256": "c9ff0ce9be391b29e3a72576fc642e3e96bd08cab754c4802e6186a42270e88c",
+      "run_ids": [
+        "clock-v5"
+      ],
+      "sample_count": 15,
+      "observed": {
+        "active_task_instances": 0,
+        "remaining_task_volumes": 0,
+        "remaining_task_parameters": 0,
+        "actual_positions": 0,
+        "actual_open_orders": 0
+      },
+      "limit": 0,
+      "unit": "resources / positions / orders",
+      "reason": "Independent AWS inventory and fresh venue reads; original user host preserved",
+      "raw_uri": "s3://mininautilushost-artifacts82dd59a1-jimhxpumwqyb/native-readiness-20261018/mini-lifecycle-1792340480/final-review-1792364342/clock-v5-final-recovery-and-cleanup-proof.json",
+      "raw_sha256": "07a0248bd587b2cd2ab2fd331e50b8ca598cf500216f104603de408053746bf3"
+    }
+  ],
+  "takeover_trials": [
+    {
+      "trial": 1,
+      "checked_utc": "2026-10-18T07:54:47.787704+00:00",
+      "rto_seconds": 79.65814718299953,
+      "status": "PASS",
+      "cleanup_verified": true,
+      "segments": [
+        {
+          "segment": "segment-000000",
+          "orders": 2,
+          "fills": 2,
+          "cash_discrepancy_usdc": "0",
+          "position": 0,
+          "execution_proof": {
+            "unique_fills": 2,
+            "filled_lots_by_order": {
+              "1": 20,
+              "2": 20
+            },
+            "position": 0
+          },
+          "journal_sha256": "8892b6aa371797dc891f83ba874bbfc9425f01460d71ff694506100723e3a723"
+        },
+        {
+          "segment": "segment-000001",
+          "orders": 2,
+          "fills": 2,
+          "cash_discrepancy_usdc": "0",
+          "position": 0,
+          "execution_proof": {
+            "unique_fills": 2,
+            "filled_lots_by_order": {
+              "3": 20,
+              "4": 20
+            },
+            "position": 0
+          },
+          "journal_sha256": "66fa78b0bd25123b66a8797b3f15ec21b360e36d0817851aa7ac4e48bc17d177"
+        }
+      ],
+      "original_tree_prefixes_preserved": true,
+      "validator_source_commit": "ee60a8d0b0176080e3d91d461a0433be1b96a5ba",
+      "validator_binary_sha256": "cd50d23c34e1bbf4d9f21d5417a1d01111156f01711bd62ee3650e3632db4599",
+      "core_model_journal_sources_unchanged_since_runtime": true,
+      "runtime_source_commit": "046358c75b5753aed97ef15c3c9de0e4f7db68ca",
+      "runtime_bundle_sha256": "57fa51cfac7e3213863cc55d96522d5ef0a1f6dc720fddeef3a1a4652a36b0b5",
+      "cache_fixture": {
+        "terminal": 800,
+        "active": 4,
+        "status_queries": 4,
+        "elapsed_seconds": 0.404871025
+      },
+      "raw_uri": "s3://mininautilushost-artifacts82dd59a1-jimhxpumwqyb/native-readiness-20261018/mini-lifecycle-1792307871/recover-rotated-final.tar.gz",
+      "raw_sha256": "23a460db149d3d9be403f6b4182c10edcb63c37ae67c23d68a82d2881c405594"
+    },
+    {
+      "trial": 2,
+      "checked_utc": "2026-10-18T07:54:47.802033+00:00",
+      "rto_seconds": 68.8538936519999,
+      "status": "PASS",
+      "cleanup_verified": true,
+      "segments": [
+        {
+          "segment": "segment-000000",
+          "orders": 3,
+          "fills": 4,
+          "cash_discrepancy_usdc": "0",
+          "position": 0,
+          "execution_proof": {
+            "unique_fills": 4,
+            "filled_lots_by_order": {
+              "1": 20,
+              "2": 40,
+              "3": 20
+            },
+            "position": 0
+          },
+          "journal_sha256": "ecac97f517ec771a8986e4465796bc957d8498ce24dd8a27e9bd30caf185b399"
+        },
+        {
+          "segment": "segment-000001",
+          "orders": 2,
+          "fills": 2,
+          "cash_discrepancy_usdc": "0",
+          "position": 0,
+          "execution_proof": {
+            "unique_fills": 2,
+            "filled_lots_by_order": {
+              "4": 20,
+              "5": 20
+            },
+            "position": 0
+          },
+          "journal_sha256": "016764afcd0719a5303a684a29f6b3290f8499dbe9752ff7ab6d0547b9747b6d"
+        }
+      ],
+      "original_tree_prefixes_preserved": true,
+      "validator_source_commit": "ee60a8d0b0176080e3d91d461a0433be1b96a5ba",
+      "validator_binary_sha256": "cd50d23c34e1bbf4d9f21d5417a1d01111156f01711bd62ee3650e3632db4599",
+      "core_model_journal_sources_unchanged_since_runtime": true,
+      "runtime_source_commit": "046358c75b5753aed97ef15c3c9de0e4f7db68ca",
+      "runtime_bundle_sha256": "57fa51cfac7e3213863cc55d96522d5ef0a1f6dc720fddeef3a1a4652a36b0b5",
+      "cache_fixture": {
+        "terminal": 800,
+        "active": 4,
+        "status_queries": 4,
+        "elapsed_seconds": 0.400983222
+      },
+      "raw_uri": "s3://mininautilushost-artifacts82dd59a1-jimhxpumwqyb/native-readiness-20261018/mini-lifecycle-1792308112/recover-rotated-final.tar.gz",
+      "raw_sha256": "5323639b000a7fb17083f0d8d21373af11b472ef4027c7d068ee17aa50e142ab"
+    },
+    {
+      "trial": 3,
+      "checked_utc": "2026-10-18T07:54:47.815368+00:00",
+      "rto_seconds": 74.6144439030013,
+      "status": "PASS",
+      "cleanup_verified": true,
+      "segments": [
+        {
+          "segment": "segment-000000",
+          "orders": 3,
+          "fills": 3,
+          "cash_discrepancy_usdc": "0",
+          "position": 0,
+          "execution_proof": {
+            "unique_fills": 3,
+            "filled_lots_by_order": {
+              "1": 20,
+              "2": 40,
+              "3": 20
+            },
+            "position": 0
+          },
+          "journal_sha256": "40535e53f2834ef5550dd63d56872c36af99db7fcaa414ee75bd26ac7968fcdb"
+        },
+        {
+          "segment": "segment-000001",
+          "orders": 2,
+          "fills": 2,
+          "cash_discrepancy_usdc": "0",
+          "position": 0,
+          "execution_proof": {
+            "unique_fills": 2,
+            "filled_lots_by_order": {
+              "4": 20,
+              "5": 20
+            },
+            "position": 0
+          },
+          "journal_sha256": "a8f35b567102ce26e2265079ce16623b2a1b7fdd698f11b73ac9d602914f5d75"
+        }
+      ],
+      "original_tree_prefixes_preserved": true,
+      "validator_source_commit": "ee60a8d0b0176080e3d91d461a0433be1b96a5ba",
+      "validator_binary_sha256": "cd50d23c34e1bbf4d9f21d5417a1d01111156f01711bd62ee3650e3632db4599",
+      "core_model_journal_sources_unchanged_since_runtime": true,
+      "runtime_source_commit": "046358c75b5753aed97ef15c3c9de0e4f7db68ca",
+      "runtime_bundle_sha256": "57fa51cfac7e3213863cc55d96522d5ef0a1f6dc720fddeef3a1a4652a36b0b5",
+      "cache_fixture": {
+        "terminal": 800,
+        "active": 4,
+        "status_queries": 4,
+        "elapsed_seconds": 0.405157424
+      },
+      "raw_uri": "s3://mininautilushost-artifacts82dd59a1-jimhxpumwqyb/native-readiness-20261018/mini-lifecycle-1792308338/recover-rotated-final.tar.gz",
+      "raw_sha256": "552fc69c353046369b692b2e1951ecc2ba7149ae061d1159f879040b3007a941"
+    }
+  ],
+  "retained_failures": [
+    {
+      "run": "closed-loop-v1",
+      "status": "FAIL",
+      "source_commit": "ee60a8d0b0176080e3d91d461a0433be1b96a5ba",
+      "bundle_sha256": "d370c8a4641d6a7649f86c6887142a49893999b0bcde21c9f2eb52f3400cd8d8",
+      "failure": "RuntimeError: SSM phase failed: correspondence",
+      "cleanup_failure": "RuntimeError: SSM phase failed: cleanup",
+      "raw_prefix": "s3://mininautilushost-artifacts82dd59a1-jimhxpumwqyb/native-readiness-20261018/mini-lifecycle-1792309977/",
+      "later_recovery": "original-recovery-v2"
+    },
+    {
+      "run": "original-recovery-v1",
+      "status": "FAIL",
+      "source_commit": "ee60a8d0b0176080e3d91d461a0433be1b96a5ba",
+      "bundle_sha256": "d370c8a4641d6a7649f86c6887142a49893999b0bcde21c9f2eb52f3400cd8d8",
+      "failure": "RuntimeError: SSM phase failed: cleanup",
+      "cleanup_failure": "RuntimeError: SSM phase failed: cleanup",
+      "raw_prefix": "s3://mininautilushost-artifacts82dd59a1-jimhxpumwqyb/native-readiness-20261018/mini-lifecycle-1792310471/",
+      "later_recovery": "original-recovery-v2"
+    },
+    {
+      "run": "clock-v2",
+      "status": "FAIL",
+      "source_commit": "1493013648b6a1ee7f71bb50301f764dcd47aa74",
+      "bundle_sha256": "64ddbfae24a946f4084536aac969494c65c556b5f94f07aeccd92888e8572bc8",
+      "failure": "RuntimeError: SSM phase failed: correspondence",
+      "cleanup_failure": "RuntimeError: SSM phase failed: cleanup",
+      "raw_prefix": "s3://mininautilushost-artifacts82dd59a1-jimhxpumwqyb/native-readiness-20261018/mini-lifecycle-1792312056/",
+      "later_recovery": "clock-v2-recovery"
+    },
+    {
+      "run": "clock-v2b",
+      "status": "FAIL",
+      "reason": "2-lot opening topup below USD10; original HTTP transport cleanup failed"
+    },
+    {
+      "run": "clock-v2b-recovery",
+      "status": "FAIL",
+      "reason": "retired EC2 DescribeInstances returned empty; fixed guarded absence handling"
+    },
+    {
+      "run": "clock-v2b-recovery-v2",
+      "status": "FAIL",
+      "reason": "local unsent order25 cannot be resolved by default REST absence handling"
+    },
+    {
+      "run": "clock-v2b-recovery-v3",
+      "status": "FAIL",
+      "reason": "first cleanup polled locally rejected unsent order; final cleanup PASS is separate",
+      "cleanup_verified": true
+    },
+    {
+      "run": "clock-v3",
+      "status": "FAIL",
+      "reason": "filled_lot_error_fraction=0.11623616236162361 exceeds0.05; native lifecycle completed and cleanup verified",
+      "source_commit": "ac70f61e762f01310a36cec066d2fdafd9ec3b5a",
+      "bundle_sha256": "8b8b15d3f040e94358306eb46dcf2697d52c4ae88ed9772a02f34fbef07d287a"
+    },
+    {
+      "run": "clock-v4",
+      "status": "FAIL",
+      "reason": "run2 groupedlot error8.1300813%>5%; native roots completed; controller finally discovery ResponseParserError after host termination; follow-up cleanup separately verified",
+      "source_commit": "edcc0546cecde6e74f4c196c266c2b635e0fa7cb",
+      "bundle_sha256": "407e1e9d3eebcbcb74060d01d1f2d51a36bc7413f3f927e6914eaf8cbf209cd4"
+    },
+    {
+      "run": "clock-v5",
+      "status": "FAIL",
+      "reason": "second native root interrupted on acknowledged-but-unqueryable close; original recovery/cleanup subsequentlyPASS; run1 remainsINCONCLUSIVE",
+      "source_commit": "2093ba6d3d68dfd015c90423738c9263faafc21e",
+      "bundle_sha256": "4eac07e2eb5be03cf68274b477f0d74d66cadd938f6298694fcfe0f861dc28a4"
+    }
+  ],
+  "original_recoveries": [
+    {
+      "run": "original-recovery-v2",
+      "status": "PASS",
+      "source_commit": "915d6ab1d94a78992274065286e7a3a8c3d389d8",
+      "bundle_sha256": "9ecee4eb747c0cb46ad0e7d261e948035c85d2fa9726c3f03f2116472c718ff2",
+      "cleanup_verified": true,
+      "volume_cleanup": {
+        "vol-0217d8dd7f224fcaa": "deleted",
+        "vol-090ca48e3d5105368": "deleted"
+      },
+      "raw_prefix": "s3://mininautilushost-artifacts82dd59a1-jimhxpumwqyb/native-readiness-20261018/mini-lifecycle-1792311051/"
+    },
+    {
+      "run": "clock-v2-recovery",
+      "status": "PASS",
+      "source_commit": "26c602f83187eebfd5cf7d157279e72e0f4bdd38",
+      "bundle_sha256": "ca7739f063df00f19677def251644d14c09779565daa90b756389f9bd8f29fcb",
+      "cleanup_verified": true,
+      "volume_cleanup": {
+        "vol-0c6bd154b2145e231": "deleted",
+        "vol-062e68cc595160360": "deleted"
+      },
+      "raw_prefix": "s3://mininautilushost-artifacts82dd59a1-jimhxpumwqyb/native-readiness-20261018/mini-lifecycle-1792313652/"
+    },
+    {
+      "run": "clock-v2b-recovery-v3",
+      "status": "PASS_FINAL_CLEANUP_ONLY",
+      "controller_status": "FAIL",
+      "cleanup_verified": true,
+      "flat_verified": true,
+      "independent_segments": 13,
+      "unique_fills": 27,
+      "independent_gross_cash_error_usdc": "0",
+      "raw_prefix": "s3://mininautilushost-artifacts82dd59a1-jimhxpumwqyb/native-readiness-20261018/mini-lifecycle-1792334960/"
+    }
+  ],
+  "correspondence": {
+    "status": "FAIL",
+    "latest_version": "v5",
+    "collection_state": "run1INCONCLUSIVE; run2nativeFAIL; run3notstarted; no retuning or further signed retries",
+    "frozen_parameters": {
+      "arrival_ms": 960,
+      "report_ms": 390,
+      "cancel_ms": 520
+    },
+    "trials": [
+      {
+        "version": "v4",
+        "run": 1,
+        "status": "INCONCLUSIVE",
+        "native_lifecycle_status": "COMPLETED_BOUNDED_RUN",
+        "metrics": {
+          "native_wall_seconds": 904.214160516,
+          "rotations": 26,
+          "native_orders": 56,
+          "native_unique_fills": 58,
+          "execution_recoveries": 1,
+          "rss_tree_peak_mib": 43.3125,
+          "minimum_target_refusals": 0,
+          "all_writer": {
+            "n": 17547,
+            "p50_ms": 0.018888,
+            "p99_ms": 0.042409,
+            "max_ms": 3.732482
+          },
+          "strategy_submit_writer": {
+            "n": 29,
+            "p50_ms": 3.502195,
+            "p99_ms": 3.732482,
+            "max_ms": 3.732482
+          },
+          "strategy_submit_sync": {
+            "n": 29,
+            "p50_ms": 3.484521,
+            "p99_ms": 3.714625,
+            "max_ms": 3.714625
+          },
+          "actual_net_cash_usdc": "-220609/500000",
+          "modeled_marked_net_usdc": "-220007/500000",
+          "modeled_minus_actual_net_usdc": "301/250000",
+          "modeled_end_positions": []
+        },
+        "score": {
+          "schema": 1,
+          "status": "INCONCLUSIVE",
+          "scope": "per-segment 3/8 SMA plus explicitly scheduled operational flatten; immediate-cross class only, no general passive/impact/PCA acceptance",
+          "distinct_strategy_bar_times": 24,
+          "actual_orders": 56,
+          "simulated_orders": 56,
+          "order_count_error_fraction": 0.0,
+          "actual_lots": 1146,
+          "filled_lot_error_fraction": 0.0,
+          "max_vwap_error_bps": 1.4787248462742295,
+          "uncovered_simulated_orders": 1,
+          "actual_nonfilled_ack_orders": 1,
+          "unknown_funding_settlements": 0,
+          "core_or_model_failures": 0,
+          "backtest_binary_sha256": "704ba76060af91d615eaa2e96723f574e8f2b409f696e82f7a39b9b894209d4a",
+          "analyzer_source_sha256": "e777cb32d0c045172f094d64cccd5d4b72be6e9035f69a5c7e11ffbad410812b",
+          "manifest_sha256": "8f7d100ce34459c198d74f75aad82d698ba92351150474d3b82f798356866a43"
+        },
+        "independent_accounting_status": "PASS"
+      },
+      {
+        "version": "v4",
+        "run": 2,
+        "status": "FAIL",
+        "native_lifecycle_status": "COMPLETED_BOUNDED_RUN",
+        "metrics": {
+          "native_wall_seconds": 903.598480942,
+          "rotations": 26,
+          "native_orders": 56,
+          "native_unique_fills": 57,
+          "execution_recoveries": 5,
+          "rss_tree_peak_mib": 41.66015625,
+          "minimum_target_refusals": 1,
+          "all_writer": {
+            "n": 17722,
+            "p50_ms": 0.019185,
+            "p99_ms": 0.043689,
+            "max_ms": 3.791137
+          },
+          "strategy_submit_writer": {
+            "n": 29,
+            "p50_ms": 3.499256,
+            "p99_ms": 3.791137,
+            "max_ms": 3.791137
+          },
+          "strategy_submit_sync": {
+            "n": 29,
+            "p50_ms": 3.481497,
+            "p99_ms": 3.767586,
+            "max_ms": 3.767586
+          },
+          "actual_net_cash_usdc": "-392141/1000000",
+          "modeled_marked_net_usdc": "-38619/100000",
+          "modeled_minus_actual_net_usdc": "5951/1000000",
+          "modeled_end_positions": []
+        },
+        "score": {
+          "schema": 1,
+          "status": "FAIL",
+          "scope": "per-segment 3/8 SMA plus explicitly scheduled operational flatten; immediate-cross class only, no general passive/impact/PCA acceptance",
+          "distinct_strategy_bar_times": 24,
+          "actual_orders": 56,
+          "simulated_orders": 54,
+          "order_count_error_fraction": 0.03571428571428571,
+          "actual_lots": 984,
+          "filled_lot_error_fraction": 0.08130081300813008,
+          "max_vwap_error_bps": 1.1096726465692621,
+          "uncovered_simulated_orders": 6,
+          "actual_nonfilled_ack_orders": 6,
+          "unknown_funding_settlements": 0,
+          "core_or_model_failures": 0,
+          "backtest_binary_sha256": "704ba76060af91d615eaa2e96723f574e8f2b409f696e82f7a39b9b894209d4a",
+          "analyzer_source_sha256": "e777cb32d0c045172f094d64cccd5d4b72be6e9035f69a5c7e11ffbad410812b",
+          "manifest_sha256": "8f7d100ce34459c198d74f75aad82d698ba92351150474d3b82f798356866a43"
+        },
+        "independent_accounting_status": "PASS"
+      },
+      {
+        "version": "v5",
+        "run": 1,
+        "status": "INCONCLUSIVE",
+        "native_lifecycle_status": "COMPLETED_BOUNDED_RUN",
+        "metrics": {
+          "open_remaining_proofs": 27,
+          "unique_proved_orders": 1,
+          "native_wall_seconds": 904.035856611,
+          "rotations": 26,
+          "native_orders": 54,
+          "native_unique_fills": 53,
+          "execution_recoveries": 0,
+          "rss_tree_peak_mib": 40.875,
+          "minimum_target_refusals": 0,
+          "all_writer": {
+            "n": 17648,
+            "p50_ms": 0.02289,
+            "p99_ms": 0.050379,
+            "max_ms": 3.841185
+          },
+          "strategy_submit_writer": {
+            "n": 28,
+            "p50_ms": 3.450303,
+            "p99_ms": 3.841185,
+            "max_ms": 3.841185
+          },
+          "strategy_submit_sync": {
+            "n": 28,
+            "p50_ms": 3.434125,
+            "p99_ms": 3.830142,
+            "max_ms": 3.830142
+          },
+          "actual_net_cash_usdc": "-26783/62500",
+          "modeled_marked_net_usdc": "-5369/12500",
+          "modeled_minus_actual_net_usdc": "-31/31250",
+          "modeled_end_positions": []
+        },
+        "score": {
+          "schema": 1,
+          "status": "INCONCLUSIVE",
+          "scope": "per-segment 3/8 SMA plus explicitly scheduled operational flatten; immediate-cross class only, no general passive/impact/PCA acceptance",
+          "distinct_strategy_bar_times": 24,
+          "actual_orders": 54,
+          "simulated_orders": 54,
+          "order_count_error_fraction": 0.0,
+          "actual_lots": 1066,
+          "filled_lot_error_fraction": 0.0,
+          "max_vwap_error_bps": 0.863323548999778,
+          "uncovered_simulated_orders": 3,
+          "actual_nonfilled_ack_orders": 3,
+          "unknown_funding_settlements": 0,
+          "core_or_model_failures": 0,
+          "backtest_binary_sha256": "704ba76060af91d615eaa2e96723f574e8f2b409f696e82f7a39b9b894209d4a",
+          "analyzer_source_sha256": "e777cb32d0c045172f094d64cccd5d4b72be6e9035f69a5c7e11ffbad410812b",
+          "manifest_sha256": "c9ff0ce9be391b29e3a72576fc642e3e96bd08cab754c4802e6186a42270e88c"
+        },
+        "independent_accounting_status": "PASS"
+      },
+      {
+        "version": "v5",
+        "run": 2,
+        "status": "FAIL",
+        "native_lifecycle_status": "INTERRUPTED_SEGMENT_4",
+        "model_status": "NOT_MEASURED",
+        "failure": "cleanup unresolved: order visibility deadline; absence unresolved",
+        "original_recovery_status": "PASS",
+        "original_recovery_seconds": 1.0945554849999999,
+        "final_cleanup_verified": true,
+        "independent_accounting_status": "PASS",
+        "segments": [
+          {
+            "segment": "segment-000000",
+            "original_prefix_preserved": true,
+            "orders": 2,
+            "fills": 2,
+            "position": 0,
+            "cash_error_usdc": "0",
+            "execution_proof": {
+              "unique_fills": 2,
+              "filled_lots_by_order": {
+                "1": 20,
+                "2": 20
+              },
+              "position": 0
+            },
+            "journal_sha256": "05f2db4551389b963a84381d9b516c3f0ac95930b26202d07f7103d1f0385fb2"
+          },
+          {
+            "segment": "segment-000001",
+            "original_prefix_preserved": true,
+            "orders": 3,
+            "fills": 3,
+            "position": 0,
+            "cash_error_usdc": "0",
+            "execution_proof": {
+              "unique_fills": 3,
+              "filled_lots_by_order": {
+                "3": 20,
+                "4": 40,
+                "5": 20
+              },
+              "position": 0
+            },
+            "journal_sha256": "566661f0a712a0389f743b7524266bc13a910d6c9a96ce8446912a174856fba5"
+          },
+          {
+            "segment": "segment-000002",
+            "original_prefix_preserved": true,
+            "orders": 2,
+            "fills": 2,
+            "position": 0,
+            "cash_error_usdc": "0",
+            "execution_proof": {
+              "unique_fills": 2,
+              "filled_lots_by_order": {
+                "6": 20,
+                "7": 20
+              },
+              "position": 0
+            },
+            "journal_sha256": "e026ebeb39675366698b5bfbe169400d3e406c9e02e21928c5ab8bcba78e0a6e"
+          },
+          {
+            "segment": "segment-000003",
+            "original_prefix_preserved": true,
+            "orders": 2,
+            "fills": 2,
+            "position": 0,
+            "cash_error_usdc": "0",
+            "execution_proof": {
+              "unique_fills": 2,
+              "filled_lots_by_order": {
+                "8": 20,
+                "9": 20
+              },
+              "position": 0
+            },
+            "journal_sha256": "9853791e0ca0c0af636d160b41be962da474524d229851a761bb8997c6f42fc3"
+          },
+          {
+            "segment": "segment-000004",
+            "original_prefix_preserved": true,
+            "orders": 2,
+            "fills": 2,
+            "position": 0,
+            "cash_error_usdc": "0",
+            "execution_proof": {
+              "unique_fills": 2,
+              "filled_lots_by_order": {
+                "10": 20,
+                "11": 20
+              },
+              "position": 0
+            },
+            "journal_sha256": "b926c8b0fecb225e3deae92e7f29173e97e836b548df1ff44174fd8f55c31785"
+          }
+        ],
+        "raw_uri": "s3://mininautilushost-artifacts82dd59a1-jimhxpumwqyb/native-readiness-20261018/mini-lifecycle-1792340480/final-review-1792364342/clock-v5-final-recovery-and-cleanup-proof.json",
+        "raw_sha256": "07a0248bd587b2cd2ab2fd331e50b8ca598cf500216f104603de408053746bf3"
+      }
+    ],
+    "v3_prior": {
+      "status": "FAIL",
+      "actual_orders": 55,
+      "modeled_orders": 53,
+      "filled_lot_error_fraction": 0.11623616236162361,
+      "max_vwap_error_bps": 1.1086337936216601
+    },
+    "visibility_attribution": [
+      {
+        "segment": 1,
+        "local_order_id": 4,
+        "ack_kind": "filled",
+        "ack_received_ms": 1792341482466,
+        "unknown_responses": 80,
+        "last_unknown_received_ms": 1792341505789,
+        "last_unknown_after_ack_ms": 23323,
+        "first_recorded_visible_ms": 1792341506289,
+        "source_sha256": "213f2a3c7b3e301c27e32354174adf0cac1c01667c3c6f3f5cf96a938041b584"
+      },
+      {
+        "segment": 4,
+        "local_order_id": 11,
+        "ack_kind": "filled",
+        "ack_received_ms": 1792341609311,
+        "unknown_responses": 25,
+        "last_unknown_received_ms": 1792341614222,
+        "last_unknown_after_ack_ms": 4911,
+        "first_recorded_visible_ms": 1792341618870,
+        "source_sha256": "bb4123612d6bc97d9a8b9d07c8cf1b5182f83691156c6db9ed2932560fccc931"
+      }
+    ],
+    "v4_same_data_readiness_ablation": {
+      "max_vwap_error_bps_without": 2.217622708,
+      "with_initial_readiness": 1.478724846,
+      "lot_and_count_error_fraction_both": 0,
+      "cross_period_performance_claim": false
+    },
+    "v4_controller_cleanup_status": "FAIL_ORIGINAL",
+    "v4_followup_cleanup_status": "PASS"
+  },
+  "long_qualification": {
+    "status": "BLOCKED",
+    "execution_state": "NOT_STARTED",
+    "elapsed_hours": 0,
+    "reason": "native visibility failure and correspondence not accepted; original operations gates remain separate"
+  },
+  "relative_runtime_performance": {
+    "status": "NOT_MEASURED",
+    "reason": "no frozen A/A and repeated A/B; writer latency is descriptive only"
+  },
+  "verification": {
+    "command": "scripts/verify.sh",
+    "status": "PASS",
+    "python_tests": 220,
+    "native_library_unit_tests": 49,
+    "tail": [
+      "lost ack \u2192 timeout \u2192 disconnect \u2192 partial fill \u2192 reconciliation \u2192 duplicate fill",
+      "position=2, unique_fills=1, reserved_buy=3, venue_orders=1, health=Healthy",
+      "VERIFY OK"
+    ],
+    "replay": {
+      "position": 0,
+      "gross_pnl_tick_lots": 12,
+      "orders": 2,
+      "unique_fills": 3
+    },
+    "raw_uri": "s3://mininautilushost-artifacts82dd59a1-jimhxpumwqyb/native-readiness-20261018/mini-lifecycle-1792340480/final-review-1792364342/verify-current-open-final.log",
+    "raw_sha256": "0d27a046e989c45466db28e0425e37a81d3b1f5e408a7cea96c9c2ce26834352"
+  },
+  "final_cleanup": {
+    "checked_epoch": 1792364298.445798,
+    "original_controller_status": "FAIL",
+    "original_failed_segment": "segment-000004",
+    "recovered_original_accounting": "PASS",
+    "original_prefixes_preserved": true,
+    "segments": [
+      {
+        "segment": "segment-000000",
+        "original_prefix_preserved": true,
+        "orders": 2,
+        "fills": 2,
+        "position": 0,
+        "cash_error_usdc": "0",
+        "execution_proof": {
+          "unique_fills": 2,
+          "filled_lots_by_order": {
+            "1": 20,
+            "2": 20
+          },
+          "position": 0
+        },
+        "journal_sha256": "05f2db4551389b963a84381d9b516c3f0ac95930b26202d07f7103d1f0385fb2"
+      },
+      {
+        "segment": "segment-000001",
+        "original_prefix_preserved": true,
+        "orders": 3,
+        "fills": 3,
+        "position": 0,
+        "cash_error_usdc": "0",
+        "execution_proof": {
+          "unique_fills": 3,
+          "filled_lots_by_order": {
+            "3": 20,
+            "4": 40,
+            "5": 20
+          },
+          "position": 0
+        },
+        "journal_sha256": "566661f0a712a0389f743b7524266bc13a910d6c9a96ce8446912a174856fba5"
+      },
+      {
+        "segment": "segment-000002",
+        "original_prefix_preserved": true,
+        "orders": 2,
+        "fills": 2,
+        "position": 0,
+        "cash_error_usdc": "0",
+        "execution_proof": {
+          "unique_fills": 2,
+          "filled_lots_by_order": {
+            "6": 20,
+            "7": 20
+          },
+          "position": 0
+        },
+        "journal_sha256": "e026ebeb39675366698b5bfbe169400d3e406c9e02e21928c5ab8bcba78e0a6e"
+      },
+      {
+        "segment": "segment-000003",
+        "original_prefix_preserved": true,
+        "orders": 2,
+        "fills": 2,
+        "position": 0,
+        "cash_error_usdc": "0",
+        "execution_proof": {
+          "unique_fills": 2,
+          "filled_lots_by_order": {
+            "8": 20,
+            "9": 20
+          },
+          "position": 0
+        },
+        "journal_sha256": "9853791e0ca0c0af636d160b41be962da474524d229851a761bb8997c6f42fc3"
+      },
+      {
+        "segment": "segment-000004",
+        "original_prefix_preserved": true,
+        "orders": 2,
+        "fills": 2,
+        "position": 0,
+        "cash_error_usdc": "0",
+        "execution_proof": {
+          "unique_fills": 2,
+          "filled_lots_by_order": {
+            "10": 20,
+            "11": 20
+          },
+          "position": 0
+        },
+        "journal_sha256": "b926c8b0fecb225e3deae92e7f29173e97e836b548df1ff44174fd8f55c31785"
+      }
+    ],
+    "second_root_unique_fills": 11,
+    "combined_v5_unique_fills": 64,
+    "independent_cloud_cleanup": "PASS",
+    "task_token_count": 15,
+    "active_task_instances": [],
+    "remaining_task_volumes": [],
+    "remaining_task_parameters": [],
+    "preserved_user_host": {
+      "id": "i-015087878f29f14cd",
+      "state": "running"
+    },
+    "actual_account": {
+      "clearinghouseState": [],
+      "openOrders": []
+    },
+    "validator_binary_sha256": "704ba76060af91d615eaa2e96723f574e8f2b409f696e82f7a39b9b894209d4a"
+  },
+  "validation_archive": {
+    "receipt_uri": "s3://mininautilushost-artifacts82dd59a1-jimhxpumwqyb/native-readiness-20261018/mini-lifecycle-1792340480/final-review-1792364342/receipt.json",
+    "receipt_sha256": "050435845a59320c2882026d7beff027724de767592c89cc587ed3603f7c4a7d",
+    "write_once": true,
+    "readback_sha256_verified": true,
+    "files": [
+      {
+        "local_path": "runs/readiness-20261018/verify-current-open-final.log",
+        "raw_uri": "s3://mininautilushost-artifacts82dd59a1-jimhxpumwqyb/native-readiness-20261018/mini-lifecycle-1792340480/final-review-1792364342/verify-current-open-final.log",
+        "raw_sha256": "0d27a046e989c45466db28e0425e37a81d3b1f5e408a7cea96c9c2ce26834352",
+        "bytes": 29048
+      },
+      {
+        "local_path": "runs/readiness-20261018/release-current-open-final.log",
+        "raw_uri": "s3://mininautilushost-artifacts82dd59a1-jimhxpumwqyb/native-readiness-20261018/mini-lifecycle-1792340480/final-review-1792364342/release-current-open-final.log",
+        "raw_sha256": "a8bbd77698ba40d838d82f315a781a483a2c9249f968b9ac7e1329a5257def40",
+        "bytes": 122
+      },
+      {
+        "local_path": "runs/readiness-20261018/replay-current-open.log",
+        "raw_uri": "s3://mininautilushost-artifacts82dd59a1-jimhxpumwqyb/native-readiness-20261018/mini-lifecycle-1792340480/final-review-1792364342/replay-current-open.log",
+        "raw_sha256": "73f29b61d4257c733205d54b0b9f6c5f7862382d9de062629e2c3bc66cb08615",
+        "bytes": 116
+      },
+      {
+        "local_path": "runs/readiness-20261018/current-open-partial-red.log",
+        "raw_uri": "s3://mininautilushost-artifacts82dd59a1-jimhxpumwqyb/native-readiness-20261018/mini-lifecycle-1792340480/final-review-1792364342/current-open-partial-red.log",
+        "raw_sha256": "d86a41b6afd07dc4c5d0271f26714bd0355c22e0f7bbef39267e89b73dbd5d0f",
+        "bytes": 1008
+      },
+      {
+        "local_path": "runs/readiness-20261018/current-open-known-fill-red.log",
+        "raw_uri": "s3://mininautilushost-artifacts82dd59a1-jimhxpumwqyb/native-readiness-20261018/mini-lifecycle-1792340480/final-review-1792364342/current-open-known-fill-red.log",
+        "raw_sha256": "0f63abd8a5ba1ea26424d512f11478e4b523c82e960654c7ce2d638bdd15a9a7",
+        "bytes": 923
+      },
+      {
+        "local_path": "runs/readiness-20261018/verify-cloud-cleanup.log",
+        "raw_uri": "s3://mininautilushost-artifacts82dd59a1-jimhxpumwqyb/native-readiness-20261018/mini-lifecycle-1792340480/final-review-1792364342/verify-cloud-cleanup.log",
+        "raw_sha256": "f49fbe24561c64a0ece1d184ff982d6dbc6342219f97e8a5338b6b2fd682377a",
+        "bytes": 28607
+      },
+      {
+        "local_path": "runs/readiness-20261018/verify-initial-readiness.log",
+        "raw_uri": "s3://mininautilushost-artifacts82dd59a1-jimhxpumwqyb/native-readiness-20261018/mini-lifecycle-1792340480/final-review-1792364342/verify-initial-readiness.log",
+        "raw_sha256": "c90358614e747691ce5ce4c6718b69c0c9f153f9df8b7953690a8a511fd05776",
+        "bytes": 28721
+      },
+      {
+        "local_path": "runs/readiness-20261018/verify-unsent-poll.log",
+        "raw_uri": "s3://mininautilushost-artifacts82dd59a1-jimhxpumwqyb/native-readiness-20261018/mini-lifecycle-1792340480/final-review-1792364342/verify-unsent-poll.log",
+        "raw_sha256": "d865e6f1314e60d896ece83de0b5fd178c1f18cb7d6c8f70244a1e3b81233a9b",
+        "bytes": 28605
+      },
+      {
+        "local_path": "runs/readiness-20261018/clock-v5-final-independent-audit.json",
+        "raw_uri": "s3://mininautilushost-artifacts82dd59a1-jimhxpumwqyb/native-readiness-20261018/mini-lifecycle-1792340480/final-review-1792364342/clock-v5-final-independent-audit.json",
+        "raw_sha256": "54a6e5aeee20ab62657cc9ff83df4f993a7f1bf12c751b791a5e2e15753b9051",
+        "bytes": 24632
+      },
+      {
+        "local_path": "runs/readiness-20261018/clock-v5-final-independent-audit.log",
+        "raw_uri": "s3://mininautilushost-artifacts82dd59a1-jimhxpumwqyb/native-readiness-20261018/mini-lifecycle-1792340480/final-review-1792364342/clock-v5-final-independent-audit.log",
+        "raw_sha256": "dd8bfc4b8c3fbf2a6e6bc7d06d1dacb79eb9868e9dae08b9afb4438e99365526",
+        "bytes": 974
+      },
+      {
+        "local_path": "runs/readiness-20261018/clock-v5-final-recovery-and-cleanup-proof.json",
+        "raw_uri": "s3://mininautilushost-artifacts82dd59a1-jimhxpumwqyb/native-readiness-20261018/mini-lifecycle-1792340480/final-review-1792364342/clock-v5-final-recovery-and-cleanup-proof.json",
+        "raw_sha256": "07a0248bd587b2cd2ab2fd331e50b8ca598cf500216f104603de408053746bf3",
+        "bytes": 2919
+      },
+      {
+        "local_path": "runs/readiness-20261018/clock-v5-final-recovery-and-cleanup-proof.log",
+        "raw_uri": "s3://mininautilushost-artifacts82dd59a1-jimhxpumwqyb/native-readiness-20261018/mini-lifecycle-1792340480/final-review-1792364342/clock-v5-final-recovery-and-cleanup-proof.log",
+        "raw_sha256": "63f7c9b43617be69167065c7a7fb9c4a42124edde69f9679d831fcaba9ceed75",
+        "bytes": 704
+      },
+      {
+        "local_path": "runs/readiness-20261018/clock-v5-visibility-attribution.json",
+        "raw_uri": "s3://mininautilushost-artifacts82dd59a1-jimhxpumwqyb/native-readiness-20261018/mini-lifecycle-1792340480/final-review-1792364342/clock-v5-visibility-attribution.json",
+        "raw_sha256": "3df34718c8844587f92af0e0df38fa7c6ee7c8105fe12048ceb89235dcf54c49",
+        "bytes": 738
+      },
+      {
+        "local_path": "runs/readiness-20261018/clock-v4-final-independent-audit.json",
+        "raw_uri": "s3://mininautilushost-artifacts82dd59a1-jimhxpumwqyb/native-readiness-20261018/mini-lifecycle-1792340480/final-review-1792364342/clock-v4-final-independent-audit.json",
+        "raw_sha256": "a5fb3afb8464d18e509d1954b68ccabe15da4f98ec7f87684d44485b13d1512a",
+        "bytes": 49167
+      },
+      {
+        "local_path": "runs/readiness-20261018/clock-v4-run1-readiness-ablation.json",
+        "raw_uri": "s3://mininautilushost-artifacts82dd59a1-jimhxpumwqyb/native-readiness-20261018/mini-lifecycle-1792340480/final-review-1792364342/clock-v4-run1-readiness-ablation.json",
+        "raw_sha256": "650ecd1cc54802ec51ab2bf600cb2bdcaa08a7596e891da4d67c081ed1bacc90",
+        "bytes": 1025
+      },
+      {
+        "local_path": "runs/readiness-20261018/clock-v4-run2-lot-error-attribution.json",
+        "raw_uri": "s3://mininautilushost-artifacts82dd59a1-jimhxpumwqyb/native-readiness-20261018/mini-lifecycle-1792340480/final-review-1792364342/clock-v4-run2-lot-error-attribution.json",
+        "raw_sha256": "76fca2cbf9404d0ff66d93334e8b5739419ad7588009f9328448d595ee068c0d",
+        "bytes": 2425
+      },
+      {
+        "local_path": "runs/readiness-20261018/clock-v4-manual-cleanup.json",
+        "raw_uri": "s3://mininautilushost-artifacts82dd59a1-jimhxpumwqyb/native-readiness-20261018/mini-lifecycle-1792340480/final-review-1792364342/clock-v4-manual-cleanup.json",
+        "raw_sha256": "2b38ae471eb387658ef44b50372bfa7728bce3a8cdf9b4467df0ed09540e2c5c",
+        "bytes": 550
+      },
+      {
+        "local_path": "runs/readiness-20261018/clock-v4-patched-cleanup-live-proof.json",
+        "raw_uri": "s3://mininautilushost-artifacts82dd59a1-jimhxpumwqyb/native-readiness-20261018/mini-lifecycle-1792340480/final-review-1792364342/clock-v4-patched-cleanup-live-proof.json",
+        "raw_sha256": "967f09bc1e37670ac82963d654756c63aa74e8f65987e86934c4e2183d5292f0",
+        "bytes": 2111
+      },
+      {
+        "local_path": "runs/readiness-20261018/clock-v2b-independent-recovery-ledger.json",
+        "raw_uri": "s3://mininautilushost-artifacts82dd59a1-jimhxpumwqyb/native-readiness-20261018/mini-lifecycle-1792340480/final-review-1792364342/clock-v2b-independent-recovery-ledger.json",
+        "raw_sha256": "55b5270a7a3e8f9a242b029baf37c7d4954b86b8fc536b4b1f33126f68ebe67c",
+        "bytes": 9209
+      },
+      {
+        "local_path": "runs/readiness-20261018/clock-v2b-recovery-v3-independent-cleanup.json",
+        "raw_uri": "s3://mininautilushost-artifacts82dd59a1-jimhxpumwqyb/native-readiness-20261018/mini-lifecycle-1792340480/final-review-1792364342/clock-v2b-recovery-v3-independent-cleanup.json",
+        "raw_sha256": "87dde9c6055618ccd398dff2170dbce8ac51ceca20c1fb786d6a7cf0dd52734b",
+        "bytes": 286
+      },
+      {
+        "local_path": "runs/readiness-20261018/independent-short-drill-cleanup.json",
+        "raw_uri": "s3://mininautilushost-artifacts82dd59a1-jimhxpumwqyb/native-readiness-20261018/mini-lifecycle-1792340480/final-review-1792364342/independent-short-drill-cleanup.json",
+        "raw_sha256": "3041bc7e2159190cbc3300c560158f3723b664f401efbf517c87d4239748934d",
+        "bytes": 1321
+      },
+      {
+        "local_path": "runs/readiness-20261018/independent-takeover-summary-v2.json",
+        "raw_uri": "s3://mininautilushost-artifacts82dd59a1-jimhxpumwqyb/native-readiness-20261018/mini-lifecycle-1792340480/final-review-1792364342/independent-takeover-summary-v2.json",
+        "raw_sha256": "d8692a5454932958678ad5271d96724928dd55913092957cec07012745d3a0a3",
+        "bytes": 4575
+      },
+      {
+        "local_path": "runs/readiness-20261018/bundle-holdout-v5.json",
+        "raw_uri": "s3://mininautilushost-artifacts82dd59a1-jimhxpumwqyb/native-readiness-20261018/mini-lifecycle-1792340480/final-review-1792364342/bundle-holdout-v5.json",
+        "raw_sha256": "66b8658b99c875783ac152d5a1afffb5ed6be5046016038d61a4417d7864a14d",
+        "bytes": 211
+      },
+      {
+        "local_path": "runs/readiness-20261018/aws-pricing.json",
+        "raw_uri": "s3://mininautilushost-artifacts82dd59a1-jimhxpumwqyb/native-readiness-20261018/mini-lifecycle-1792340480/final-review-1792364342/aws-pricing.json",
+        "raw_sha256": "17cb689431f264a2c502f677bc2afcff45a8e13667364d679d39d407d4d8f049",
+        "bytes": 16294
+      },
+      {
+        "local_path": "runs/readiness-20261018/audit-v5-final.py",
+        "raw_uri": "s3://mininautilushost-artifacts82dd59a1-jimhxpumwqyb/native-readiness-20261018/mini-lifecycle-1792340480/final-review-1792364342/audit-v5-final.py",
+        "raw_sha256": "6c2b43b28cea27947a16f403f91f189c96b20909fe1199b606db67c675118ea6",
+        "bytes": 5290
+      },
+      {
+        "local_path": "runs/readiness-20261018/final-proof-v5.py",
+        "raw_uri": "s3://mininautilushost-artifacts82dd59a1-jimhxpumwqyb/native-readiness-20261018/mini-lifecycle-1792340480/final-review-1792364342/final-proof-v5.py",
+        "raw_sha256": "aef36bcd8203877c6b71a785ffc6431f5371e46eb30b98e2c426ac29adf9b568",
+        "bytes": 5498
+      },
+      {
+        "local_path": "runs/readiness-20261018/archive-final-evidence.py",
+        "raw_uri": "s3://mininautilushost-artifacts82dd59a1-jimhxpumwqyb/native-readiness-20261018/mini-lifecycle-1792340480/final-review-1792364342/archive-final-evidence.py",
+        "raw_sha256": "44a2877256c87bba52abd09cb46715b8a8e1b5447d07695750db8108047499eb",
+        "bytes": 2955
+      },
+      {
+        "local_path": "runs/readiness-20261018/clock-v2/resources.json",
+        "raw_uri": "s3://mininautilushost-artifacts82dd59a1-jimhxpumwqyb/native-readiness-20261018/mini-lifecycle-1792340480/final-review-1792364342/clock-v2/resources.json",
+        "raw_sha256": "2d6e0826143e7910505c6b0bb5bb9e10e118871d3f509623fe35ad8882e6ddc9",
+        "bytes": 1886
+      },
+      {
+        "local_path": "runs/readiness-20261018/clock-v2-recovery/resources.json",
+        "raw_uri": "s3://mininautilushost-artifacts82dd59a1-jimhxpumwqyb/native-readiness-20261018/mini-lifecycle-1792340480/final-review-1792364342/clock-v2-recovery/resources.json",
+        "raw_sha256": "bad54c7c3e5a8985bf51fa5f2a189ed15df7739cfb6493174485e0ab56d1a5d6",
+        "bytes": 1787
+      },
+      {
+        "local_path": "runs/readiness-20261018/clock-v2b/resources.json",
+        "raw_uri": "s3://mininautilushost-artifacts82dd59a1-jimhxpumwqyb/native-readiness-20261018/mini-lifecycle-1792340480/final-review-1792364342/clock-v2b/resources.json",
+        "raw_sha256": "574105a035415f980e1d01398960699a460a0b1239cdce560d455dfc277792fc",
+        "bytes": 1886
+      },
+      {
+        "local_path": "runs/readiness-20261018/clock-v2b-recovery/resources.json",
+        "raw_uri": "s3://mininautilushost-artifacts82dd59a1-jimhxpumwqyb/native-readiness-20261018/mini-lifecycle-1792340480/final-review-1792364342/clock-v2b-recovery/resources.json",
+        "raw_sha256": "7f3e683d1591eea450708e5bc4358e4d3d3c8c77880d400a72642cdc41a35e23",
+        "bytes": 1320
+      },
+      {
+        "local_path": "runs/readiness-20261018/clock-v2b-recovery-v2/resources.json",
+        "raw_uri": "s3://mininautilushost-artifacts82dd59a1-jimhxpumwqyb/native-readiness-20261018/mini-lifecycle-1792340480/final-review-1792364342/clock-v2b-recovery-v2/resources.json",
+        "raw_sha256": "ba23ba8eb4c8a343e5e25dd15dddf3f12d09dd05e149e90204eba937fde9145d",
+        "bytes": 1977
+      },
+      {
+        "local_path": "runs/readiness-20261018/clock-v2b-recovery-v3/resources.json",
+        "raw_uri": "s3://mininautilushost-artifacts82dd59a1-jimhxpumwqyb/native-readiness-20261018/mini-lifecycle-1792340480/final-review-1792364342/clock-v2b-recovery-v3/resources.json",
+        "raw_sha256": "78a7f3c0d9d3bfa89a117a787069a35081da8da198b5a161035f6b8927cc48bc",
+        "bytes": 2037
+      },
+      {
+        "local_path": "runs/readiness-20261018/clock-v3/resources.json",
+        "raw_uri": "s3://mininautilushost-artifacts82dd59a1-jimhxpumwqyb/native-readiness-20261018/mini-lifecycle-1792340480/final-review-1792364342/clock-v3/resources.json",
+        "raw_sha256": "8b3e8f69ecf42df830c1349fbaf586eeb97917097d24224c9bb77e5786ed23f9",
+        "bytes": 1890
+      },
+      {
+        "local_path": "runs/readiness-20261018/clock-v4/resources.json",
+        "raw_uri": "s3://mininautilushost-artifacts82dd59a1-jimhxpumwqyb/native-readiness-20261018/mini-lifecycle-1792340480/final-review-1792364342/clock-v4/resources.json",
+        "raw_sha256": "20e489820913098b0297e56775d1f598827aba43c9e1396113855e7b19b19a30",
+        "bytes": 1656
+      },
+      {
+        "local_path": "runs/readiness-20261018/clock-v5/resources.json",
+        "raw_uri": "s3://mininautilushost-artifacts82dd59a1-jimhxpumwqyb/native-readiness-20261018/mini-lifecycle-1792340480/final-review-1792364342/clock-v5/resources.json",
+        "raw_sha256": "0d722fde968328dbebc299f389d54e51a83a77b6e5db298968fd7c1b9583ca85",
+        "bytes": 1890
+      },
+      {
+        "local_path": "runs/readiness-20261018/closed-loop-v1/resources.json",
+        "raw_uri": "s3://mininautilushost-artifacts82dd59a1-jimhxpumwqyb/native-readiness-20261018/mini-lifecycle-1792340480/final-review-1792364342/closed-loop-v1/resources.json",
+        "raw_sha256": "ea9ea3004a806365d5df87f9cadd2a44e381a362be5d7539d67a740252c97731",
+        "bytes": 1892
+      },
+      {
+        "local_path": "runs/readiness-20261018/original-recovery-v1/resources.json",
+        "raw_uri": "s3://mininautilushost-artifacts82dd59a1-jimhxpumwqyb/native-readiness-20261018/mini-lifecycle-1792340480/final-review-1792364342/original-recovery-v1/resources.json",
+        "raw_sha256": "f59b383220c126e6cd3d9dcf4b1a70851032772045c30de81d42caef8a9e5326",
+        "bytes": 1983
+      },
+      {
+        "local_path": "runs/readiness-20261018/original-recovery-v2/resources.json",
+        "raw_uri": "s3://mininautilushost-artifacts82dd59a1-jimhxpumwqyb/native-readiness-20261018/mini-lifecycle-1792340480/final-review-1792364342/original-recovery-v2/resources.json",
+        "raw_sha256": "28d324046d5fa3670291d449b70186f133db6ae6d293a9c36deb417ae494af39",
+        "bytes": 1787
+      },
+      {
+        "local_path": "runs/readiness-20261018/rotated-1/resources.json",
+        "raw_uri": "s3://mininautilushost-artifacts82dd59a1-jimhxpumwqyb/native-readiness-20261018/mini-lifecycle-1792340480/final-review-1792364342/rotated-1/resources.json",
+        "raw_sha256": "19f4b42ff13cf1f6840c675278de941e1b36a000b40eea432f88117737668d38",
+        "bytes": 2575
+      },
+      {
+        "local_path": "runs/readiness-20261018/rotated-2/resources.json",
+        "raw_uri": "s3://mininautilushost-artifacts82dd59a1-jimhxpumwqyb/native-readiness-20261018/mini-lifecycle-1792340480/final-review-1792364342/rotated-2/resources.json",
+        "raw_sha256": "94bf8a3b154084c911a58694d36eaa4e79e389eac491c4924407069439c745cf",
+        "bytes": 2576
+      },
+      {
+        "local_path": "runs/readiness-20261018/rotated-3/resources.json",
+        "raw_uri": "s3://mininautilushost-artifacts82dd59a1-jimhxpumwqyb/native-readiness-20261018/mini-lifecycle-1792340480/final-review-1792364342/rotated-3/resources.json",
+        "raw_sha256": "755c605d00e37b356cdbd12dbdd8b091f9b3544d9ee12c7989da7c77251c007d",
+        "bytes": 2575
+      },
+      {
+        "local_path": "runs/readiness-20261018/rotated-1/independent-ledger-proof-v2.json",
+        "raw_uri": "s3://mininautilushost-artifacts82dd59a1-jimhxpumwqyb/native-readiness-20261018/mini-lifecycle-1792340480/final-review-1792364342/rotated-1/independent-ledger-proof-v2.json",
+        "raw_sha256": "9b897b0ca16fa358a4ca228b359d825b044bc24be03c3fad5f7286b822843240",
+        "bytes": 1415
+      },
+      {
+        "local_path": "runs/readiness-20261018/rotated-2/independent-ledger-proof-v2.json",
+        "raw_uri": "s3://mininautilushost-artifacts82dd59a1-jimhxpumwqyb/native-readiness-20261018/mini-lifecycle-1792340480/final-review-1792364342/rotated-2/independent-ledger-proof-v2.json",
+        "raw_sha256": "c8e8734dc6112685d165093a70d2e1d1f3bcb707a26fd278b13683cd2af18f8e",
+        "bytes": 1433
+      },
+      {
+        "local_path": "runs/readiness-20261018/rotated-3/independent-ledger-proof-v2.json",
+        "raw_uri": "s3://mininautilushost-artifacts82dd59a1-jimhxpumwqyb/native-readiness-20261018/mini-lifecycle-1792340480/final-review-1792364342/rotated-3/independent-ledger-proof-v2.json",
+        "raw_sha256": "d36deabd94e18719ab2f75d874c7978860881c98b863e1acd0bfa69877e57746",
+        "bytes": 1433
+      }
+    ]
+  },
+  "raw_archives": [
+    {
+      "run": "clock-v3",
+      "raw_uri": "s3://mininautilushost-artifacts82dd59a1-jimhxpumwqyb/native-readiness-20261018/mini-lifecycle-1792335340/cleanup-final.tar.gz",
+      "raw_sha256": "ad58059138e10f7b09305876b9cfcffa2bcaa523c5976d9c45737654f81ffb50",
+      "bytes": 2367687
+    },
+    {
+      "run": "clock-v3",
+      "raw_uri": "s3://mininautilushost-artifacts82dd59a1-jimhxpumwqyb/native-readiness-20261018/mini-lifecycle-1792335340/correspondence-final.tar.gz",
+      "raw_sha256": "1fb662db098cb7898ac9d334a1d7198980fa0bc7891ff33f1f2b54d146bdd02c",
+      "bytes": 2367571
+    },
+    {
+      "run": "clock-v3",
+      "raw_uri": "s3://mininautilushost-artifacts82dd59a1-jimhxpumwqyb/native-readiness-20261018/mini-lifecycle-1792335340/rotation-holdout-1.tar.gz",
+      "raw_sha256": "6c2bd29d9b174823cd5952953dc4f05254c216f2edd7f45bb6122f92c08886dc",
+      "bytes": 2365402
+    },
+    {
+      "run": "clock-v4",
+      "raw_uri": "s3://mininautilushost-artifacts82dd59a1-jimhxpumwqyb/native-readiness-20261018/mini-lifecycle-1792336483/cleanup-final.tar.gz",
+      "raw_sha256": "541cb1d1ac03dbc10b57edc8bdb0665daee46448b56ce0d57880f20c4ef936cd",
+      "bytes": 4697889
+    },
+    {
+      "run": "clock-v4",
+      "raw_uri": "s3://mininautilushost-artifacts82dd59a1-jimhxpumwqyb/native-readiness-20261018/mini-lifecycle-1792336483/correspondence-final.tar.gz",
+      "raw_sha256": "f3d3053e3aa2b5713945375bb7ed3d27f68ae28c2fe9b4261c0b7959bd9edc27",
+      "bytes": 4697779
+    },
+    {
+      "run": "clock-v4",
+      "raw_uri": "s3://mininautilushost-artifacts82dd59a1-jimhxpumwqyb/native-readiness-20261018/mini-lifecycle-1792336483/rotation-holdout-1.tar.gz",
+      "raw_sha256": "9006ae29afae6b934c63c759a1e96e9735f51938bc7bb1165abcf681315ed0e8",
+      "bytes": 2325951
+    },
+    {
+      "run": "clock-v4",
+      "raw_uri": "s3://mininautilushost-artifacts82dd59a1-jimhxpumwqyb/native-readiness-20261018/mini-lifecycle-1792336483/rotation-holdout-2.tar.gz",
+      "raw_sha256": "f9e4df909c4c02934f30eca0861d22c124ca188b6b145e334297ea77139b9123",
+      "bytes": 4693511
+    },
+    {
+      "run": "clock-v5",
+      "raw_uri": "s3://mininautilushost-artifacts82dd59a1-jimhxpumwqyb/native-readiness-20261018/mini-lifecycle-1792340480/cleanup-final.tar.gz",
+      "raw_sha256": "98361541ca36356f7a3c9993e6636491e8afa742df7585ae97c6e8f5997570c4",
+      "bytes": 2825048
+    },
+    {
+      "run": "clock-v5",
+      "raw_uri": "s3://mininautilushost-artifacts82dd59a1-jimhxpumwqyb/native-readiness-20261018/mini-lifecycle-1792340480/correspondence-final.tar.gz",
+      "raw_sha256": "ca2ced96e616a8b5004632724df3104be2490f3387e897f62560cc708e4d98e0",
+      "bytes": 2823589
+    },
+    {
+      "run": "clock-v5",
+      "raw_uri": "s3://mininautilushost-artifacts82dd59a1-jimhxpumwqyb/native-readiness-20261018/mini-lifecycle-1792340480/rotation-holdout-1.tar.gz",
+      "raw_sha256": "d40ef8de5552707d43491e51305313664bc829efdb4a9e489ad5bdb32ef08f7b",
+      "bytes": 2377456
+    }
+  ],
+  "limitations": [
+    "single BTC Testnet account; no mainnet/portfolio readiness",
+    "takeover test covers retained EBS, not EBS/AZ loss",
+    "original failures remain failures after successful cleanup",
+    "strategy resets at flat segment boundaries; no continuous PCA validation",
+    "cold archive/retention, persistent human stop, upgrade/rollback and alert exercises remain unaccepted",
+    "27partial-open proof observations are one distinct natural order",
+    "v5 root2 read visibility remained unresolved at deadline; no successor started",
+    "initial admission is conditional per-segment input, not autonomous network-service simulation"
+  ]
+}

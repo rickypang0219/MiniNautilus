@@ -1,27 +1,107 @@
 use mininautilus::telemetry::Telemetry;
 use mininautilus::{
-    core::Core,
-    journal::{DurableEngine, EventTime},
+    core::{Changes, Core},
+    journal::{DurableEngine, EventTime, Stages, SyncPolicy},
+    metrics::Metrics,
     model::*,
+    protocol::Response,
     sim::PaperExchange,
 };
 use serde::{Deserialize, Serialize};
 use std::{
     io::{self, BufRead, Write},
     path::Path,
+    sync::{Arc, atomic::Ordering::Relaxed},
 };
 
+/// One request may carry a batch of events processed in order (for example a
+/// bar's Quote, Trade and Tick) so a backtest needs one round trip per bar.
 #[derive(Deserialize)]
 struct Request {
+    #[serde(default)]
+    request_id: Option<u64>,
     at: Time,
-    event: Event,
+    #[serde(default)]
+    rotate_to: Option<std::path::PathBuf>,
+    #[serde(default)]
+    reclaim_superseded_cold: bool,
+    #[serde(default)]
+    paged_cold: bool,
+    #[serde(default)]
+    retry_cold_gc: bool,
+    #[serde(default)]
+    sync_only: bool,
+    #[serde(default)]
+    event: Option<Event>,
+    #[serde(default)]
+    events: Vec<Event>,
+    /// `[at, event]` pairs processed after `event`/`events`, each at its own time:
+    /// lets a backtest send the previous bar's decisions with the next bar.
+    #[serde(default)]
+    batch: Vec<(Time, Event)>,
     #[serde(default)]
     time: Option<EventTime>,
 }
-#[derive(Serialize)]
-struct Response<'a> {
-    effects: Vec<Effect>,
-    state: &'a Core,
+
+/// `serve`/`paper` journal every input; `sim` keeps the Core in memory only.
+enum Backend {
+    Durable(DurableEngine),
+    Memory(Core),
+}
+impl Backend {
+    fn core(&self) -> &Core {
+        match self {
+            Self::Durable(engine) => engine.core(),
+            Self::Memory(core) => core,
+        }
+    }
+    fn process(
+        &mut self,
+        at: Time,
+        event: Event,
+        time: Option<EventTime>,
+    ) -> Result<Vec<Effect>, Box<dyn std::error::Error>> {
+        Ok(match self {
+            Self::Durable(engine) => engine.process_timed(at, event, time)?,
+            Self::Memory(core) => {
+                let seq = core.seq + 1;
+                core.apply(&Envelope { seq, at, event })?
+            }
+        })
+    }
+    /// `process` plus per-stage timing for the metrics endpoint.
+    fn process_observed(
+        &mut self,
+        at: Time,
+        event: Event,
+        time: Option<EventTime>,
+    ) -> Result<(Vec<Effect>, Stages), Box<dyn std::error::Error>> {
+        Ok(match self {
+            Self::Durable(engine) => engine.process_profiled(at, event, time)?,
+            Self::Memory(core) => {
+                let seq = core.seq + 1;
+                let start = std::time::Instant::now();
+                let effects = core.apply(&Envelope { seq, at, event })?;
+                let stages = Stages {
+                    prepare_ns: start.elapsed().as_nanos() as u64,
+                    ..Stages::default()
+                };
+                (effects, stages)
+            }
+        })
+    }
+    fn track_changes(&mut self) {
+        match self {
+            Self::Durable(engine) => engine.track_changes(),
+            Self::Memory(core) => core.track_changes(),
+        }
+    }
+    fn take_changes(&mut self) -> Option<Changes> {
+        match self {
+            Self::Durable(engine) => engine.take_changes(),
+            Self::Memory(core) => core.take_changes(),
+        }
+    }
 }
 
 fn main() {
@@ -31,7 +111,33 @@ fn main() {
     }
 }
 fn run() -> Result<(), Box<dyn std::error::Error>> {
-    let args: Vec<_> = std::env::args().collect();
+    let mut args: Vec<_> = std::env::args().collect();
+    // `--sync every|outbox` applies to serve/paper journals (docs/acceptance.md L3).
+    let mut sync = SyncPolicy::EveryInput;
+    if let Some(i) = args.iter().position(|a| a == "--sync") {
+        sync = args.get(i + 1).ok_or("--sync every|outbox")?.parse()?;
+        args.drain(i..i + 2);
+    }
+    let mut cold_verification = mininautilus::cold_pages::Verification::Full;
+    if let Some(i) = args.iter().position(|a| a == "--cold-verify") {
+        cold_verification = match args.get(i + 1).map(String::as_str) {
+            Some("full") => mininautilus::cold_pages::Verification::Full,
+            Some("pages") => mininautilus::cold_pages::Verification::PathVerified,
+            _ => return Err("--cold-verify full|pages".into()),
+        };
+        args.drain(i..i + 2);
+    }
+    // Historical matching can supply its own execution reports to the same Core.
+    // This flag is deliberately unavailable to durable/live serve modes.
+    let external_venue = if let Some(i) = args.iter().position(|a| a == "--external-venue") {
+        if args.get(1).map(String::as_str) != Some("sim") {
+            return Err("--external-venue requires sim".into());
+        }
+        args.remove(i);
+        true
+    } else {
+        false
+    };
     match args.get(1).map(String::as_str) {
         Some("demo") => demo(),
         Some("dashboard") => {
@@ -48,88 +154,151 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
             mininautilus::dashboard::serve(Path::new(root), port)?;
             Ok(())
         }
+        Some("migrate-cold") => {
+            let journal = args.get(2).ok_or("migrate-cold JOURNAL OUTPUT.cold")?;
+            let destination = args.get(3).ok_or("migrate-cold JOURNAL OUTPUT.cold")?;
+            let core = mininautilus::journal::replay(Path::new(journal))?;
+            let reference = core.cold.as_ref().ok_or("journal has no cold reference")?;
+            let directory = Path::new(journal)
+                .parent()
+                .filter(|p| !p.as_os_str().is_empty())
+                .unwrap_or(Path::new("."));
+            let (migrated, stats) = mininautilus::cold_pages::migrate_legacy(
+                directory,
+                reference,
+                Path::new(destination),
+            )?;
+            println!(
+                "{}",
+                serde_json::json!({"reference": migrated, "logical_write_bytes": stats.logical_write_bytes, "journal_rebound": false})
+            );
+            Ok(())
+        }
+        Some("export-cold") => {
+            let journal = args.get(2).ok_or("export-cold JOURNAL OUTPUT.cold")?;
+            let destination = args.get(3).ok_or("export-cold JOURNAL OUTPUT.cold")?;
+            let core = mininautilus::journal::replay(Path::new(journal))?;
+            let reference = core.cold.as_ref().ok_or("journal has no cold reference")?;
+            let directory = Path::new(journal)
+                .parent()
+                .filter(|p| !p.as_os_str().is_empty())
+                .unwrap_or(Path::new("."));
+            let index = mininautilus::cold_pages::Index::open(
+                directory,
+                reference,
+                mininautilus::cold_pages::Verification::Full,
+            )?;
+            let exported = index.export_legacy(Path::new(destination))?;
+            println!("{}", serde_json::to_string(&exported)?);
+            Ok(())
+        }
         Some("inspect") => {
             let path = args.get(2).ok_or("inspect JOURNAL")?;
             let state = mininautilus::journal::replay(Path::new(path))?;
             println!("{}", serde_json::to_string(&state)?);
             Ok(())
         }
-        Some("serve" | "paper") => {
-            let paper = args[1] == "paper";
-            let path = args
-                .get(2)
-                .ok_or("usage: mininautilus serve JOURNAL [--recover] [CONFIG.json]")?;
-            let mut engine = if args.get(3).is_some_and(|s| s == "--recover") {
-                if paper {
-                    return Err(
-                        "paper restart requires a fresh journal and replayed market inputs".into(),
-                    );
-                }
-                DurableEngine::recover(Path::new(path), args.get(4).map(Path::new))?
-            } else {
-                let config = match args.get(3) {
+        Some("serve" | "paper" | "sim") => {
+            let mode = args[1].as_str();
+            let config_at = |i: usize| -> Result<Config, Box<dyn std::error::Error>> {
+                Ok(match args.get(i) {
                     Some(path) => serde_json::from_slice(&std::fs::read(path)?)?,
                     None => Config::default(),
-                };
-                DurableEngine::create(Path::new(path), config)?
+                })
             };
-            let mut venue = PaperExchange::new();
-            let mut telemetry = std::env::var_os("MINI_TELEMETRY")
-                .map(|path| Telemetry::start(Path::new(&path), 256))
-                .transpose()?;
-            let mut stdout = io::stdout().lock();
-            // A startup response lets the Python bridge resume monotonic time and IDs.
-            serde_json::to_writer(
-                &mut stdout,
-                &Response {
-                    effects: vec![],
-                    state: engine.core(),
-                },
-            )?;
-            writeln!(stdout)?;
-            stdout.flush()?;
-            for line in io::stdin().lock().lines() {
-                let input: Request = serde_json::from_str(&line?)?;
-                let effects =
-                    engine.process_timed(input.at, input.event.clone(), input.time.clone())?;
-                if paper {
-                    let mut events = Vec::new();
-                    for effect in &effects {
-                        events.extend(venue.execute(engine.core().epoch, effect)?);
+            let mut backend = if mode == "sim" {
+                // Backtest: no journal and no fsync; the input file is the truth.
+                Backend::Memory(Core::new(config_at(2)?)?)
+            } else {
+                let path = args
+                    .get(2)
+                    .ok_or("usage: mininautilus serve JOURNAL [--recover] [CONFIG.json]")?;
+                Backend::Durable(if args.get(3).is_some_and(|s| s == "--recover") {
+                    if mode == "paper" {
+                        return Err(
+                            "paper restart requires a fresh journal and replayed market inputs"
+                                .into(),
+                        );
                     }
-                    if let Event::Trade { taker, price, qty } = input.event {
-                        events.extend(venue.trade(engine.core().epoch, taker, price, qty)?);
-                    }
-                    for event in events {
-                        let mut time = input.time.clone();
-                        if let Some(t) = &mut time {
-                            t.source = Some("simulation".into());
-                            t.fill_event_times.clear();
-                        }
-                        engine.process_timed(input.at, event, time)?;
-                    }
-                }
-                if let Some(logger) = telemetry.as_mut() {
-                    logger.emit(format!(
-                        "seq={} position={} health={:?}",
-                        engine.core().seq,
-                        engine.core().position,
-                        engine.core().health
-                    ));
-                }
-                serde_json::to_writer(
-                    &mut stdout,
-                    &Response {
-                        effects,
-                        state: engine.core(),
-                    },
-                )?;
-                writeln!(stdout)?;
-                stdout.flush()?;
+                    DurableEngine::recover(Path::new(path), args.get(4).map(Path::new))?
+                } else {
+                    DurableEngine::create(Path::new(path), config_at(3)?)?
+                })
+            };
+            if let Backend::Durable(engine) = &mut backend {
+                engine.set_sync_policy(sync);
+                engine.set_cold_verification(cold_verification)?;
             }
-            if let Some(logger) = telemetry {
-                eprintln!("telemetry_dropped={}", logger.finish()?);
+            serve(backend, mode != "serve" && !external_venue)
+        }
+        Some("backtest") => {
+            let usage = "backtest BARS.csv TARGETS.csv [CONFIG.json] [--ledger FILLS.csv] \
+                         [--limit-offset TICKS] [--order-ttl-ms MS]";
+            let mut positional = Vec::new();
+            let mut ledger_path = None;
+            let mut policy = mininautilus::backtest::Policy::default();
+            let mut rest = args[2..].iter();
+            while let Some(arg) = rest.next() {
+                match arg.as_str() {
+                    "--ledger" => ledger_path = Some(rest.next().ok_or(usage)?),
+                    "--limit-offset" => policy.limit_offset = rest.next().ok_or(usage)?.parse()?,
+                    "--order-ttl-ms" => policy.order_ttl_ms = rest.next().ok_or(usage)?.parse()?,
+                    _ => positional.push(arg),
+                }
             }
+            let [bars, targets, config @ ..] = positional.as_slice() else {
+                return Err(usage.into());
+            };
+            let config = match config {
+                [] => Config::default(),
+                [path] => serde_json::from_slice(&std::fs::read(path)?)?,
+                _ => return Err(usage.into()),
+            };
+            backtest(bars, targets, config, policy, ledger_path)
+        }
+        Some("rotate") => {
+            let usage = "rotate OLD_JOURNAL NEW_JOURNAL";
+            let (old, new) = (args.get(2).ok_or(usage)?, args.get(3).ok_or(usage)?);
+            let core = mininautilus::journal::rotate(Path::new(old), Path::new(new))?;
+            println!(
+                "rotated: position={} id_floor={} killed={}",
+                core.position, core.id_floor, core.killed
+            );
+            Ok(())
+        }
+        Some("repair-retaining") => {
+            let usage = "repair-retaining CLOSED_PREDECESSOR MISSING_SUCCESSOR";
+            let (old, new) = (args.get(2).ok_or(usage)?, args.get(3).ok_or(usage)?);
+            let core = mininautilus::journal::repair_retaining(Path::new(old), Path::new(new))?;
+            println!(
+                "repaired: position={} id_floor={}",
+                core.position, core.id_floor
+            );
+            Ok(())
+        }
+        Some("verify-cold") => {
+            let path = Path::new(args.get(2).ok_or("verify-cold JOURNAL")?);
+            let state = mininautilus::journal::replay(path)?;
+            let reference = state.cold.ok_or("journal has no cold index")?;
+            let directory = path.parent().unwrap_or(Path::new("."));
+            let directory = if directory.as_os_str().is_empty() {
+                Path::new(".")
+            } else {
+                directory
+            };
+            mininautilus::cold::ColdIndex::open(directory, &reference)?;
+            println!(
+                "cold index verified: orders={} fills={}",
+                reference.orders, reference.fills
+            );
+            Ok(())
+        }
+        Some("convert-bars") => {
+            let usage = "convert-bars BARS.csv BARS.bin";
+            let (input, output) = (args.get(2).ok_or(usage)?, args.get(3).ok_or(usage)?);
+            let bars = mininautilus::backtest::load_bars(Path::new(input))?;
+            std::fs::write(output, mininautilus::backtest::encode_bars(&bars))?;
+            println!("{} bars", bars.len());
             Ok(())
         }
         Some("snapshot") => {
@@ -141,11 +310,320 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
         }
         _ => {
             println!(
-                "MiniNautilus\n  dashboard JOURNAL_OR_DIRECTORY [--port PORT]\n  demo\n  serve JOURNAL [--recover|CONFIG.json]\n  paper JOURNAL [CONFIG.json]\n  inspect JOURNAL\n  snapshot JOURNAL OUTPUT"
+                "MiniNautilus\n  dashboard JOURNAL_OR_DIRECTORY [--port PORT]\n  demo\n  serve JOURNAL [--recover|CONFIG.json] [--sync every|outbox]\n  paper JOURNAL [CONFIG.json] [--sync every|outbox]\n  sim [CONFIG.json]  (in-memory paper venue, no journal)\n  backtest BARS.csv|BARS.bin TARGETS.csv [CONFIG.json] [--ledger FILLS.csv]\n  convert-bars BARS.csv BARS.bin\n  inspect JOURNAL\n  snapshot JOURNAL OUTPUT\n  rotate OLD_JOURNAL NEW_JOURNAL  (archive a flat, healthy session)"
             );
             Ok(())
         }
     }
+}
+
+/// In-process backtest of a precomputed target series; prints a JSON summary.
+fn backtest(
+    bars: &str,
+    targets: &str,
+    config: Config,
+    policy: mininautilus::backtest::Policy,
+    ledger_path: Option<&String>,
+) -> Result<(), Box<dyn std::error::Error>> {
+    use mininautilus::backtest;
+    let started = std::time::Instant::now();
+    let bars = backtest::load_bars(Path::new(bars))?;
+    let targets = backtest::read_targets(
+        io::BufReader::new(std::fs::File::open(targets)?),
+        bars.len(),
+    )?;
+    let loaded = started.elapsed().as_secs_f64();
+    let (run, summary) = backtest::run(&bars, &targets, config, policy, ledger_path.is_some())?;
+    let simulated = started.elapsed().as_secs_f64() - loaded;
+    if let (Some(path), Some(ledger)) = (ledger_path, &run.ledger) {
+        let mut out = io::BufWriter::new(std::fs::File::create(path)?);
+        writeln!(out, "bar,at,order_id,side,qty,price")?;
+        for f in ledger {
+            writeln!(
+                out,
+                "{},{},{},{:?},{},{}",
+                f.bar, f.at, f.order_id, f.side, f.qty, f.price
+            )?;
+        }
+        out.flush()?;
+    }
+    let mut value = serde_json::to_value(&summary)?;
+    value["load_seconds"] = loaded.into();
+    value["simulate_seconds"] = simulated.into();
+    println!("{value}");
+    Ok(())
+}
+
+#[derive(Serialize)]
+struct ActionTrace {
+    seq: u64,
+    /// Successful sync covers this action and all earlier inputs. None for sim.
+    durable_seq: Option<u64>,
+    order_id: u64,
+    effect: &'static str,
+    stages: Stages,
+}
+#[derive(Serialize)]
+struct RequestTrace {
+    request_id: Option<u64>,
+    rust_before_response_ns: u64,
+    actions: Vec<ActionTrace>,
+}
+#[derive(Serialize)]
+struct TracedResponse<'a> {
+    #[serde(flatten)]
+    response: Response<'a>,
+    trace: RequestTrace,
+}
+
+/// JSON-lines loop shared by serve/paper/sim. `MINI_RESPONSE=full` restores the
+/// protocol-1 behavior of returning the complete state after every request.
+fn serve(mut engine: Backend, simulate: bool) -> Result<(), Box<dyn std::error::Error>> {
+    let tracing = std::env::var_os("MINI_ORDER_TRACE").is_some();
+    let full = std::env::var("MINI_RESPONSE").is_ok_and(|v| v == "full");
+    engine.track_changes();
+    let mut venue = PaperExchange::new();
+    let mut telemetry = std::env::var_os("MINI_TELEMETRY")
+        .map(|path| Telemetry::start(Path::new(&path), 256))
+        .transpose()?;
+    // `MINI_METRICS_ADDR=127.0.0.1:9464` exposes Prometheus metrics (docs/observability.md).
+    let metrics = match std::env::var("MINI_METRICS_ADDR") {
+        Ok(address) => {
+            let (metrics, bound) = mininautilus::metrics::serve(&address)?;
+            eprintln!("metrics listening on http://{bound}/metrics");
+            Some(metrics)
+        }
+        Err(_) => None,
+    };
+    let mut stdout = io::BufWriter::new(io::stdout().lock());
+    // A startup response lets the Python bridge resume monotonic time and IDs.
+    engine.take_changes();
+    serde_json::to_writer(&mut stdout, &Response::full(engine.core(), vec![]))?;
+    writeln!(stdout)?;
+    stdout.flush()?;
+    for line in io::stdin().lock().lines() {
+        let line = line?;
+        let started = std::time::Instant::now();
+        let mut request: Request = serde_json::from_str(&line)?;
+        let rotated = request.rotate_to.is_some();
+        if request.sync_only {
+            if rotated
+                || request.retry_cold_gc
+                || request.event.is_some()
+                || !request.events.is_empty()
+                || !request.batch.is_empty()
+                || request.time.is_some()
+                || simulate
+            {
+                return Err("sync requires isolated durable request".into());
+            }
+            if let Backend::Durable(writer) = &mut engine {
+                writer.sync()?;
+            }
+        }
+        if request.paged_cold && (!rotated || simulate) {
+            return Err("paged cold requires isolated live rotation".into());
+        }
+        if request.retry_cold_gc {
+            if rotated
+                || request.event.is_some()
+                || !request.events.is_empty()
+                || !request.batch.is_empty()
+                || request.time.is_some()
+                || simulate
+            {
+                return Err("GC retry requires an isolated live request".into());
+            }
+            if let Backend::Durable(writer) = &mut engine {
+                writer.retry_cold_reclamation()?;
+            }
+        }
+        if request.reclaim_superseded_cold && (!rotated || simulate) {
+            return Err("cold reclamation requires an isolated live rotation".into());
+        }
+        if let Some(successor) = request.rotate_to.take() {
+            if !matches!(engine, Backend::Durable(_)) {
+                return Err("automatic rotation requires a durable journal".into());
+            }
+            let isolated = request.event.is_none()
+                && request.events.is_empty()
+                && request.batch.is_empty()
+                && request.time.is_none();
+            if simulate && (engine.core().position != 0 || !isolated) {
+                return Err(
+                    "paper rotation requires flat inventory and an isolated request".into(),
+                );
+            }
+            // Live rotation (docs/adr-live-rotation.md §1): the adapter must have just
+            // reconciled with the venue; any private report since then refuses it.
+            let core = engine.core();
+            if !simulate && (!isolated || core.reconciled_through != core.venue_seq) {
+                return Err(
+                    "live rotation requires an isolated request right after venue reconciliation"
+                        .into(),
+                );
+            }
+            engine.core().rotation_ready()?;
+            let placeholder = Backend::Memory(Core::new(engine.core().config.clone())?);
+            let Backend::Durable(writer) = std::mem::replace(&mut engine, placeholder) else {
+                unreachable!()
+            };
+            engine = Backend::Durable(if simulate {
+                writer.rotate_into(&successor)?
+            } else if request.paged_cold && request.reclaim_superseded_cold {
+                writer.rotate_into_retaining_paged_with_gc(&successor)?
+            } else if request.paged_cold {
+                writer.rotate_into_retaining_paged(&successor)?
+            } else if request.reclaim_superseded_cold {
+                writer.rotate_into_retaining_with_gc(&successor)?
+            } else {
+                writer.rotate_into_retaining(&successor)?
+            });
+            engine.track_changes();
+            venue = PaperExchange::new();
+            request.at = engine.core().now;
+            // Paper reconciles a fresh venue below; a live successor stays gated
+            // until its adapter reconciles (Disconnect was journaled by recovery).
+            request.event = Some(Event::Reconnect);
+        }
+        let mut effects = Vec::new();
+        let mut actions = tracing.then(Vec::new);
+        let at = request.at;
+        let inputs = request
+            .event
+            .into_iter()
+            .chain(request.events)
+            .map(|e| (at, e));
+        for (at, event) in inputs.chain(request.batch) {
+            let produced = process(
+                &mut engine,
+                &metrics,
+                at,
+                event.clone(),
+                request.time.clone(),
+                &mut actions,
+            )?;
+            if simulate {
+                let mut reports = Vec::new();
+                for effect in &produced {
+                    reports.extend(venue.execute(engine.core().epoch, effect)?);
+                }
+                if let Event::Trade { taker, price, qty } = event {
+                    reports.extend(venue.trade(engine.core().epoch, taker, price, qty)?);
+                }
+                for report in reports {
+                    let mut time = request.time.clone();
+                    if let Some(t) = &mut time {
+                        t.source = Some("simulation".into());
+                        t.fill_event_times.clear();
+                    }
+                    process(&mut engine, &metrics, at, report, time, &mut actions)?;
+                }
+            }
+            effects.extend(produced);
+        }
+        if let Some(logger) = telemetry.as_mut() {
+            let core = engine.core();
+            logger.emit(format!(
+                "seq={} position={} health={:?}",
+                core.seq, core.position, core.health
+            ));
+        }
+        let changes = engine.take_changes();
+        let response = if full || rotated {
+            Response::full(engine.core(), effects)
+        } else {
+            Response::compact(engine.core(), effects, changes)
+        };
+        if let Some(actions) = actions {
+            let response = TracedResponse {
+                response,
+                trace: RequestTrace {
+                    request_id: request.request_id,
+                    rust_before_response_ns: started.elapsed().as_nanos() as u64,
+                    actions,
+                },
+            };
+            let encode = std::time::Instant::now();
+            let bytes = serde_json::to_vec(&response)?;
+            if let Some(metrics) = &metrics {
+                metrics
+                    .response_encode
+                    .observe_ns(encode.elapsed().as_nanos() as u64);
+                metrics
+                    .response_bytes
+                    .fetch_add(bytes.len() as u64 + 1, Relaxed);
+            }
+            stdout.write_all(&bytes)?;
+        } else {
+            match &metrics {
+                None => serde_json::to_writer(&mut stdout, &response)?,
+                Some(metrics) => {
+                    let encode = std::time::Instant::now();
+                    let bytes = serde_json::to_vec(&response)?;
+                    metrics
+                        .response_encode
+                        .observe_ns(encode.elapsed().as_nanos() as u64);
+                    metrics
+                        .response_bytes
+                        .fetch_add(bytes.len() as u64 + 1, Relaxed);
+                    stdout.write_all(&bytes)?;
+                }
+            }
+        }
+        writeln!(stdout)?;
+        stdout.flush()?;
+        if let Some(metrics) = &metrics {
+            metrics.state(engine.core());
+            metrics.requests.fetch_add(1, Relaxed);
+            metrics
+                .request
+                .observe_ns(started.elapsed().as_nanos() as u64);
+        }
+    }
+    if let Backend::Durable(engine) = &mut engine {
+        engine.sync()?;
+    }
+    if let Some(logger) = telemetry {
+        eprintln!("telemetry_dropped={}", logger.finish()?);
+    }
+    Ok(())
+}
+
+/// Apply one input, recording its stages and effects when metrics are enabled.
+fn process(
+    engine: &mut Backend,
+    metrics: &Option<Arc<Metrics>>,
+    at: Time,
+    event: Event,
+    time: Option<EventTime>,
+    actions: &mut Option<Vec<ActionTrace>>,
+) -> Result<Vec<Effect>, Box<dyn std::error::Error>> {
+    if metrics.is_none() && actions.is_none() {
+        return engine.process(at, event, time);
+    }
+    let kind = mininautilus::metrics::event_kind(&event);
+    let (effects, stages) = engine.process_observed(at, event, time)?;
+    if let Some(metrics) = metrics {
+        metrics.input(kind, &effects, &stages);
+    }
+    if let Some(actions) = actions {
+        for effect in &effects {
+            let (order_id, effect) = match effect {
+                Effect::SendOrder(intent) => (intent.id, "SendOrder"),
+                Effect::SendCancel { id } => (*id, "SendCancel"),
+                _ => continue,
+            };
+            actions.push(ActionTrace {
+                seq: engine.core().seq,
+                durable_seq: stages.synced.then_some(engine.core().seq),
+                order_id,
+                effect,
+                stages,
+            });
+        }
+    }
+    Ok(effects)
 }
 
 fn step(core: &mut Core, at: Time, event: Event) -> Result<Vec<Effect>, String> {

@@ -2,9 +2,13 @@
 
 一個用 Rust 學 trading systems 嘅實驗室：**先驗證狀態正確同可恢復，再量度低延遲設計**。
 
-已實作 deterministic core、故障 simulator、durable journal/recovery、Python strategy、Binance Spot Testnet adapter，以及獨立效能實驗。範圍係 **一個 account、一個 instrument、limit order + cancel**。
+目前狀態以 [native acceptance](docs/native-readiness-20261018.md) 及
+[feed consistency](docs/native-feed-consistency.md) 為準；歷史報告及測試輸出見
+[封存索引](docs/history.md)，每份原檔均保留固定 commit 連結及 hash。
 
-目前係可執行嘅 reference implementation，**未係 production/HFT engine**：core 用 transactional clone，journal 每個事件做 `sync_all`，Python bridge 用 JSON IPC，Binance 用 REST polling。呢啲成本刻意保留為下一輪優化嘅比較基準。
+已實作 deterministic core、故障 simulator、durable journal/recovery、Python strategy、Hyperliquid Perps Testnet adapter、Binance Spot Testnet adapter，以及獨立效能實驗。範圍係 **一個 account、一個 instrument、limit order + cancel**。
+
+目前係可執行嘅 reference implementation，**未係 production/HFT engine**：Core 已改為 validate/prepare/commit，避免每個事件 clone 全份 state；journal 預設每個事件做 `sync_all`（可選 `--sync outbox`），舊 Python bridge 用 JSON IPC（protocol 2 只送 delta）；新 `native-live` 在 Rust 直接呼叫 DurableEngine，Python 只作可選策略。Binance execution adapter 保留原有 REST polling。風控、timer 和 paper 撮合只走 open-order index，不再掃描完整歷史。各部分「做到甚麼才算夠」見 [驗收條件](docs/acceptance.md)。
 
 ## 先跑第一個 milestone
 
@@ -54,6 +58,33 @@ cargo run --locked -- dashboard runs --port 8765
 
 詳見 [dashboard 使用與設計](docs/dashboard.md)。
 
+## Native Rust live runtime（Linux / Testnet）
+
+新入口 `native-live` 由 Rust 負責 Hyperliquid REST／WebSocket、資料 routing、single writer、timer、風控、簽名、送單及 recovery。行情和訂單事件不經 Python bridge；`--python-strategy` 只啟動隔離的 bounded SMA strategy worker。原有 Python／Binance／backtest 入口仍保留。
+
+```sh
+cargo build --locked --release --features native-runtime --bin native-live
+target/release/native-live probe --seconds 15
+target/release/native-live paper --python-strategy --seconds 900 --flatten --run-dir runs/native-paper-new
+```
+
+紙上成交不代表交易所成交。實際 Testnet 小額下單、原 session 恢復、環境變數及風險限制見 [native 操作指引](docs/rust-native-runtime-operations.md)。[最新驗收](docs/native-readiness-20261018.md) 分開列出 correctness 和未通過的 fidelity／operations gates；不要把 Rust implementation 本身當作低延遲證明。Private stream 目前觸發 REST refresh；`1000/Expired` 會先關 gate 再重新訂閱及完整對帳，最多三次。Native lifecycle 支援 bounded flat-session 輪換及已驗證範圍內的 retained-EBS 換機；non-flat portfolio carry 及無人值守運行仍未驗收。
+
+Live 部署前的 artifact／ABI 核對、原 session 恢復及升級步驟見 [deployment runbook](docs/native-live-deployment-runbook.md)。生命週期、持久 journal／失機演練，以及已選定的 Cluster-PCA 無下單 shadow，見 [下一階段 scope 與量化驗收](docs/native-production-readiness-proposal.md) 及 [機讀 manifest](comparisons/native-readiness/manifest-v1.json)；這些待驗收項目不代表已能無人值守實盤。
+
+Native flat segmentation、原始行情／funding 錄製、獨立帳本／模擬成交對照及 retained-EBS 換機演練的實作與當次驗收，見 [readiness progress](https://github.com/rickypang0219/MiniNautilus/blob/7524d895d618cb912572921afdefea8d39fe9cd7/docs/native-readiness-progress.md)。條件式成交重播與完整策略回測驗收分開報告。 完整數值、artifact hashes、原 FAIL 與清理證據見 [machine-readable results](docs/native-readiness-evidence.json)。
+
+## Hyperliquid Perps Testnet
+
+下一個執行 venue 使用 Hyperliquid：沿用 Rust durable single writer、actor、bounded SMA cache，支援一個專用帳戶、一個 USDC perp 的 long/short、取消、USDC 費用／funding 對帳及恢復。Mainnet 下單關閉。詳見 [操作指引](docs/hyperliquid-testnet.md) 和 [migration scope／驗收](docs/hyperliquid-migration-proposal.md)。PCA 多交易對策略仍是獨立階段。
+
+[H1 驗收結果](https://github.com/rickypang0219/MiniNautilus/blob/7524d895d618cb912572921afdefea8d39fe9cd7/docs/hyperliquid-migration-results.md)：15 分鐘 paper、兩輪 Testnet soak、實際成交後 SIGKILL recovery，以及中斷後殘留倉位的處理記錄。這些是受監督的 execution diagnostics，並非無人值守部署或策略收益證明。
+
+```sh
+python3 -m pip install -r requirements.txt -r requirements-hyperliquid.txt
+python3 examples/hyperliquid_perp.py --mode probe --run-dir runs/hl-probe-new
+```
+
 ## Live market data + paper execution
 
 ```sh
@@ -95,7 +126,7 @@ target/debug/mininautilus serve runs/my-backtest.jsonl --recover runs/my-backtes
 
 `inspect` / `snapshot` 唔修改 journal，亦唔 dispatch effects。`serve --recover` 會 replay、驗證 snapshot、修復最後未完成一行，然後持久化 `Disconnect`；必須 reconciliation 先再交易。Replay 唔會重發歷史 orders。
 
-`serve` 係 JSON-lines protocol：每行 `{"at":0,"event":{"Quote":{"bid":99,"ask":101}}}`，回覆 `effects` 同 `state`。`at` 係 monotonic engine milliseconds。直接使用 `serve` 嘅 caller 負責 transport、timer 同 execution reports；Python example 已接好呢啲邊界。
+`serve` 係 JSON-lines protocol：每行 `{"at":0,"event":{"Quote":{"bid":99,"ask":101}}}`（亦可用 `events` 或 `batch` 一次送多個），第一個回覆係完整 `state`，之後係 `effects` 加 `delta`（protocol 2，見 `src/protocol.rs`）。`at` 係 monotonic engine milliseconds。直接使用 `serve` 嘅 caller 負責 transport、timer 同 execution reports；Python example 已接好呢啲邊界。
 
 Paper server 嘅 venue 係記憶體內模型，唔支援原地 restart；要恢復分析可 `inspect`，要重新模擬則用新 journal 重播同一份 market inputs。
 
@@ -120,6 +151,22 @@ MINI_PIN=2,3 MINI_SAMPLES=100000 cargo bench --locked --bench latency
 
 macOS 唔會假裝提供 Linux strict affinity。Linux affinity 已 cross-compile check；要喺 Linux 實機先可以量度。Queue benchmark 唔包含 journal、Python、REST 或 trading core，唔代表整個 engine latency。見 [experiment notes](docs/experiments.md)。
 
+## Backtest（Python strategy）
+
+```sh
+cargo build --release
+python3 examples/heatmap.py --single 20 60     # 5 年 1min 合成資料，單次
+python3 examples/heatmap.py                    # 20×20 參數，多核
+```
+
+5 年 1min 單次 run 端到端約 0.7 秒、20×20 參數約 52 秒（4 核），需要可選嘅 numpy（冇 numpy 時自動用純 Python，結果一樣但較慢）。Bar 檔可以係 CSV `at,price,volume,taker`，或者用 `mininautilus convert-bars BARS.csv BARS.bin` 轉成 binary（讀取快十倍）。
+
+Strategy 嘅 target 只依賴市場資料時，用 `run_targets`（Rust 進程內跑，`mininautilus backtest BARS.csv TARGETS.csv`）；要睇成交／倉位先決策時，用 `run_interactive(Engine(sim=True), bars, strategy)`，每根 bar 一次 IPC。兩條路徑逐筆一致，見 [`python/mininautilus/backtest.py`](python/mininautilus/backtest.py) 同 [驗收條件 B1–B4](docs/acceptance.md)。
+
+## 觀測與 soak
+
+`python3 ops/soak.py --minutes 90 --run-dir runs/soak-live -- examples/sma_spot.py --mode paper --interval 1s --fast 3 --slow 8 --sync outbox` 會開 Prometheus、定時用 perf／py-spy profiling，最後寫 `report.md`（自動檢查 latency、drift、錯誤和 gate）。Metrics 清單同 agent loop 步驟見 [docs/observability.md](docs/observability.md)；Grafana dashboard 喺 `ops/grafana/mininautilus.json`。
+
 ## Code map
 
 | File | 責任 |
@@ -130,7 +177,11 @@ macOS 唔會假裝提供 Linux strict affinity。Linux affinity 已 cross-compil
 | `src/journal.rs` | Input-before-effect journal、checksum chain、snapshot、replay |
 | `src/telemetry.rs` | Bounded cold-path worker |
 | `src/queue.rs` | Experimental SPSC、memory ordering、bitmap、Linux pinning |
-| `src/main.rs` | CLI / JSON-lines runtime |
+| `src/main.rs` | CLI / JSON-lines runtime（serve、paper、sim、backtest、rotate） |
+| `src/protocol.rs` | Protocol 2：完整 state 一次，之後 compact delta |
+| `src/backtest.rs` | Non-durable backtest runner 同執行規則 |
+| `src/metrics.rs` | Prometheus `/metrics`（`MINI_METRICS_ADDR`） |
+| `ops/` | Soak runner、報告、比較、合成 session、Grafana dashboard |
 | `python/mininautilus/` | Python bridge、strategy、Binance Testnet gateway |
 | `examples/` | Offline replay、live/paper runtime、SQLite PnL analysis |
 | `tests/` | Failure scenarios 同跨語言測試 |
@@ -144,3 +195,21 @@ execution, bounded Testnet runs, recovery and deterministic replay.
 
 See [order churn and latency experiments](docs/order-stress.md) for cancel/fill races,
 versioned target guards, delayed reports and independent venue/journal verification.
+
+## 跨平台 correctness / performance audit
+
+已實際比較 Backtrader、NautilusTrader、vn.py 原生回測引擎，包括逐筆成交、
+部分成交／撤單、SMA 訊號、持倉與 PnL，以及不同歷史長度下的效能。
+見 [發現、成因、修正方法與實測數字](https://github.com/rickypang0219/MiniNautilus/blob/7524d895d618cb912572921afdefea8d39fe9cd7/docs/backtest-comparison.md)，以及
+[可重跑的比較工具](comparisons/README.md)。所有案例均為離線合成數據。
+
+Core 與 Journal 的每事件 full clone 已改為 prepare／commit；見
+[逐段 code 導讀、全局影響與前後測量](docs/core-state-transitions.md)。
+
+最新驗證：[架構改動後的跨平台結果、adapter 修正及剩餘性能瓶頸](https://github.com/rickypang0219/MiniNautilus/blob/7524d895d618cb912572921afdefea8d39fe9cd7/docs/post-refactor-audit.md)。
+
+驗收條件、現狀及量度工具：[docs/acceptance.md](docs/acceptance.md)（`cargo run --release --example acceptance`）。
+
+Runtime v2：[設計與介面](docs/runtime-v2-design.md)、[離線運行方法](docs/runtime-v2-operations.md)、
+[47 項驗收與三個 90 分鐘故障 soak 結果](https://github.com/rickypang0219/MiniNautilus/blob/7524d895d618cb912572921afdefea8d39fe9cd7/docs/runtime-v2-results.md)。
+Bounded actor 與增量 audit 已實作；可靠性 soak 通過，性能 guardrails 仍未全通過。

@@ -19,9 +19,12 @@ def run(journal, events):
                 if intent:
                     engine.send(item["at"], {"Submit": intent}, event_time_ms=item.get("event_time_ms"))
         state = engine.state
-        mark = state["quote"][0]
+        position = state["position"]
+        mark = state["quote"][1 if position < 0 else 0] if state["quote"] else None
+        gross = (state["cash"] + position * mark if mark is not None
+                 else state["cash"] if position == 0 else None)
         result = {"position": state["position"], "cash_tick_lots": state["cash"],
-                  "gross_marked_pnl_tick_lots": state["cash"] + state["position"] * mark,
+                  "gross_marked_pnl_tick_lots": gross,
                   "orders": len(state["orders"]), "unique_fills": len(state["fills"])}
         return result
 
@@ -33,4 +36,3 @@ if __name__ == "__main__":
     args = parser.parse_args()
     events = [json.loads(line) for line in args.data.read_text().splitlines() if line.strip()]
     print(json.dumps(run(args.journal, events), indent=2))
-

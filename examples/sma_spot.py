@@ -13,14 +13,20 @@ from pathlib import Path
 import sys
 import time
 import uuid
+import asyncio
 from collections import deque
 
-sys.path.insert(0, str(Path(__file__).resolve().parents[1] / 'python'))
+ROOT = Path(__file__).resolve().parents[1]
+sys.path.insert(0, str(ROOT / 'python'))
 from websockets.sync.client import connect
 from websockets.exceptions import ConnectionClosed
-from mininautilus.bridge import Engine
+from mininautilus import metrics
+from mininautilus.bridge import Engine, current_journal
+from mininautilus.audit import IncrementalAudit, full_audit
 from mininautilus.binance import BinanceSpot, VenueError, units
 from mininautilus.market import missing_candles
+from mininautilus.binance_live import closed_candle  # noqa: F401 (shared parser)
+from mininautilus.evidence import verified_identity
 from mininautilus.retry import ReconnectBudget
 from mininautilus.targets import target_event, target_order
 from mininautilus.sma import Candle, CandleGap, SmaStrategy, INTERVALS
@@ -43,26 +49,9 @@ def load_env(path):
             os.environ[key.strip()] = value.strip().strip('\"\'')
 
 
-def closed_candle(message, tick, symbol, interval):
-    if message.get('e') != 'kline' or message.get('s') != symbol:
-        raise ValueError('unexpected market stream')
-    bar = message['k']
-    if bar['i'] != interval:
-        raise ValueError('unexpected candle interval')
-    if not bar['x']:
-        return None
-    return Candle(int(bar['t']), int(bar['T']), units(bar['c'], tick))
-
-
 def audit(state, limit):
-    position = 0
-    for oid, order in state['orders'].items():
-        filled = sum(f['qty'] for f in state['fills'].values() if f['order_id'] == int(oid))
-        if filled != order['filled'] or not 0 <= filled <= order['intent']['qty']:
-            raise RuntimeError('fill accounting invariant failed')
-        position += filled * (1 if order['intent']['side'] == 'Buy' else -1)
-    if position != state['position'] or not 0 <= position <= limit:
-        raise RuntimeError('Spot position invariant failed')
+    """Independent full ledger oracle, retained for regression/diagnostic callers."""
+    return full_audit(state, limit, long_only=True, cash_required="cash" in state)
 
 
 def validate(venue, intent, cap):
@@ -97,8 +86,55 @@ def write_summary(path, invocation, summary):
     finally: os.close(fd)
 
 
+def run_actor(args, engine, venue, strategy, ledger_audit, now, note, metadata, lots, invocation, started, path, provenance):
+    """Opt-in bounded actor runner (docs/runtime-v2-next-phase-proposal.md G2)."""
+    from mininautilus.binance_live import BinanceActorAdapter
+    from mininautilus.live_actor import ActorSession
+    adapter = BinanceActorAdapter(venue, args.interval, metadata['baseline_base'],
+                                  validate=lambda intent: validate(venue, intent, args.max_notional),
+                                  batch_reconcile=args.batch_reconcile)
+    session = ActorSession(engine, adapter, strategy, identity=('binance-spot-testnet', metadata['session'], args.symbol),
+                           now=now, note=note, audit=ledger_audit, order_ttl_ms=args.order_ttl * 1000,
+                           max_orders=args.max_orders, paper=args.mode == 'paper', lots=lots,
+                           drills=args.recovery_drill, rotate_orders=args.rotate_orders,
+                           max_rotation_delay=args.max_rotation_delay, reclaim_cold=args.reclaim_cold, rotate_bytes=args.rotate_bytes, paged_cold=args.cold_format == "pages")
+    completed = reconciled = False
+    try:
+        if args.resume:
+            session._reconcile()
+        if not args.reconcile_only:
+            asyncio.run(session.run(args.seconds))
+        completed = True
+    finally:
+        try:
+            reconciled = session.close(reconcile=args.mode == 'testnet')
+        finally:
+            from mininautilus.lifecycle import history_counts
+            summary = dict(session.report(), **history_counts(engine.state), runtime='actor', invocation=invocation,
+                           completed=completed,
+                           shutdown_reconciled=reconciled, fail_closed=session.fail_closed,
+                           position_lots=engine.state['position'], fills=len(engine.state['fills']),
+                           elapsed_seconds=round(time.monotonic() - started, 2), mode=args.mode,
+                           binary_sha256=provenance['binary_sha256'] if provenance else None)
+            write_summary(path, invocation, summary)
+            note('summary', **summary)
+
+
 def run(args):
     load_env(args.env_file)
+    engine_env = {}
+    if args.metrics_port:
+        # Python metrics on PORT, the Rust engine's on PORT-1 (docs/observability.md).
+        if not metrics.start(args.metrics_port):
+            raise RuntimeError('--metrics-port needs prometheus_client (pip install prometheus_client)')
+        engine_env['MINI_METRICS_ADDR'] = f'127.0.0.1:{args.metrics_port - 1}'
+
+    provenance = None
+    if args.receipt:
+        # Release provenance: binary hash must match a release receipt for these Rust inputs.
+        provenance = verified_identity(ROOT, args.binary, args.receipt)
+        if args.mode == 'testnet' and provenance['dirty']:
+            raise ValueError('Testnet evidence requires a clean checkout')
     venue = BinanceSpot(args.symbol, execute=args.mode == 'testnet')
     venue.initialize()
     lots = units(str(args.quantity), venue.lot)
@@ -130,16 +166,31 @@ def run(args):
     venue.session = metadata['session']
     counters = dict(closed_bars=0, signals=0, submissions=0, reconnects=0, invariant_checks=0, backfilled_bars=0, duplicates=0)
     invocation = uuid.uuid4().hex
+    if provenance is not None:
+        with (path / f'provenance-{invocation}.json').open('x') as handle:
+            json.dump(provenance, handle, indent=2)
     latencies = deque(maxlen=10000)
     fired_faults = set()
     retry_budget = ReconnectBudget()
     started = time.monotonic()
-    with (path / 'observations.jsonl').open('a') as log, Engine(path / 'events.jsonl', paper=args.mode == 'paper',
-            recover=args.resume, config=path / 'config.json') as engine:
+    journal = path / 'events.jsonl'
+    if args.resume:
+        # Live rotation (actor --rotate-orders): continue from the newest segment and
+        # its balance baseline, written before that segment's genesis.
+        journal = current_journal(journal)
+        if journal.name != 'events.jsonl':
+            sidecar = json.loads((path / f'rotation-{journal.name}.json').read_text())
+            metadata['baseline_base'] = sidecar['venue']['baseline_base']
+    with (path / 'observations.jsonl').open('a') as log, Engine(journal, paper=args.mode == 'paper',
+            recover=args.resume, config=path / 'config.json', env=engine_env,
+            extra_args=['--sync', args.sync, '--cold-verify', args.cold_verify], binary=args.binary) as engine:
         origin, initial = time.monotonic(), engine.state['now']
         sent_at = {}
+        ledger_audit = IncrementalAudit(lots, long_only=True)
+        ledger_audit.check(engine.state, None)
         def now(): return initial + int((time.monotonic() - origin) * 1000)
         def note(kind, **data):
+            metrics.count('events', kind)
             record = dict(kind=kind, elapsed_ms=now(), **data)
             log.write(json.dumps(record) + '\n'); log.flush()
             print(json.dumps(record), flush=True)
@@ -147,7 +198,7 @@ def run(args):
             before = time.monotonic()
             effects = engine.send(now(), event, **(venue.timing(event) | timing))
             latencies.append((time.monotonic() - before) * 1000)
-            audit(engine.state, lots); counters['invariant_checks'] += 1
+            ledger_audit.check(engine.state, engine.last_change); counters['invariant_checks'] += 1
             return effects
         def deliver(report):
             effects = send({'Execution': dict(epoch=engine.state['epoch'], venue_seq=engine.state['venue_seq'] + 1, report=report)})
@@ -176,7 +227,20 @@ def run(args):
                     intent = e['SendOrder']; sent_at[intent['id']] = now()
                     note('order', intent=intent)
                     if args.mode == 'testnet':
-                        venue.submit(intent)  # Never retry an ambiguous mutation.
+                        delivery_started = time.perf_counter_ns()
+                        request_id = engine.request_id
+                        succeeded = False
+                        try:
+                            venue.submit(intent)  # Never retry an ambiguous mutation.
+                            succeeded = True
+                        finally:
+                            note('order_delivery', order_id=intent['id'], request_id=request_id,
+                                 python_started_ns=delivery_started,
+                                 python_returned_ns=time.perf_counter_ns(), acknowledged=succeeded)
+
+                    if candle_received[0] is not None:
+                        metrics.observe('tick_to_trade', time.perf_counter() - candle_received[0])
+                    if args.mode == 'testnet':
                         deliver({'Accepted': {'id': intent['id']}})
                 elif 'SendCancel' in e and args.mode == 'testnet':
                     venue.cancel(engine.state['orders'][str(e['SendCancel']['id'])]['intent'])
@@ -184,8 +248,13 @@ def run(args):
                     raise VenueError('engine requested recovery')
                 elif 'Refused' in e or 'Alert' in e:
                     note('engine_effect', effect=e)
+        if args.runtime == 'actor':
+            return run_actor(args, engine, venue, strategy, ledger_audit, now, note, metadata, lots,
+                             invocation, started, path, provenance)
+        candle_received = [None]
         def add_bar(candle):
-            changed = strategy.add(candle)
+            with metrics.timer('strategy'):
+                changed = strategy.add(candle)
             if changed:
                 note('candle', **asdict(candle), signal=strategy.signal())
             return changed
@@ -216,6 +285,8 @@ def run(args):
                                 fired_faults.add('disconnect'); note('injected_fault', fault='disconnect')
                                 ws.close()
                                 raise OSError('injected paper disconnect')
+                            engine.decision_started_ns = None
+                            candle_received[0] = None
                             dispatch(send('Tick'))
                             if time.monotonic() - last_poll >= 1:
                                 if args.mode == 'testnet':
@@ -227,6 +298,7 @@ def run(args):
                                 for oid, order in list(engine.state['orders'].items()):
                                     if order['lifecycle'] not in TERMINAL and order['pending'] is None and now() - sent_at.get(int(oid), 0) >= args.order_ttl * 1000:
                                         dispatch(send({'Cancel': {'id': int(oid)}}))
+                            loop_started = time.perf_counter()
                             try: message = json.loads(ws.recv(timeout=1))
                             except TimeoutError:
                                 if time.monotonic() - last_message > 15:
@@ -237,11 +309,17 @@ def run(args):
                                 fired_faults.add('stale'); note('injected_fault', fault='stale')
                                 message['E'] -= 60000
                             exchange_now = int(time.time()*1000) + venue.offset_ms
+                            metrics.observe('ws_lag', max(exchange_now - int(message['E']), 0) / 1000)
                             if not 0 <= exchange_now - int(message['E']) <= 5000:
                                 raise VenueError('stale market stream; reconnect and backfill')
                             retry_budget.progress(time.monotonic())
                             candle = closed_candle(message, venue.tick, args.symbol, args.interval)
-                            if candle is None: continue
+                            if candle is None:
+                                metrics.observe('loop', time.perf_counter() - loop_started)
+                                continue
+                            candle_received[0] = time.perf_counter()
+                            engine.decision_started_ns = time.perf_counter_ns()
+                            metrics.observe('candle_lag', max(exchange_now - candle.close_ms, 0) / 1000)
                             if args.faults and time.monotonic() - started >= 15 and 'drop' not in fired_faults:
                                 fired_faults.add('drop'); note('injected_fault', fault='drop')
                                 continue
@@ -281,6 +359,7 @@ def run(args):
                                     continue
                                 command = target_order(engine.state, price=intent['limit'])
                                 if command: dispatch(send(command))
+                            metrics.observe('loop', time.perf_counter() - loop_started)
                 except (OSError, TimeoutError, VenueError, ConnectionClosed, CandleGap) as error:
                     send('MarketUnavailable')
                     note('connection_failure', error_type=type(error).__name__, reason=str(error) if isinstance(error, VenueError) else None, venue_code=getattr(error, 'code', None))
@@ -322,7 +401,40 @@ if __name__ == '__main__':
     p.add_argument('--resume', action='store_true')
     p.add_argument('--faults', action='store_true', help='paper only: inject drop, duplicate, stale data and disconnect')
     p.add_argument('--reconcile-only', action='store_true', help='resume, reconcile, then exit without new signals')
+    p.add_argument('--metrics-port', type=int, help='expose Python metrics here and Rust metrics on PORT-1')
+    p.add_argument('--sync', choices=['every', 'outbox'], default='every', help='journal sync policy (acceptance L3)')
+    p.add_argument('--runtime', choices=['serial', 'actor'], default='serial', help='actor is opt-in and requires --receipt')
+    p.add_argument('--recovery-drill', type=float, action='append', default=[],
+                   help='actor only: seconds after start to latch, reconcile and restart (repeatable)')
+    p.add_argument('--rotate-bytes', type=int, default=8*1024*1024, help='with --rotate-orders: also rotate a quiet segment at this byte limit')
+    p.add_argument('--rotation-trust-contract', choices=['current-segment-v1'], help='explicit operator choice; requires approved ADR before live rotation')
+    p.add_argument('--cold-format', choices=['legacy', 'pages'], default='legacy', help='pages requires approved immutable-pages ADR and live actor rotation')
+    p.add_argument('--cold-verify', choices=['full', 'pages'], default='full', help='full scrub or approved root/path verification')
+    p.add_argument('--reclaim-cold', action='store_true', help='rotation only: reclaim superseded unpinned cold files')
+    p.add_argument('--batch-reconcile', action='store_true', help='actor Testnet only: bounded REST bulk reconciliation')
+    p.add_argument('--rotate-orders', type=int, help='actor + testnet only: live rotation soft trigger (hot orders)')
+    p.add_argument('--max-rotation-delay', type=float, default=60.0, help='seconds to wait for open orders before forcing')
+    p.add_argument('--binary', type=Path, default=ROOT / 'target/debug/mininautilus')
+    p.add_argument('--receipt', type=Path, help='release receipt (ops/runtime_bench.py --build); refuses a mismatched binary')
     a = p.parse_args()
+    if a.runtime == 'actor' and a.receipt is None:
+        p.error('--runtime actor requires --receipt for a verified release binary')
+    if a.runtime == 'actor' and a.faults:
+        p.error('--faults injects into the serial loop only; actor faults are tested offline (tests/test_live_actor.py)')
+    if a.rotate_bytes < 1:
+        p.error('--rotate-bytes must be positive')
+    if a.rotate_orders is not None and a.mode == 'testnet' and a.rotation_trust_contract != 'current-segment-v1':
+        p.error('live rotation requires an approved ADR and --rotation-trust-contract current-segment-v1')
+    if a.cold_format == "pages" and (a.rotate_orders is None or a.mode != "testnet" or a.runtime != "actor"):
+        p.error("--cold-format pages requires Testnet actor rotation")
+    if a.cold_verify == "pages" and a.rotation_trust_contract != "current-segment-v1":
+        p.error("--cold-verify pages requires approved ADR and explicit rotation trust contract")
+    if a.reclaim_cold and a.rotate_orders is None:
+        p.error('--reclaim-cold requires --rotate-orders')
+    if a.batch_reconcile and (a.runtime != 'actor' or a.mode != 'testnet'):
+        p.error('--batch-reconcile requires --runtime actor --mode testnet')
+    if a.rotate_orders is not None and (a.runtime != 'actor' or a.mode != 'testnet' or a.rotate_orders < 1):
+        p.error('--rotate-orders requires --runtime actor --mode testnet and a positive count')
     if a.faults and a.mode != 'paper':
         p.error('--faults is restricted to paper mode')
     if a.reconcile_only and (not a.resume or a.mode != 'testnet'):

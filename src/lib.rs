@@ -1,8 +1,17 @@
 //! MiniNautilus: deterministic state, explicit effects, replaceable transports.
+pub mod backtest;
+pub mod cold;
+pub mod cold_gc;
+pub mod cold_pages;
 pub mod core;
 pub mod dashboard;
 pub mod journal;
+pub mod metrics;
 pub mod model;
+pub mod protocol;
 pub mod queue;
 pub mod sim;
 pub mod telemetry;
+
+#[cfg(feature = "native-runtime")]
+pub mod native;

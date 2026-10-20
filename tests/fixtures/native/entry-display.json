@@ -1,0 +1,52 @@
+{
+  "scope": "Captured BTC Testnet presentation discrepancy; no keys or account identity",
+  "source_observations_sha256": "5e5791a12c822dd7e1f287ecd0de1c8c9632543dccd200363557eabcf2ca3ed4",
+  "baseline_cash": "997.872624",
+  "flat_cash": "997.856168",
+  "exact_entry": "81717.75",
+  "display_entry": "81717.7",
+  "exact_realized": "-0.00175",
+  "reported_realized": "-0.00174",
+  "display_pnl_difference": "0.00001",
+  "fills": [
+    {
+      "time": 1,
+      "tid": 1,
+      "oid": 1,
+      "coin": "BTC",
+      "feeToken": "USDC",
+      "startPosition": "0",
+      "side": "B",
+      "sz": "0.00005",
+      "px": "81717",
+      "closedPnl": "0",
+      "fee": "0.001838"
+    },
+    {
+      "time": 2,
+      "tid": 2,
+      "oid": 2,
+      "coin": "BTC",
+      "feeToken": "USDC",
+      "startPosition": "0.00005",
+      "side": "B",
+      "sz": "0.00015",
+      "px": "81718",
+      "closedPnl": "0",
+      "fee": "0.005515"
+    },
+    {
+      "time": 3,
+      "tid": 3,
+      "oid": 3,
+      "coin": "BTC",
+      "feeToken": "USDC",
+      "startPosition": "0.0002",
+      "side": "A",
+      "sz": "0.0002",
+      "px": "81709",
+      "closedPnl": "-0.00174",
+      "fee": "0.007353"
+    }
+  ]
+}

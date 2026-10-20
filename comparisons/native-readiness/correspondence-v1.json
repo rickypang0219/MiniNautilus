@@ -1,0 +1,19 @@
+{
+  "schema": 1,
+  "created_utc": "2026-10-17T01:41:06Z",
+  "model": "displayed-depth-immediate-v1",
+  "scope": "Prospective diagnostic conditional execution replay; not calibrated market simulator or closed-loop PCA acceptance",
+  "arrival_delay_ms": 100,
+  "max_book_age_ms": 5000,
+  "tick": "0.1",
+  "lot": "0.00001",
+  "minimum_orders": 100,
+  "simulated_taker_fee_rate": "0.00045",
+  "fee_source": "Testnet userFees read-only preflight 2026-10-17: userCrossRate=0.00045, userAddRate=0.00015; scenario assumes crossing fills only",
+  "max_filled_lot_error_fraction": 0.05,
+  "max_vwap_error_bps": 2,
+  "accounting_tolerance_usdc": "0.000001",
+  "calibration_holdout_rule": "Fit latency/queue assumptions on separate calibration sessions; freeze new manifest before collecting holdout. Never fit and validate on same recording.",
+  "passive_queue": "NOT_MODELED",
+  "simulated_funding": "NOT_MEASURED until public available-at rates and simulated settlement positions are present"
+}

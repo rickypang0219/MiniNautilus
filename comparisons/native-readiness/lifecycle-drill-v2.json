@@ -1,0 +1,37 @@
+{
+  "schema": 1,
+  "created_utc": "2026-10-17T03:05:45Z",
+  "previous_manifest": "comparisons/native-readiness/lifecycle-drill-v1.json",
+  "scope": "Same numeric lifecycle/storage targets, host recovery collected first; explicit bounded REST uncertainty recovery added after preserved failure",
+  "network": "hyperliquid-testnet-only",
+  "source_parameters_unchanged": {
+    "live_runs": 2,
+    "wall_seconds_minimum_each": 900,
+    "minimum_rotations_each": 1,
+    "drill_soft_orders": 4,
+    "drill_soft_age_seconds": 180,
+    "explicit_operational_flatten": true,
+    "sampled_process_tree_rss_max_mib": 256,
+    "host_drills_this_iteration": 1,
+    "prior_proposal_required_host_drills": 3,
+    "rto_seconds_max": 300,
+    "durable_file_hash_mismatches_max": 0,
+    "final_venue_positions": 0,
+    "final_venue_open_orders": 0
+  },
+  "rest_recovery": {
+    "recoverable_io_kinds": ["TimedOut", "ConnectionAborted", "ConnectionReset", "WouldBlock"],
+    "max_failures_per_episode": 3,
+    "backoff_seconds": [1, 2, 4],
+    "outbound_admission_closed_before_publishing_error": true,
+    "original_mutation_retries_max": 0,
+    "reconcile_original_journals_and_full_accounting": true,
+    "fresh_strategy_target_after_reconciliation": true,
+    "changed_facts_schema_integrity_risk_failures_remain_fatal": true,
+    "opaque_oid_lookup_hint_from_original_cloid_fills_only": true,
+    "lookup_rows_cap_exclusive": 2000,
+    "absolute_order_visibility_deadline_seconds": 5
+  },
+  "execution_order": ["signed crash-after-fill", "confirm old host terminated", "mount same retained EBS without formatting", "original recovery and hash verification", "two 900-second rotation runs"],
+  "qualification_not_replaced": ["24-hour service", "3 host drills", "7-day strategy shadow", "closed-loop market simulator fidelity", "mainnet execution"]
+}

@@ -1,0 +1,64 @@
+{
+  "schema": 1,
+  "created_utc": "2026-10-18T07:13:13.496953+00:00",
+  "status": "FROZEN_BEFORE_EC2_COLLECTION",
+  "scope": "terminal facts cache and active rotated lifecycle retained-EBS takeover",
+  "network": "hyperliquid-testnet-only",
+  "financial": {
+    "missing_or_duplicate_executions": 0,
+    "position_error_lots": 0,
+    "ledger_error_usdc_max": "0.000001",
+    "blind_resends": 0,
+    "cache_is_volatile": true,
+    "full_reconciliation_bypasses_cache": true
+  },
+  "terminal_fixture": {
+    "terminal": 800,
+    "active": 4,
+    "order_status_rpcs_max": 4,
+    "fill_history_reads_min": 1,
+    "mutations": 0,
+    "proof_damage_must_stop": true
+  },
+  "takeover": {
+    "fresh_trials": 3,
+    "completed_rotations_min": 1,
+    "kill_requires_active_successor_and_actual_exposure": true,
+    "original_host_terminated_before_replacement": true,
+    "stable_mount": "/mnt/native-state",
+    "original_financial_file_prefix_errors_max": 0,
+    "old_sealed_file_changes_max": 0,
+    "host_loss_to_recovered_max_seconds": 300,
+    "exposure_wait_max_seconds": 300
+  },
+  "aws": {
+    "region": "ap-northeast-1",
+    "instance": "c7i.large",
+    "observed_compute_usd_hour": "0.11235",
+    "ipv4_usd_hour_budget": "0.005",
+    "root_gib": 12,
+    "data_gib": 8,
+    "max_hosts_simultaneously": 1,
+    "guest_shutdown_minutes": 60,
+    "total_short_drill_budget_usd": 1,
+    "no_nat_or_alb": true,
+    "preserve_existing_user_host": true
+  },
+  "new_feed": {
+    "fast_l2": true,
+    "public_trades": true,
+    "explicit_receive_wall_and_monotonic": true,
+    "book_trade_data_never_private_execution_authority": true
+  },
+  "future_gates": {
+    "closed_loop_holdout_minimum_orders": 100,
+    "quantity_relative_error_max": "0.05",
+    "vwap_error_bps_max": "2",
+    "signal_mismatches_max": 0,
+    "cash_accounting_error_max_usdc": "0.000001",
+    "public_funding_on_simulated_settlement_inventory": true,
+    "long_qualification_seconds": 86400,
+    "long_run_requires_history_takeover_and_closed_loop_prerequisites_pass": true
+  },
+  "relative_performance_claim": "NONE: functional RPC and absolute RTO gates; requires independent frozen A/A and repeated A/B for a speed claim"
+}

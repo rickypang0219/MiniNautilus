@@ -10,11 +10,14 @@ import hmac
 import json
 import os
 import re
+import threading
 import time
 import urllib.error
 import urllib.parse
 import urllib.request
 from decimal import Decimal
+
+from . import metrics
 
 BASE = "https://testnet.binance.vision"
 TERMINAL = {"FILLED", "CANCELED", "REJECTED", "EXPIRED", "EXPIRED_IN_MATCH"}
@@ -24,6 +27,16 @@ class VenueError(RuntimeError):
     def __init__(self, message, *, code=None):
         super().__init__(message)
         self.code = code
+
+
+class OrderAbsent(VenueError):
+    """Neither client ID exists at the venue (yet)."""
+
+
+# Binance rejects a signed request that arrives later than timestamp + recvWindow.
+RECV_WINDOW_MS = 5000
+# Allowance for local/server clock offset error and server processing.
+ABSENCE_MARGIN_S = 2.0
 
 
 def units(value, increment):
@@ -47,8 +60,18 @@ class BinanceSpot:
         self.tick = self.lot = None
         self.base_asset = None
         self.execution_times = {}
+        # Every request this process signs is signed after `created`; a crashed
+        # predecessor's requests were signed before it. See `reconcile`.
+        self.created = time.monotonic()
+        self.sent_at = {}
+        # The actor runner calls from a venue worker and a poll worker; pacing is shared.
+        self.lock = threading.RLock()
 
     def request(self, method, path, params=None, *, signed=False):
+        with self.lock:
+            return self._request(method, path, params, signed=signed)
+
+    def _request(self, method, path, params=None, *, signed=False):
         if method != "GET" and not self.execute:
             raise VenueError("testnet execution is disabled")
         if signed and (not self.key or not self.secret):
@@ -57,12 +80,13 @@ class BinanceSpot:
             raise ValueError("unsupported endpoint")
         # Conservative fixed pacing. HTTP 429/418 adds server-directed backoff.
         delay = self.next_request - time.monotonic()
+        metrics.observe("rest_pacing", max(delay, 0.0))
         if delay > 0:
             time.sleep(delay)
         self.next_request = time.monotonic() + 0.25
         params = dict(params or {})
         if signed:
-            params.update(timestamp=int(time.time() * 1000) + self.offset_ms, recvWindow=5000)
+            params.update(timestamp=int(time.time() * 1000) + self.offset_ms, recvWindow=RECV_WINDOW_MS)
         query = urllib.parse.urlencode(params)
         if signed:
             signature = hmac.new(self.secret.encode(), query.encode(), hashlib.sha256).hexdigest()
@@ -75,9 +99,13 @@ class BinanceSpot:
             class NoRedirect(urllib.request.HTTPRedirectHandler):
                 def redirect_request(self, *_args, **_kwargs):
                     return None
+            started = time.perf_counter()
             with urllib.request.build_opener(NoRedirect).open(request, timeout=10) as response:
-                return json.load(response)
+                body = json.load(response)
+            metrics.observe("rest", time.perf_counter() - started, method, path)
+            return body
         except urllib.error.HTTPError as error:
+            metrics.count("rest_errors", path, str(error.code))
             if error.code in (418, 429):
                 try:
                     retry = max(1, float(error.headers.get("Retry-After", "60")))
@@ -90,7 +118,8 @@ class BinanceSpot:
                 code = None
             # Never stringify HTTPError: its URL contains the signed query.
             raise VenueError(f"Binance HTTP {error.code}, code {code}; do not retry mutations", code=code) from None
-        except (OSError, TimeoutError, ValueError):
+        except (OSError, TimeoutError, ValueError) as error:
+            metrics.count("rest_errors", path, type(error).__name__)
             raise VenueError("transport/response failure; mutation outcome may be unknown") from None
 
     def initialize(self):
@@ -136,6 +165,7 @@ class BinanceSpot:
     def submit(self, intent):
         # Exact formatting; the venue remains authoritative for changing filters,
         # available balances, percentage-price limits, and order-count constraints.
+        self.sent_at[intent["id"]] = time.monotonic()
         return self.request("POST", "/api/v3/order", {
             "symbol": self.symbol, "side": intent["side"].upper(), "type": "LIMIT", "timeInForce": "GTC",
             "quantity": format(self.lot * intent["qty"], "f"),
@@ -161,7 +191,7 @@ class BinanceSpot:
                     or units(order["price"], self.tick) != intent["limit"]):
                 raise VenueError("venue order identity/terms disagree with durable intent")
             return order
-        raise VenueError("order absent: unresolved, never automatically resubmit")
+        raise OrderAbsent("order absent: unresolved, never automatically resubmit")
 
     def cancel(self, intent):
         order = self.query(intent)
@@ -185,6 +215,15 @@ class BinanceSpot:
     def collect(self, intent):
         remote = self.query(intent)
         raw_trades = self.trades(remote["orderId"])
+        return self._collected(intent, remote, raw_trades)
+
+    def _collected(self, intent, remote, raw_trades, *, verify_identity=False):
+        cid = self.client_id(intent['id'])
+        if verify_identity and (remote['clientOrderId'] not in (cid, cid + 'c')
+                or remote['side'] != intent['side'].upper()
+                or units(remote['origQty'], self.lot) != intent['qty']
+                or units(remote['price'], self.tick) != intent['limit']):
+            raise VenueError('venue order identity/terms disagree with durable intent')
         fills = [{"execution_id": trade["id"] + 1, "order_id": intent["id"],
                   "qty": units(trade["qty"], self.lot), "price": units(trade["price"], self.tick)}
                  for trade in raw_trades]
@@ -201,6 +240,67 @@ class BinanceSpot:
         if lifecycle is None:
             raise VenueError("unsupported venue order status")
         return {"intent": intent, "filled": filled, "lifecycle": lifecycle}, fills, raw_trades
+
+    def collect_many(self, intents):
+        """Bounded REST batching; preserves per-order quantity and identity proofs.
+
+        Last 1000 orders is a discovery optimisation, not absence evidence.
+        Missing orders still use exact client-ID queries. Trade pages start at
+        the earliest returned order and are bounded; no history is TTL-retired.
+        """
+        if not intents:
+            return {}
+        if len(intents) > 1000:
+            raise VenueError('batch reconciliation hot-order cap exceeded')
+        aliases = {self.client_id(i['id']) + suffix: i for i in intents for suffix in ('', 'c')}
+        remote = {}
+        for row in self.request('GET', '/api/v3/allOrders', {'symbol': self.symbol, 'limit': 1000}, signed=True):
+            intent = aliases.get(row['clientOrderId'])
+            if intent is None:
+                continue
+            oid = intent['id']
+            if oid in remote:
+                raise VenueError('duplicate remote client identity')
+            remote[oid] = row
+        for intent in intents:
+            if intent['id'] not in remote:
+                remote[intent['id']] = self.query(intent)
+        if any(row['status'] not in TERMINAL for row in remote.values()):
+            raise VenueError('recovery requires every owned order to be terminal')
+        by_remote = {row['orderId']: oid for oid, row in remote.items()}
+        if len(by_remote) != len(remote):
+            raise VenueError('remote order IDs are not unique')
+        trades = {oid: [] for oid in remote}
+        earliest = min(int(row['time']) for row in remote.values())
+        end = int(time.time()*1000)+self.offset_ms
+        # Binance's time-bounded trade endpoint permits a maximum 24h window.
+        # Older segments use the original per-order protocol, not an unsafe cutoff.
+        if end-earliest > 24*60*60*1000:
+            return {i['id']: self.collect(i) for i in intents}
+        params = {'symbol': self.symbol, 'startTime': earliest, 'endTime': end, 'limit': 1000}
+        cursor, seen, count = None, set(), 0
+        for _ in range(32):
+            page = self.request('GET', '/api/v3/myTrades', params, signed=True)
+            if len(page) > 1000:
+                raise VenueError('oversized trade page')
+            for trade in page:
+                tid = int(trade['id'])
+                if tid in seen or (cursor is not None and tid < cursor):
+                    raise VenueError('trade pagination overlap or regression')
+                seen.add(tid)
+                count += 1
+                if count > 10000:
+                    raise VenueError('batch reconciliation fill cap exceeded')
+                oid = by_remote.get(trade['orderId'])
+                if oid is not None:
+                    trades[oid].append(trade)
+            if len(page) < 1000:
+                break
+            cursor = max(int(t['id']) for t in page)+1
+            params = {'symbol': self.symbol, 'fromId': cursor, 'limit': 1000}
+        else:
+            raise VenueError('trade pagination budget exhausted')
+        return {i['id']: self._collected(i, remote[i['id']], trades[i['id']], verify_identity=True) for i in intents}
 
     def timing(self, event):
         """Preserve venue trade times separately from receipt and engine clocks."""
@@ -232,17 +332,50 @@ class BinanceSpot:
                 reports.append({"Rejected": {"id": oid}})
         return reports
 
-    def reconcile(self, state, baseline_base):
+    def reconcile(self, state, baseline_base, *, batch=False):
         # Quiescent barrier: after every owned order is terminal, its cumulative
         # fill count is stable. REST history may lag; mismatches remain blocked.
         known = {self.client_id(int(oid)) + suffix for oid in state["orders"] for suffix in ("", "c")}
-        if any(order["clientOrderId"] not in known for order in self.open_orders()):
+        remote_open = self.open_orders()
+        if any(order["clientOrderId"] not in known for order in remote_open):
             raise VenueError("unknown open order; manual investigation required")
-        for order in state["orders"].values():
-            self.cancel(order["intent"])
+        # Persisted-but-unacknowledged orders may never have reached the venue.
+        # Absence is proof only once every request that could create them expired:
+        # wait past recvWindow after their last send (or this process's start).
+        unacked = {oid for oid, o in state["orders"].items()
+                   if o.get("lifecycle") == "Pending" and o.get("filled") == 0
+                   and not any(f["order_id"] == int(oid) for f in state.get("fills", {}).values())}
+        if unacked:
+            deadline = max(max(self.sent_at.get(int(oid), self.created), self.created) for oid in unacked)
+            delay = deadline + RECV_WINDOW_MS / 1000 + ABSENCE_MARGIN_S - time.monotonic()
+            if delay > 0:
+                time.sleep(delay)
+        absent = []
+
+        def resolve(oid, error):
+            if oid not in unacked:
+                raise VenueError("acknowledged or filled order missing at venue; manual investigation") from error
+            if int(oid) not in absent:
+                absent.append(int(oid))
+
+        open_clients = {row['clientOrderId'] for row in remote_open}
+        for oid, order in state["orders"].items():
+            if batch and order.get('lifecycle') in ('Filled', 'Canceled', 'Rejected') and not order.get('uncertain'):
+                cid = self.client_id(int(oid))
+                if cid not in open_clients and cid+'c' not in open_clients:
+                    continue
+            try:
+                self.cancel(order["intent"])
+            except OrderAbsent as error:
+                resolve(oid, error)
         orders, fills, raw = [], [], []
-        for order in state["orders"].values():
-            remote, trades, raw_trades = self.collect(order["intent"])
+        collected = self.collect_many([order['intent'] for oid, order in state['orders'].items()
+                                       if int(oid) not in absent]) if batch else None
+        for oid, order in state["orders"].items():
+            if int(oid) in absent:
+                continue
+            remote, trades, raw_trades = (collected[int(oid)] if collected is not None
+                                          else self.collect(order["intent"]))
             if remote["lifecycle"] not in ("Filled", "Canceled", "Rejected"):
                 raise VenueError("recovery requires every owned order to be terminal")
             orders.append(remote); fills.extend(trades); raw.extend(raw_trades)
@@ -266,5 +399,6 @@ class BinanceSpot:
             "commissions_by_asset": {asset: str(amount) for asset, amount in commissions.items()},
             "balance_verified": True,
         }
+        self.last_reconciliation["absent_orders"] = sorted(absent)
         return {"epoch": state["epoch"], "watermark": state["venue_seq"],
-                "orders": orders, "fills": fills, "position": position}
+                "orders": orders, "fills": fills, "position": position, "absent": sorted(absent)}

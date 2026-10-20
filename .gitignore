@@ -1,5 +1,6 @@
-/target/
+/target
 /runs/
+/comparisons/results/
 __pycache__/
 *.pyc
 /.venv/

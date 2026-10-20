@@ -1,0 +1,9 @@
+{
+  "max_abs_position": 10,
+  "max_order_qty": 10,
+  "max_order_notional": 1000000000000,
+  "request_timeout_ms": 30000,
+  "market_stale_ms": 3000,
+  "private_stale_ms": 30000,
+  "max_signal_lag": 100
+}

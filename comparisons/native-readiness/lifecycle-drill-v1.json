@@ -1,0 +1,52 @@
+{
+  "schema": 1,
+  "created_utc": "2026-10-17T01:55:05Z",
+  "status_at_freeze": "NOT_EXECUTED",
+  "scope": "Native flat segmentation, conditional live/backtest correspondence and same-AZ retained-EBS host replacement; no alpha/mainnet claim",
+  "network": "hyperliquid-testnet-only",
+  "rotation": {
+    "runs": 2,
+    "wall_seconds_minimum_each": 900,
+    "minimum_rotations_each": 1,
+    "drill_soft_orders": 4,
+    "drill_soft_age_seconds": 180,
+    "explicit_operational_flatten": true,
+    "default_soft_orders": 800,
+    "default_soft_age_seconds": 1800,
+    "default_soft_bytes": 67108864,
+    "quiescence_wait_seconds": 60,
+    "hard_orders": 1000,
+    "retention_fixture_orders": 10000,
+    "retention_fixture_minimum_rotations": 12,
+    "retention_fixture_position_difference_lots": 0,
+    "retention_fixture_cash_difference_tick_lots": 0,
+    "local_recovery_max_seconds": 10,
+    "process_tree_peak_rss_max_mib": 256
+  },
+  "host_replacement": {
+    "drills_this_iteration": 1,
+    "prior_proposal_required_drills": 3,
+    "prior_gate_not_complete_after_one_drill": true,
+    "old_host_must_be_confirmed_terminated": true,
+    "original_session_and_action_journal_only": true,
+    "original_durable_file_sha256_mismatches_max": 0,
+    "rto_seconds_max": 300,
+    "final_venue_positions": 0,
+    "final_venue_open_orders": 0,
+    "power_loss_or_az_loss": "NOT_MEASURED",
+    "preserve_state_if_cleanup_unresolved": true
+  },
+  "correspondence_manifest": "comparisons/native-readiness/correspondence-v1.json",
+  "sampling_seconds": 1,
+  "long_qualification": "NOT_MEASURED: 24 hours and seven-day strategy shadow are separate gates",
+  "aws": {
+    "region": "ap-northeast-1",
+    "instance_type": "c7i.large",
+    "maximum_task_instances": 2,
+    "estimated_experiment_cost_upper_bound_usd": 1,
+    "guest_fallback_shutdown_minutes": 60,
+    "controller_finally_cleanup_required": true,
+    "existing_user_host": "preserve; readonly orphan process check only",
+    "nat_alb_paid_interface_endpoints": false
+  }
+}

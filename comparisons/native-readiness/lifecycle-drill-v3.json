@@ -1,0 +1,75 @@
+{
+  "schema": 1,
+  "created_utc": "2026-10-17T13:50:09.564306+00:00",
+  "previous_manifest": "comparisons/native-readiness/lifecycle-drill-v2.json",
+  "scope": "Same numeric lifecycle/storage targets, host recovery first; exact cancel/fill rejection requires original terminal facts, never mutation retry",
+  "network": "hyperliquid-testnet-only",
+  "source_parameters_unchanged": {
+    "live_runs": 2,
+    "wall_seconds_minimum_each": 900,
+    "minimum_rotations_each": 1,
+    "drill_soft_orders": 4,
+    "drill_soft_age_seconds": 180,
+    "explicit_operational_flatten": true,
+    "sampled_process_tree_rss_max_mib": 256,
+    "host_drills_this_iteration": 1,
+    "prior_proposal_required_host_drills": 3,
+    "rto_seconds_max": 300,
+    "durable_file_hash_mismatches_max": 0,
+    "final_venue_positions": 0,
+    "final_venue_open_orders": 0
+  },
+  "rest_recovery": {
+    "recoverable_io_kinds": [
+      "TimedOut",
+      "ConnectionAborted",
+      "ConnectionReset",
+      "WouldBlock"
+    ],
+    "max_failures_per_episode": 3,
+    "backoff_seconds": [
+      1,
+      2,
+      4
+    ],
+    "outbound_admission_closed_before_publishing_error": true,
+    "original_mutation_retries_max": 0,
+    "reconcile_original_journals_and_full_accounting": true,
+    "fresh_strategy_target_after_reconciliation": true,
+    "changed_facts_schema_integrity_risk_failures_remain_fatal": true,
+    "opaque_oid_lookup_hint_from_original_cloid_fills_only": true,
+    "lookup_rows_cap_exclusive": 2000,
+    "absolute_order_visibility_deadline_seconds": 5
+  },
+  "execution_order": [
+    "signed crash-after-fill",
+    "confirm old host terminated",
+    "mount same retained EBS without formatting",
+    "original recovery and hash verification",
+    "two 900-second rotation runs"
+  ],
+  "qualification_not_replaced": [
+    "24-hour service",
+    "3 host drills",
+    "7-day strategy shadow",
+    "closed-loop market simulator fidelity",
+    "mainnet execution"
+  ],
+  "cancel_fill_race": {
+    "accepted_error": "Order was never placed, already canceled, or filled. asset=<session asset>",
+    "only_cancel_action": true,
+    "original_identity_and_terms_required": true,
+    "terminal_status_required": true,
+    "cancel_mutation_retries_max": 0,
+    "unrelated_rejection_remains_fatal": true,
+    "not_proof_of_absence": true,
+    "terminal_poll_window_seconds": 5,
+    "individual_query_deadline_seconds": 5,
+    "poll_window_checked_after_query": true
+  },
+  "state_cleanup": {
+    "flat_proof_invalidated_before_each_signed_phase": true,
+    "delete_retained_volume_requires_fresh_flat_proof_and_no_potential_exposure": true,
+    "failed_cleanup_after_later_trading_retains_original_volume": true
+  }
+}

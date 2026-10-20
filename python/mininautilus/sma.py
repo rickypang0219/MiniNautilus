@@ -1,7 +1,8 @@
 """Closed-candle SMA targets. Integer sums keep crossing decisions exact."""
-from collections import deque
 from dataclasses import dataclass
 from fractions import Fraction
+
+from .bridge import next_order_id, open_orders
 
 INTERVALS = {"1s": 1000, "1m": 60_000, "3m": 180_000, "5m": 300_000, "15m": 900_000,
              "30m": 1_800_000, "1h": 3_600_000}
@@ -28,7 +29,8 @@ class SmaStrategy:
         self.reset()
 
     def reset(self):
-        self.values = deque(maxlen=self.slow)
+        self.values = [0] * self.slow
+        self.observations = 0
         self.last = None
         self.target = 0
         self.fast_sum = self.slow_sum = 0
@@ -46,11 +48,13 @@ class SmaStrategy:
             if candle.open_ms != self.last.open_ms + self.interval_ms:
                 self.reset()
                 raise CandleGap("missing closed candles; reset and REST backfill")
-        if len(self.values) >= self.fast:
-            self.fast_sum -= self.values[-self.fast]
-        if len(self.values) == self.slow:
-            self.slow_sum -= self.values[0]
-        self.values.append(candle.price)
+        slot = self.observations % self.slow
+        if self.observations >= self.fast:
+            self.fast_sum -= self.values[(self.observations - self.fast) % self.slow]
+        if self.observations >= self.slow:
+            self.slow_sum -= self.values[slot]
+        self.values[slot] = candle.price
+        self.observations += 1
         self.fast_sum += candle.price
         self.slow_sum += candle.price
         self.last = candle
@@ -63,7 +67,7 @@ class SmaStrategy:
 
     @property
     def ready(self):
-        return len(self.values) == self.slow
+        return self.observations >= self.slow
 
     def signal(self):
         if not self.ready:
@@ -78,14 +82,13 @@ class SmaStrategy:
         # Last finalized bar is valid during the following interval plus 5 s grace.
         if not 0 <= exchange_now_ms - self.last.close_ms <= self.interval_ms + 5000:
             return None
-        if any(not order["lifecycle"] in ("Filled", "Canceled", "Rejected") or order["uncertain"]
-               for order in state["orders"].values()):
+        if any(True for _ in open_orders(state)):
             return None
         delta = self.target - state["position"]
         if not delta:
             return None
         bid, ask, _ = state["quote"]
-        return {"id": max(map(int, state["orders"]), default=0) + 1,
+        return {"id": next_order_id(state),
                 "side": "Buy" if delta > 0 else "Sell", "qty": abs(delta),
                 "limit": ask if delta > 0 else bid, "based_on_seq": state["seq"],
                 "valid_until": state["now"] + ttl_ms}

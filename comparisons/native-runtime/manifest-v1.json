@@ -1,0 +1,10 @@
+{
+  "schema": 1,
+  "rate": 1000,
+  "seconds": 120,
+  "warmup_seconds": 5,
+  "order_every": 1000,
+  "price_ticks": 800000,
+  "capacities": [128, 32, 32, 1024],
+  "sync": "outbox"
+}

@@ -1,0 +1,141 @@
+{
+  "created_utc": "2026-10-18T07:32:44.863648+00:00",
+  "scope": "separate source046 rotated-root calibration; local/exchange UTC offset assumed zero, not an arrival measurement",
+  "samples": [
+    {
+      "trial": 1,
+      "segment": "segment-000000",
+      "id": 1,
+      "core_to_http_ms": 505,
+      "http_rtt_ms": 747.286655,
+      "core_to_first_fill_ms": 968
+    },
+    {
+      "trial": 1,
+      "segment": "segment-000000",
+      "id": 2,
+      "core_to_http_ms": 496,
+      "http_rtt_ms": 730.511493,
+      "core_to_first_fill_ms": 943
+    },
+    {
+      "trial": 1,
+      "segment": "segment-000001",
+      "id": 3,
+      "core_to_http_ms": 505,
+      "http_rtt_ms": 675.648658,
+      "core_to_first_fill_ms": 947
+    },
+    {
+      "trial": 1,
+      "segment": "segment-000001",
+      "id": 4,
+      "core_to_http_ms": 496,
+      "http_rtt_ms": 728.863959,
+      "core_to_first_fill_ms": 987
+    },
+    {
+      "trial": 2,
+      "segment": "segment-000000",
+      "id": 1,
+      "core_to_http_ms": 504,
+      "http_rtt_ms": 758.387664,
+      "core_to_first_fill_ms": 980
+    },
+    {
+      "trial": 2,
+      "segment": "segment-000000",
+      "id": 2,
+      "core_to_http_ms": 505,
+      "http_rtt_ms": 718.9792,
+      "core_to_first_fill_ms": 989
+    },
+    {
+      "trial": 2,
+      "segment": "segment-000000",
+      "id": 3,
+      "core_to_http_ms": 492,
+      "http_rtt_ms": 738.153876,
+      "core_to_first_fill_ms": 949
+    },
+    {
+      "trial": 2,
+      "segment": "segment-000001",
+      "id": 4,
+      "core_to_http_ms": 505,
+      "http_rtt_ms": 740.265354,
+      "core_to_first_fill_ms": 965
+    },
+    {
+      "trial": 2,
+      "segment": "segment-000001",
+      "id": 5,
+      "core_to_http_ms": 499,
+      "http_rtt_ms": 723.302386,
+      "core_to_first_fill_ms": 937
+    },
+    {
+      "trial": 3,
+      "segment": "segment-000000",
+      "id": 1,
+      "core_to_http_ms": 504,
+      "http_rtt_ms": 688.434933,
+      "core_to_first_fill_ms": 956
+    },
+    {
+      "trial": 3,
+      "segment": "segment-000000",
+      "id": 2,
+      "core_to_http_ms": 424,
+      "http_rtt_ms": 714.749233,
+      "core_to_first_fill_ms": 885
+    },
+    {
+      "trial": 3,
+      "segment": "segment-000000",
+      "id": 3,
+      "core_to_http_ms": 498,
+      "http_rtt_ms": 755.801269,
+      "core_to_first_fill_ms": 966
+    },
+    {
+      "trial": 3,
+      "segment": "segment-000001",
+      "id": 4,
+      "core_to_http_ms": 505,
+      "http_rtt_ms": 681.949859,
+      "core_to_first_fill_ms": 953
+    },
+    {
+      "trial": 3,
+      "segment": "segment-000001",
+      "id": 5,
+      "core_to_http_ms": 497,
+      "http_rtt_ms": 768.171735,
+      "core_to_first_fill_ms": 1022
+    }
+  ],
+  "raw_sha256": {
+    "runs/readiness-20261018/rotated-1/extracted/recover-rotated-final/state/rotation-takeover/segment-000000/journal.jsonl": "8892b6aa371797dc891f83ba874bbfc9425f01460d71ff694506100723e3a723",
+    "runs/readiness-20261018/rotated-1/extracted/recover-rotated-final/state/rotation-takeover/segment-000000/actions.jsonl": "71b049fd08786a72738ea57510d2b609fd5b039b179ec53796ba7dee4f109b30",
+    "runs/readiness-20261018/rotated-1/extracted/recover-rotated-final/state/rotation-takeover/segment-000000/observations.jsonl": "534e124407a3e90af855a8c2fe35f91382618fd90721f436ea55933eb95ed001",
+    "runs/readiness-20261018/rotated-1/extracted/recover-rotated-final/state/rotation-takeover/segment-000001/journal.jsonl": "66fa78b0bd25123b66a8797b3f15ec21b360e36d0817851aa7ac4e48bc17d177",
+    "runs/readiness-20261018/rotated-1/extracted/recover-rotated-final/state/rotation-takeover/segment-000001/actions.jsonl": "babb1f82c993690d72ac6ef27fdf91a884f5f05345c084e88e049f560e3cd69b",
+    "runs/readiness-20261018/rotated-1/extracted/recover-rotated-final/state/rotation-takeover/segment-000001/observations.jsonl": "1f9ef1abaf527f35914a02f79aea384e6014aab0f23090dc22ef2ea72f2d6f70",
+    "runs/readiness-20261018/rotated-1/extracted/recover-rotated-final/state/rotation-takeover/segment-000001/recovery-observations-1792308064251.jsonl": "b03e836ab71299fa715fed18cdf7dfc3bc91b9a8e56f06cc75534c29c4982444",
+    "runs/readiness-20261018/rotated-2/extracted/recover-rotated-final/state/rotation-takeover/segment-000000/journal.jsonl": "ecac97f517ec771a8986e4465796bc957d8498ce24dd8a27e9bd30caf185b399",
+    "runs/readiness-20261018/rotated-2/extracted/recover-rotated-final/state/rotation-takeover/segment-000000/actions.jsonl": "1e1488378e323983d8b984c543d67b88687763c0df5b6c6522ad12bdf35e43f5",
+    "runs/readiness-20261018/rotated-2/extracted/recover-rotated-final/state/rotation-takeover/segment-000000/observations.jsonl": "660024e1c02d7719bba849a3f15ce2cb91cff5ad45544465e6170fc5562bab33",
+    "runs/readiness-20261018/rotated-2/extracted/recover-rotated-final/state/rotation-takeover/segment-000001/journal.jsonl": "016764afcd0719a5303a684a29f6b3290f8499dbe9752ff7ab6d0547b9747b6d",
+    "runs/readiness-20261018/rotated-2/extracted/recover-rotated-final/state/rotation-takeover/segment-000001/actions.jsonl": "9e372dffb4e6382ed90eea9ec907da428b1df678fcf637ba59360003003812da",
+    "runs/readiness-20261018/rotated-2/extracted/recover-rotated-final/state/rotation-takeover/segment-000001/observations.jsonl": "c4bc9ad3847dc6b64f102848f0c82997fd5e50634953928c489922f80adf08e2",
+    "runs/readiness-20261018/rotated-2/extracted/recover-rotated-final/state/rotation-takeover/segment-000001/recovery-observations-1792308296739.jsonl": "265e261305f0ad44791c00112f9f26536fdccbebf2eab48275ff8639c1ed0eb5",
+    "runs/readiness-20261018/rotated-3/extracted/recover-rotated-final/state/rotation-takeover/segment-000000/journal.jsonl": "40535e53f2834ef5550dd63d56872c36af99db7fcaa414ee75bd26ac7968fcdb",
+    "runs/readiness-20261018/rotated-3/extracted/recover-rotated-final/state/rotation-takeover/segment-000000/actions.jsonl": "940930388a5c052c24ae1176e49371da58567740804a76674a998ca83c3d7cd3",
+    "runs/readiness-20261018/rotated-3/extracted/recover-rotated-final/state/rotation-takeover/segment-000000/observations.jsonl": "4de7ca091403c0c950c9eac7e3aaef0bce06d5074a53c0a319982054c94899c5",
+    "runs/readiness-20261018/rotated-3/extracted/recover-rotated-final/state/rotation-takeover/segment-000001/journal.jsonl": "a8f35b567102ce26e2265079ce16623b2a1b7fdd698f11b73ac9d602914f5d75",
+    "runs/readiness-20261018/rotated-3/extracted/recover-rotated-final/state/rotation-takeover/segment-000001/actions.jsonl": "4d0e151965484310635a34718c260bf3d60aee29bb35c12a39ff901f55c1a65b",
+    "runs/readiness-20261018/rotated-3/extracted/recover-rotated-final/state/rotation-takeover/segment-000001/observations.jsonl": "ec0c43095ef10e49bef5e4b18578b772913e45b73838f5022f4f8ae663685773",
+    "runs/readiness-20261018/rotated-3/extracted/recover-rotated-final/state/rotation-takeover/segment-000001/recovery-observations-1792308530448.jsonl": "0e12272d5f467947daa3778320641332ed0c69fc2ab44b45406b881134e066a8"
+  }
+}

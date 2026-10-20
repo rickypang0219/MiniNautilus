@@ -21,5 +21,36 @@ jobs:
       - run: cargo fmt --check
       - run: cargo clippy --locked --all-targets -- -D warnings
       - run: cargo test --locked
+      - run: cargo clippy --locked --all-targets --features native-runtime -- -D warnings
+      - name: Native Rust tests
+        run: |
+          python - <<'PY'
+          import re
+          import subprocess
+          result = subprocess.run(
+              ['cargo', 'test', '--locked', '--features', 'native-runtime'],
+              stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True)
+          print(result.stdout, end='')
+          if result.returncode:
+              clean = re.sub(r'\x1b\[[0-?]*[ -/]*[@-~]', '', result.stdout)
+              tail = clean[-2400:].replace('%', '%25').replace('\r', '%0D').replace('\n', '%0A')
+              print('::error title=Native Rust test failure::' + tail)
+          raise SystemExit(result.returncode)
+          PY
       - run: cargo build --locked
-      - run: python -m unittest discover -s tests -p 'test_*.py'
+      - run: python ops/runtime_bench.py --build
+      - run: cargo build --locked --release --example compare_engine
+      - run: python comparisons/run.py --platforms mini --seeds 20 --output runs/ci-comparison
+      - name: Python tests
+        run: |
+          python - <<'PY'
+          import subprocess
+          result = subprocess.run(
+              ['python', '-m', 'unittest', 'discover', '-s', 'tests', '-p', 'test_*.py'],
+              stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True)
+          print(result.stdout, end='')
+          if result.returncode:
+              tail = result.stdout[-16000:].replace('%', '%25').replace('\r', '%0D').replace('\n', '%0A')
+              print('::error title=Python test failure::' + tail)
+          raise SystemExit(result.returncode)
+          PY

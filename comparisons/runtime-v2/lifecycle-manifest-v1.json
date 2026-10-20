@@ -1,0 +1,68 @@
+{
+  "schema": "lc_thresholds_v1",
+  "version": "LC-v1",
+  "threshold_source_commit": "22a6ef9",
+  "threshold_source_sha256": "3960ef6024141329f849437c59841e32934526756acd976540f8ac667930c0a8",
+  "description": "Machine-readable rendering of the previously frozen proposal, not a post-result threshold change",
+  "host": {
+    "instance_id": "i-015087878f29f14cd",
+    "region": "ap-northeast-1",
+    "instance_type": "t4g.micro",
+    "vcpus": 2,
+    "ram_bytes": 1073741824
+  },
+  "limits": {
+    "process_group_rss_peak_bytes": 402653184,
+    "cgroup_peak_bytes": 671088640,
+    "host_mem_available_min_bytes": 201326592,
+    "history_peak_growth_bytes": 33554432,
+    "rotation_working_buffer_bytes": 16777216,
+    "rss_slope_mib_per_hour": 1,
+    "rss_end_minus_start_bytes": 8388608,
+    "first_cold_lookup_max_ms": 100,
+    "warm_cold_lookup_p99_ms": 5,
+    "first_cold_read_growth_bytes": 1048576,
+    "rotation_max_ms_offline": 250,
+    "history_ratio_max": 2,
+    "engine_startup_max_ms": 100,
+    "full_resume_fake_max_ms": 1000,
+    "full_resume_testnet_max_ms": 15000,
+    "trade_enabled_ratio_min": 0.99,
+    "rotation_pause_max_ms": 10000,
+    "rotation_downtime_ratio_max": 0.008,
+    "cpu_mean_pct_one_vcpu_max": 30,
+    "cpu_p95_pct_one_vcpu_max": 80,
+    "internal_tick_to_effect_p99_ms": 5,
+    "steal_p99_pct_max": 5,
+    "cpu_credit_min": 20,
+    "resource_coverage_min": 0.99,
+    "resource_max_gap_seconds": 5,
+    "cold_write_multiplier": 10,
+    "cold_write_allowance_bytes": 33554432,
+    "cold_steady_multiplier": 4,
+    "cold_steady_allowance_bytes": 16777216,
+    "cold_publication_multiplier": 6,
+    "cold_publication_allowance_bytes": 33554432
+  },
+  "workloads": {
+    "W1_histories": [
+      1000,
+      100000,
+      1000000
+    ],
+    "W1_reps_per_history": 5,
+    "W1_added_orders": 200,
+    "W1_disk_cycles": 20,
+    "W2_seeds": [
+      7,
+      17,
+      29
+    ],
+    "W2_minutes_each": 90,
+    "W3_runs": 2,
+    "W3_minutes_each": 90,
+    "W3_rotate_orders": 100
+  },
+  "trust_decision": "pending explicit owner response",
+  "long_soak_precondition": "all applicable short gates pass"
+}

@@ -176,6 +176,7 @@ fn reconciliation_preserves_fill_event_time_and_separate_discovery_time() {
                 price: 100,
             }],
             position: 2,
+            absent: vec![],
         }),
     };
     let effects = core.apply(&input).unwrap();

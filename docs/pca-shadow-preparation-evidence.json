@@ -1,0 +1,242 @@
+{
+  "created_ms": 1792157230055,
+  "network": "public-mainnet-read-only",
+  "signer": false,
+  "requests": [
+    {
+      "name": "meta-context",
+      "request": {
+        "type": "metaAndAssetCtxs"
+      },
+      "started_ms": 1792157230055,
+      "http_status": 200,
+      "sha256": "8e3667294d6bf19ef057dd9eb0bd4abe52fef980ef7b648bf4052b89a9f63d04",
+      "bytes": 72319,
+      "completed_ms": 1792157230356,
+      "instruments": 234,
+      "contexts": 234,
+      "context_keys": [
+        "dayBaseVlm",
+        "dayNtlVlm",
+        "funding",
+        "impactPxs",
+        "markPx",
+        "midPx",
+        "openInterest",
+        "oraclePx",
+        "premium",
+        "prevDayPx"
+      ]
+    },
+    {
+      "name": "btc-book",
+      "request": {
+        "type": "l2Book",
+        "coin": "BTC"
+      },
+      "started_ms": 1792157230356,
+      "http_status": 200,
+      "sha256": "6d0334a6d9a3b8b3b59d8d8c5d553ac699b4dd0c2704c0f314dea5fd6e7621dc",
+      "bytes": 1570,
+      "completed_ms": 1792157230606,
+      "levels": [
+        20,
+        20
+      ],
+      "keys": [
+        "coin",
+        "levels",
+        "time"
+      ]
+    },
+    {
+      "name": "btc-candles",
+      "request": {
+        "type": "candleSnapshot",
+        "req": {
+          "coin": "BTC",
+          "interval": "4h",
+          "startTime": 1792114030055,
+          "endTime": 1792157230055
+        }
+      },
+      "started_ms": 1792157230606,
+      "http_status": 200,
+      "sha256": "46e5f6c7a3e0c42ef6b08c8c681deba15bc7fe48ebfbb804ace8fcd662d1371d",
+      "bytes": 561,
+      "completed_ms": 1792157230853,
+      "rows": 4,
+      "keys": [
+        "T",
+        "c",
+        "h",
+        "i",
+        "l",
+        "n",
+        "o",
+        "s",
+        "t",
+        "v"
+      ],
+      "first_time": 1792108800000,
+      "last_time": 1792152000000
+    },
+    {
+      "name": "btc-funding",
+      "request": {
+        "type": "fundingHistory",
+        "coin": "BTC",
+        "startTime": 1792146430055,
+        "endTime": 1792157230055
+      },
+      "started_ms": 1792157230853,
+      "http_status": 200,
+      "sha256": "f4f94fd68f9909815c88c46fcc127562b543449d6192010c1bdda6b51f61774a",
+      "bytes": 265,
+      "completed_ms": 1792157231074,
+      "rows": 3,
+      "keys": [
+        "coin",
+        "fundingRate",
+        "premium",
+        "time"
+      ],
+      "first_time": 1792148400021,
+      "last_time": 1792155600051
+    }
+  ],
+  "status": "PUBLIC_DATA_CONNECTIVITY_ONLY",
+  "strategy_source_status": "SOURCE_LOCATED_AND_UNIT_TESTED_DATA_STILL_MISSING",
+  "original_thread": "codex://threads/019da666-2f5a-78c3-9b88-0284f58ac2b5",
+  "repository": "https://github.com/rickypang0219/quant-research-agent-skill",
+  "inspected_refs": {
+    "main": "924fadb461ec71acae5a8b164634dc9aeaeedeee",
+    "codex_refine": "c8124832bf59a16f5174998d6fbbcccb4e2f025d"
+  },
+  "missing": [
+    "original OHLC/funding dataset manifests and raw data",
+    "original report equity/weights/config artifacts",
+    "Hyperliquid point-in-time universe and warmed shadow inputs"
+  ],
+  "observations": {
+    "metadata_rows": 234,
+    "explicitly_delisted": 56,
+    "btc_returned_candles": 4,
+    "btc_closed_candles": 3,
+    "btc_unclosed_candles": 1
+  },
+  "raw_local": "runs/rust-native-20261015/shadow-public-1792157230055468908",
+  "scope": "Read-only public mainnet HTTP snapshots; no shadow signals, no mainnet signer, no alpha conclusion",
+  "selected_research_commit": "b41cd0d767bfa0e32871ba29464d5f82817f8db6",
+  "source_supplied_by": "owner",
+  "research_validation": {
+    "pytest_passed": 25,
+    "pytest_failed": 0,
+    "ruff": "PASS",
+    "historical_result_reproduced": false
+  },
+  "research_file_sha256": {
+    "pyproject.toml": "c646578de036099397524bf88dfaa1b0cc3619f28fb7eb3eb40f57d9c6b2cd97",
+    "uv.lock": "3146a7f45b8d5039bef8ce294be6e9726d84ad949464e79aa5d9b387b5ce6a67",
+    "research/crypto_stat_arb/__init__.py": "b1a4518eef34ff670d4cd58a5ef9b3635b3e53c54b4e736b9b4aed839d11c574",
+    "research/crypto_stat_arb/binance_funding.py": "f6f24500757043db149020e4b5907843260aa6a930463f8898f864f44f179b01",
+    "research/crypto_stat_arb/binance_ohlc.py": "09a0eb51eda4d0576d37378fe0966f2c6bb40df807427f4dc2bb9aae0f723e8a",
+    "research/crypto_stat_arb/event_driven_backtest.py": "e2246259d12f23d67d355855797a03ce982cc961bab74fe8ea990e3e726d860d",
+    "research/crypto_stat_arb/pca_residual_backtest.py": "9fb68f51461df48b1e1b357b2b6161d4e015743b28a3d0806fc02ca6c05c289b",
+    "research/crypto_stat_arb/train_forward_validation.py": "aea06e65f167ea22b0c5eda770cd7029ec05168d7067fdfe5a869e96218dee99"
+  },
+  "boundary_probes": {
+    "source": "b41cd0d767bfa0e32871ba29464d5f82817f8db6",
+    "future_invalid_close_changes_earlier_universe": {
+      "before": [
+        "A",
+        "B",
+        "C"
+      ],
+      "after": [
+        "A",
+        "B"
+      ],
+      "confirmed": true
+    },
+    "resample_drops_quote_volume": {
+      "input_has_quote_volume": true,
+      "output_has_quote_volume": false
+    },
+    "incomplete_4h_bucket_emitted": {
+      "input_hours": 2,
+      "output_rows": 3
+    },
+    "cluster_config": {
+      "pca_return_bars": 1620,
+      "ar_return_bars": 360,
+      "rebalance_bars_despite_field_name_hours": 6,
+      "bar_hours": 4.0,
+      "entry": 1.5
+    }
+  },
+  "evidence_archives": {
+    "public_market_snapshots": {
+      "uri": "s3://mininautilushost-artifacts82dd59a1-jimhxpumwqyb/rust-native-20261015/mini-native-1792156825/local-verification-5.tar.gz",
+      "sha256": "14ccc6de6523e972ba45580624c1caaa8168a099a579b9db1da3f75a78c9f5b9",
+      "contents": [
+        "verify-expiry-final.log",
+        "release-expiry-final.log",
+        "release-baseline-final.log",
+        "replay-expiry-final.log",
+        "expiry-final-green.log",
+        "expiry-latch-fault-red-2.log",
+        "expiry-latch-fault-red.log",
+        "expiry-clippy.log",
+        "bundle-5.json",
+        "aws_experiment_4.py",
+        "remote_experiment_4.py",
+        "start_live_sampler_4.py",
+        "shadow-public-1792157230055468908",
+        "account-preflight-1792020205999.json",
+        "account-preflight-1792020244458.json",
+        "account-preflight-1792156796883.json",
+        "account-preflight-1792019803754.json",
+        "account-preflight-1792085025804.json",
+        "account-preflight-1792066693201.json",
+        "account-preflight-1792066703488.json",
+        "account-preflight-1792020135346.json",
+        "account-preflight-1792066548316.json",
+        "account-preflight-1792066720239.json"
+      ]
+    },
+    "research_checks_and_boundary_probes": {
+      "uri": "s3://mininautilushost-artifacts82dd59a1-jimhxpumwqyb/rust-native-20261015/mini-native-1792178996/local-verification-6.tar.gz",
+      "sha256": "b05845c92077b6906f6b4f0880f1badedf88cb07f35057164584be48a14a66cb",
+      "contents": [
+        "verify-visibility-final.log",
+        "release-visibility-final.log",
+        "replay-visibility-final.log",
+        "visibility-red.log",
+        "visibility-green.log",
+        "research-setup-b41cd0d.log",
+        "research-tests-b41cd0d.log",
+        "research-ruff-b41cd0d.log",
+        "research-boundary-probe.py",
+        "research-boundary-probe.json",
+        "native-journal-template-validation.json",
+        "bundle-6.json",
+        "aws_experiment_5.py",
+        "remote_experiment_5.py",
+        "start_live_sampler_5.py",
+        "account-preflight-1792020205999.json",
+        "account-preflight-1792178696451.json",
+        "account-preflight-1792020244458.json",
+        "account-preflight-1792156796883.json",
+        "account-preflight-1792019803754.json",
+        "account-preflight-1792085025804.json",
+        "account-preflight-1792066693201.json",
+        "account-preflight-1792066703488.json",
+        "account-preflight-1792020135346.json",
+        "account-preflight-1792066548316.json",
+        "account-preflight-1792066720239.json",
+        "account-preflight-1792178996150.json"
+      ]
+    }
+  }
+}

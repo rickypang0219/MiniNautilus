@@ -1,8 +1,12 @@
-use crate::model::*;
+use crate::{cold::ColdRef, model::*};
 use serde::{Deserialize, Serialize};
 use std::collections::{BTreeMap, BTreeSet};
 
+mod transition;
+
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+// Derived (inherent) functions; the trait impls below rebuild the order index.
+#[serde(remote = "Self")]
 pub struct Core {
     pub config: Config,
     pub seq: u64,
@@ -23,6 +27,116 @@ pub struct Core {
     pub last_target_revision: u64,
     /// Tick-lot cash, without fees; i128 prevents multiplying two i64s from overflowing.
     pub cash: i128,
+    /// Session opening balances carried over by journal rotation (H4). Venue
+    /// reconciliation positions are relative to the session's opening position.
+    #[serde(default, skip_serializing_if = "is_zero_i64")]
+    pub opening_position: i64,
+    #[serde(default, skip_serializing_if = "is_zero_i128")]
+    pub opening_cash: i128,
+    /// Client order IDs up to this value belong to rotated-out sessions.
+    #[serde(default, skip_serializing_if = "is_zero_u64")]
+    pub id_floor: OrderId,
+    /// Retired-order evidence written by live rotation; metadata only, Core never reads it.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub cold: Option<ColdRef>,
+    /// Derived from `orders`; never serialized. Code that mutates `orders` directly
+    /// (outside transitions) must call `reindex` before applying further events.
+    #[serde(skip)]
+    index: OrderIndex,
+    /// Opt-in record of written order/fill IDs for compact transport responses.
+    #[serde(skip)]
+    changes: ChangeLog,
+}
+
+/// Order and fill IDs written since the last `take_changes`. `replaced` means a
+/// full reconciliation swapped the history; observers must reload full state.
+#[derive(Clone, Debug, Default, PartialEq, Eq)]
+pub struct Changes {
+    pub orders: BTreeSet<OrderId>,
+    pub fills: BTreeSet<u64>,
+    pub replaced: bool,
+}
+
+/// Observer bookkeeping, not trading state: excluded from equality and serde.
+#[derive(Clone, Debug, Default)]
+struct ChangeLog(Option<Changes>);
+impl PartialEq for ChangeLog {
+    fn eq(&self, _: &Self) -> bool {
+        true
+    }
+}
+impl Eq for ChangeLog {}
+
+fn is_zero_i64(v: &i64) -> bool {
+    *v == 0
+}
+fn is_zero_i128(v: &i128) -> bool {
+    *v == 0
+}
+fn is_zero_u64(v: &u64) -> bool {
+    *v == 0
+}
+
+/// Account state a rotated journal starts from. Rotation requires a healthy,
+/// fully resolved book, so no order, fill or reservation needs to carry over.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct Carry {
+    pub now: Time,
+    pub position: i64,
+    pub cash: i128,
+    pub killed: bool,
+    pub epoch: u64,
+    pub last_target_revision: u64,
+    pub id_floor: OrderId,
+    /// Cold index of every order at or below `id_floor` (live rotation only).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub cold: Option<ColdRef>,
+}
+
+impl Serialize for Core {
+    fn serialize<S: serde::Serializer>(&self, serializer: S) -> Result<S::Ok, S::Error> {
+        Core::serialize(self, serializer)
+    }
+}
+
+impl<'de> Deserialize<'de> for Core {
+    fn deserialize<D: serde::Deserializer<'de>>(deserializer: D) -> Result<Self, D::Error> {
+        let mut core = Core::deserialize(deserializer)?;
+        core.reindex();
+        Ok(core)
+    }
+}
+
+/// Orders that can still reserve exposure: not terminal, or terminal but uncertain.
+/// Exactly the orders for which `Order::remaining` may be non-zero.
+fn is_open(order: &Order) -> bool {
+    !order.lifecycle.terminal() || order.uncertain
+}
+
+/// Secondary indexes so risk, timers and barriers scan open orders, not history.
+#[derive(Clone, Debug, Default, PartialEq, Eq)]
+struct OrderIndex {
+    open: BTreeSet<OrderId>,
+    deadlines: BTreeSet<(Time, OrderId)>,
+}
+
+impl OrderIndex {
+    fn build(orders: &BTreeMap<OrderId, Order>) -> Self {
+        let mut index = Self::default();
+        for (id, order) in orders {
+            index.add(*id, order);
+        }
+        index
+    }
+
+    fn add(&mut self, id: OrderId, order: &Order) {
+        if is_open(order) {
+            self.open.insert(id);
+        }
+        if let Some(deadline) = order.deadline {
+            self.deadlines.insert((deadline, id));
+        }
+    }
 }
 
 impl Core {
@@ -54,45 +168,202 @@ impl Core {
             target: None,
             last_target_revision: 0,
             cash: 0,
+            opening_position: 0,
+            opening_cash: 0,
+            id_floor: 0,
+            cold: None,
+            index: OrderIndex::default(),
+            changes: ChangeLog::default(),
         })
     }
 
-    /// Transactional reference implementation. Clone cost is intentional in v0.
-    /// There is no I/O or wall clock access in this state machine.
-    pub fn apply(&mut self, input: &Envelope) -> Result<Vec<Effect>, String> {
-        if self.seq.checked_add(1) != Some(input.seq) || input.at < self.now {
-            return Err("non-contiguous engine sequence or clock moved backwards".into());
+    /// A healthy book with nothing open: history can move to an archive.
+    pub fn rotation_ready(&self) -> Result<(), &'static str> {
+        if self.health != Health::Healthy {
+            return Err("rotation requires a healthy, reconciled engine");
         }
-        let mut next = self.clone();
-        next.seq = input.seq;
-        next.now = input.at;
-        let mut effects = Vec::new();
-        if let Err(reason) = next.handle(&input.event, &mut effects) {
-            // An invalid external report must not partially mutate accounting or
-            // disappear silently. Consume it and gate the account for reconciliation.
-            next = self.clone();
-            next.seq = input.seq;
-            next.now = input.at;
-            effects.clear();
-            next.gate(&reason, &mut effects);
+        if !self.index.open.is_empty() {
+            return Err("rotation requires every order to be terminal and certain");
         }
-        *self = next;
-        Ok(effects)
+        Ok(())
     }
 
-    fn gate(&mut self, reason: &str, out: &mut Vec<Effect>) {
-        if self.health != Health::Disconnected {
-            self.health = Health::Reconciling;
+    pub fn carry(&self) -> Carry {
+        Carry {
+            now: self.now,
+            position: self.position,
+            cash: self.cash,
+            killed: self.killed,
+            epoch: self.epoch,
+            last_target_revision: self.last_target_revision,
+            id_floor: self
+                .orders
+                .last_key_value()
+                .map_or(self.id_floor, |(id, _)| *id)
+                .max(self.id_floor),
+            cold: self.cold.clone(),
         }
-        out.push(Effect::Alert(reason.into()));
-        out.push(Effect::QueryState { epoch: self.epoch });
+    }
+
+    /// The first state of a rotated journal: no history, carried balances and latch.
+    pub fn from_carry(config: Config, carry: &Carry) -> Result<Self, String> {
+        let mut core = Core::new(config)?;
+        core.now = carry.now;
+        core.last_private_at = carry.now;
+        core.position = carry.position;
+        core.cash = carry.cash;
+        core.opening_position = carry.position;
+        core.opening_cash = carry.cash;
+        core.killed = carry.killed;
+        core.epoch = carry.epoch;
+        core.last_target_revision = carry.last_target_revision;
+        core.id_floor = carry.id_floor;
+        core.cold = carry.cold.clone();
+        Ok(core)
+    }
+
+    /// Start recording written order/fill IDs. Off by default so in-process
+    /// backtests that never drain the log do not accumulate it.
+    pub fn track_changes(&mut self) {
+        self.changes.0.get_or_insert_with(Changes::default);
+    }
+
+    /// Drain the IDs written since the previous call; `None` when not tracking.
+    pub fn take_changes(&mut self) -> Option<Changes> {
+        self.changes.0.as_mut().map(std::mem::take)
+    }
+
+    /// Rebuild derived indexes after editing `orders` outside a transition.
+    pub fn reindex(&mut self) {
+        self.index = OrderIndex::build(&self.orders);
+    }
+
+    /// True when the derived indexes match a full scan of `orders` (test oracle).
+    pub fn index_consistent(&self) -> bool {
+        self.index == OrderIndex::build(&self.orders)
+    }
+
+    /// Orders that can still fill or reserve risk, in ID order. O(open), not O(history).
+    pub fn open_orders(&self) -> impl Iterator<Item = (&OrderId, &Order)> {
+        self.index.open.iter().map(|id| (id, &self.orders[id]))
+    }
+
+    /// Orders whose submit/cancel deadline is at or before `now`, in deadline order.
+    fn expired_orders(&self, now: Time) -> impl Iterator<Item = (&OrderId, &Order)> {
+        self.index
+            .deadlines
+            .range(..=(now, OrderId::MAX))
+            .map(|(_, id)| (id, &self.orders[id]))
+    }
+
+    /// The only write path for `orders` inside transitions; keeps indexes in step.
+    fn put_order(&mut self, id: OrderId, order: Order) {
+        match self.orders.get_mut(&id) {
+            Some(slot) => {
+                // Touch the index only where membership actually changes.
+                if is_open(slot) != is_open(&order) {
+                    if is_open(&order) {
+                        self.index.open.insert(id);
+                    } else {
+                        self.index.open.remove(&id);
+                    }
+                }
+                if slot.deadline != order.deadline {
+                    if let Some(due) = slot.deadline {
+                        self.index.deadlines.remove(&(due, id));
+                    }
+                    if let Some(due) = order.deadline {
+                        self.index.deadlines.insert((due, id));
+                    }
+                }
+                *slot = order;
+            }
+            None => {
+                self.index.add(id, &order);
+                self.orders.insert(id, order);
+            }
+        }
+        if let Some(changes) = &mut self.changes.0 {
+            changes.orders.insert(id);
+        }
+    }
+
+    fn put_fill(&mut self, fill: Fill) {
+        if let Some(changes) = &mut self.changes.0 {
+            changes.fills.insert(fill.execution_id);
+        }
+        self.fills.insert(fill.execution_id, fill);
+    }
+
+    fn replace_history(&mut self, rebuilt: Core) {
+        self.orders = rebuilt.orders;
+        self.fills = rebuilt.fills;
+        self.index = rebuilt.index;
+        if let Some(changes) = &mut self.changes.0 {
+            *changes = Changes {
+                replaced: true,
+                ..Changes::default()
+            };
+        }
+    }
+
+    /// Prepare a transition without changing published state, then commit it.
+    /// Quote/Trade preparation never copies order or execution history.
+    pub fn apply(&mut self, input: &Envelope) -> Result<Vec<Effect>, String> {
+        if self.apply_header_only(input) {
+            return Ok(Vec::new());
+        }
+        Ok(self.prepare(input)?.commit())
+    }
+
+    /// In-place commit for valid market/heartbeat/idle-timer events, which change
+    /// only fixed-size header fields and produce no effects. Once validated they
+    /// cannot fail, so there is nothing to stage. Anything else (an invalid value,
+    /// a due deadline, a stale private stream, a bad envelope) returns false and
+    /// takes the general prepare/commit path, which owns all gating behaviour.
+    /// The journal always uses prepare/commit; tests/transition_equivalence.rs
+    /// checks this path against the frozen reference on every event.
+    fn apply_header_only(&mut self, input: &Envelope) -> bool {
+        if self.seq.checked_add(1) != Some(input.seq) || input.at < self.now {
+            return false;
+        }
+        let now = input.at;
+        match input.event {
+            Event::Quote { bid, ask } if bid > 0 && ask >= bid => {
+                self.quote = Some((bid, ask, now));
+            }
+            Event::Trade { price, qty, .. } if price > 0 && qty > 0 => {}
+            Event::Heartbeat { epoch } => {
+                if epoch == self.epoch && self.health != Health::Disconnected {
+                    self.last_private_at = now;
+                }
+            }
+            Event::Tick
+                if self
+                    .index
+                    .deadlines
+                    .first()
+                    .is_none_or(|(due, _)| *due > now)
+                    && !(self.health == Health::Healthy
+                        && now - self.last_private_at > self.config.private_stale_ms) => {}
+            _ => return false,
+        }
+        self.seq = input.seq;
+        self.now = now;
+        true
+    }
+
+    /// The exclusive borrow prevents state changes between prepare and commit.
+    /// Dropping this value (for example after a journal failure) changes nothing.
+    pub(crate) fn prepare(&mut self, input: &Envelope) -> Result<transition::Prepared<'_>, String> {
+        transition::Prepared::new(self, input)
     }
 
     /// Independent buy/sell bounds: offsetting pending orders cannot net away risk.
     pub fn exposure_bounds(&self) -> (i128, i128) {
         let mut lo = self.position as i128;
         let mut hi = lo;
-        for order in self.orders.values() {
+        for (_, order) in self.open_orders() {
             match order.intent.side {
                 Side::Buy => hi += order.remaining() as i128,
                 Side::Sell => lo -= order.remaining() as i128,
@@ -101,8 +372,9 @@ impl Core {
         (lo, hi)
     }
 
-    fn refusal(&self, intent: &Intent) -> Option<&'static str> {
-        if self.orders.contains_key(&intent.id) {
+    fn refusal(&self, intent: &Intent, seq: u64, now: Time) -> Option<&'static str> {
+        if (self.id_floor > 0 && intent.id <= self.id_floor) || self.orders.contains_key(&intent.id)
+        {
             return Some("client order ID already used");
         }
         if self.killed || self.health != Health::Healthy {
@@ -116,19 +388,19 @@ impl Core {
         {
             return Some("order limit exceeded");
         }
-        if intent.valid_until < self.now
-            || intent.based_on_seq >= self.seq
-            || (self.seq - 1).saturating_sub(intent.based_on_seq) > self.config.max_signal_lag
+        if intent.valid_until < now
+            || intent.based_on_seq >= seq
+            || (seq - 1).saturating_sub(intent.based_on_seq) > self.config.max_signal_lag
         {
             return Some("expired or stale strategy intent");
         }
         if self
             .quote
-            .is_none_or(|(_, _, at)| self.now - at > self.config.market_stale_ms)
+            .is_none_or(|(_, _, at)| now - at > self.config.market_stale_ms)
         {
             return Some("market data stale");
         }
-        if self.now - self.last_private_at > self.config.private_stale_ms {
+        if now - self.last_private_at > self.config.private_stale_ms {
             return Some("private stream stale");
         }
         let (mut lo, mut hi) = self.exposure_bounds();
@@ -148,21 +420,18 @@ impl Core {
         intent: &Intent,
         revision: u64,
         expected_position: i64,
+        now: Time,
     ) -> Option<&'static str> {
         let Some(target) = &self.target else {
             return Some("no active target");
         };
-        if target.revision != revision || target.valid_until < self.now {
+        if target.revision != revision || target.valid_until < now {
             return Some("target superseded or expired");
         }
         if expected_position != self.position {
             return Some("position changed since intent calculation");
         }
-        if self
-            .orders
-            .values()
-            .any(|o| !o.lifecycle.terminal() || o.uncertain)
-        {
+        if !self.index.open.is_empty() {
             return Some("previous order unresolved; cancel/replace barrier closed");
         }
         let delta = target.position as i128 - self.position as i128;
@@ -175,296 +444,14 @@ impl Core {
         None
     }
 
-    fn handle(&mut self, event: &Event, out: &mut Vec<Effect>) -> Result<(), String> {
-        match event {
-            Event::MarketUnavailable => self.quote = None,
-            Event::QuoteObserved {
-                bid,
-                ask,
-                observed_at,
-            } => {
-                if *bid <= 0 || ask < bid || *observed_at > self.now {
-                    return Err("invalid observed quote".into());
-                }
-                self.quote = Some((*bid, *ask, *observed_at));
-            }
-            Event::Trade { price, qty, .. } => {
-                if *price <= 0 || *qty <= 0 {
-                    return Err("invalid market trade".into());
-                }
-            }
-            Event::Quote { bid, ask } => {
-                if *bid <= 0 || ask < bid {
-                    return Err("invalid quote".into());
-                }
-                self.quote = Some((*bid, *ask, self.now));
-            }
-            Event::SetTarget(target) => {
-                if target.revision <= self.last_target_revision
-                    || target.valid_until < self.now
-                    || (target.position as i128).abs() > self.config.max_abs_position as i128
-                {
-                    out.push(Effect::SignalRefused {
-                        revision: target.revision,
-                        reason: "stale, expired or out-of-bounds target".into(),
-                    });
-                } else {
-                    self.last_target_revision = target.revision;
-                    self.target = Some(target.clone());
-                }
-            }
-            Event::SubmitTargeted {
-                intent,
-                revision,
-                expected_position,
-            } => {
-                if let Some(reason) = self.targeted_refusal(intent, *revision, *expected_position) {
-                    out.push(Effect::Refused {
-                        id: intent.id,
-                        reason: reason.into(),
-                    });
-                } else {
-                    self.handle(&Event::Submit(intent.clone()), out)?;
-                }
-            }
-            Event::Submit(intent) => {
-                if let Some(reason) = self.refusal(intent) {
-                    out.push(Effect::Refused {
-                        id: intent.id,
-                        reason: reason.into(),
-                    });
-                } else {
-                    let deadline = self
-                        .now
-                        .checked_add(self.config.request_timeout_ms)
-                        .ok_or("deadline overflow")?;
-                    self.orders.insert(
-                        intent.id,
-                        Order {
-                            intent: intent.clone(),
-                            filled: 0,
-                            lifecycle: Lifecycle::Pending,
-                            pending: Some(PendingAction::Submit),
-                            deadline: Some(deadline),
-                            uncertain: false,
-                        },
-                    );
-                    out.push(Effect::SendOrder(intent.clone()));
-                }
-            }
-            Event::Cancel { id } => {
-                let Some(order) = self.orders.get_mut(id) else {
-                    out.push(Effect::Refused {
-                        id: *id,
-                        reason: "unknown order".into(),
-                    });
-                    return Ok(());
-                };
-                if self.health == Health::Disconnected
-                    || order.lifecycle.terminal()
-                    || order.pending == Some(PendingAction::Cancel)
-                {
-                    out.push(Effect::Refused {
-                        id: *id,
-                        reason: "cancel unavailable or already pending".into(),
-                    });
-                } else {
-                    order.pending = Some(PendingAction::Cancel);
-                    order.deadline = Some(
-                        self.now
-                            .checked_add(self.config.request_timeout_ms)
-                            .ok_or("deadline overflow")?,
-                    );
-                    out.push(Effect::SendCancel { id: *id });
-                }
-            }
-            Event::Execution {
-                epoch,
-                venue_seq,
-                report,
-            } => {
-                if *epoch != self.epoch || self.health == Health::Disconnected {
-                    return Ok(());
-                }
-                if *venue_seq == 0 {
-                    return Err("invalid venue sequence".into());
-                }
-                if *venue_seq <= self.reconciled_through {
-                    return Ok(());
-                }
-                if *venue_seq > self.venue_seq.saturating_add(1) {
-                    self.gate("private stream sequence gap", out);
-                }
-                self.venue_seq = self.venue_seq.max(*venue_seq);
-                self.last_private_at = self.now;
-                self.report(report, out)?;
-            }
-            Event::Heartbeat { epoch } => {
-                if *epoch == self.epoch && self.health != Health::Disconnected {
-                    self.last_private_at = self.now;
-                }
-            }
-            Event::Tick => {
-                let mut timed_out = false;
-                for order in self.orders.values_mut() {
-                    if order.deadline.is_some_and(|at| at <= self.now) {
-                        order.uncertain = true;
-                        order.deadline = None;
-                        timed_out = true;
-                    }
-                }
-                if timed_out {
-                    self.gate("order action timeout; outcome unknown", out);
-                }
-                if self.health == Health::Healthy
-                    && self.now - self.last_private_at > self.config.private_stale_ms
-                {
-                    self.gate("private stream heartbeat timeout", out);
-                }
-            }
-            Event::Disconnect => {
-                self.target = None;
-                self.health = Health::Disconnected;
-                self.quote = None;
-                for order in self.orders.values_mut().filter(|o| !o.lifecycle.terminal()) {
-                    order.uncertain = true;
-                }
-            }
-            Event::Reconnect => {
-                self.epoch = self.epoch.checked_add(1).ok_or("epoch overflow")?;
-                self.health = Health::Reconciling;
-                self.quote = None;
-                out.push(Effect::QueryState { epoch: self.epoch });
-            }
-            Event::Reconcile(snapshot) => self.reconcile(snapshot)?,
-            Event::Kill => {
-                self.killed = true;
-                out.push(Effect::Alert(
-                    "kill latched; new orders disabled; cancels still allowed".into(),
-                ));
-            }
-        }
-        Ok(())
-    }
-
-    fn report(&mut self, report: &Report, out: &mut Vec<Effect>) -> Result<(), String> {
-        match report {
-            Report::Fill(fill) => self.fill(fill)?,
-            Report::Accepted { id } => {
-                let order = self.orders.get_mut(id).ok_or("ack for unknown order")?;
-                if !order.lifecycle.terminal() {
-                    order.lifecycle = if order.filled == 0 {
-                        Lifecycle::Accepted
-                    } else {
-                        Lifecycle::Partial
-                    };
-                    if order.pending == Some(PendingAction::Submit) {
-                        order.pending = None;
-                        order.deadline = None;
-                    }
-                }
-            }
-            Report::Canceled {
-                id,
-                cumulative_filled,
-            } => {
-                let order = self.orders.get_mut(id).ok_or("cancel for unknown order")?;
-                if *cumulative_filled < order.filled || *cumulative_filled > order.intent.qty {
-                    return Err("inconsistent canceled cumulative quantity".into());
-                }
-                if *cumulative_filled != order.filled {
-                    order.uncertain = true;
-                    self.gate("cancel references missing fills", out);
-                } else {
-                    order.lifecycle = if order.filled == order.intent.qty {
-                        Lifecycle::Filled
-                    } else {
-                        Lifecycle::Canceled
-                    };
-                    order.pending = None;
-                    order.deadline = None;
-                    order.uncertain = false;
-                }
-            }
-            Report::Rejected { id } => {
-                let order = self.orders.get_mut(id).ok_or("reject for unknown order")?;
-                if order.lifecycle == Lifecycle::Rejected {
-                    return Ok(());
-                }
-                if order.filled != 0 || order.lifecycle != Lifecycle::Pending {
-                    return Err("submit rejection conflicts with accepted order".into());
-                }
-                order.lifecycle = Lifecycle::Rejected;
-                order.pending = None;
-                order.deadline = None;
-                order.uncertain = false;
-            }
-            Report::CancelRejected { id } => {
-                let order = self
-                    .orders
-                    .get_mut(id)
-                    .ok_or("cancel rejection for unknown order")?;
-                if order.pending == Some(PendingAction::Cancel) {
-                    order.pending = None;
-                    order.deadline = None;
-                    order.uncertain = true;
-                    self.gate("cancel rejected; query actual order state", out);
-                }
-            }
-        }
-        Ok(())
-    }
-
     fn fill(&mut self, fill: &Fill) -> Result<(), String> {
-        if let Some(previous) = self.fills.get(&fill.execution_id) {
-            return if previous == fill {
-                Ok(())
-            } else {
-                Err("execution ID reused with different payload".into())
-            };
+        if let Some(update) = transition::FillUpdate::prepare(self, fill)? {
+            update.commit(self);
         }
-        if fill.execution_id == 0 || fill.qty <= 0 || fill.price <= 0 {
-            return Err("invalid fill".into());
-        }
-        let order = self
-            .orders
-            .get_mut(&fill.order_id)
-            .ok_or("fill for unknown order")?;
-        if fill.qty > order.intent.qty - order.filled {
-            return Err("overfill".into());
-        }
-        if order.lifecycle.terminal() {
-            return Err("new fill after terminal report; reconcile".into());
-        }
-        if (order.intent.side == Side::Buy && fill.price > order.intent.limit)
-            || (order.intent.side == Side::Sell && fill.price < order.intent.limit)
-        {
-            return Err("fill violates limit price".into());
-        }
-        let delta = order.intent.side.sign() * fill.qty;
-        self.position = self
-            .position
-            .checked_add(delta)
-            .ok_or("position overflow")?;
-        self.cash = self
-            .cash
-            .checked_sub(delta as i128 * fill.price as i128)
-            .ok_or("cash overflow")?;
-        order.filled += fill.qty;
-        order.lifecycle = if order.filled == order.intent.qty {
-            Lifecycle::Filled
-        } else {
-            Lifecycle::Partial
-        };
-        if order.lifecycle == Lifecycle::Filled || order.pending == Some(PendingAction::Submit) {
-            order.pending = None;
-            order.deadline = None;
-        }
-        self.fills.insert(fill.execution_id, fill.clone());
         Ok(())
     }
 
-    fn reconcile(&mut self, snapshot: &Reconciliation) -> Result<(), String> {
+    fn rebuild(&self, snapshot: &Reconciliation) -> Result<Core, String> {
         if self.health != Health::Reconciling
             || snapshot.epoch != self.epoch
             || snapshot.watermark < self.venue_seq
@@ -472,6 +459,11 @@ impl Core {
             return Err("stale reconciliation or no active recovery".into());
         }
         let mut rebuilt = Core::new(self.config.clone())?;
+        (rebuilt.position, rebuilt.cash) = (self.opening_position, self.opening_cash);
+        (rebuilt.opening_position, rebuilt.opening_cash) =
+            (self.opening_position, self.opening_cash);
+        rebuilt.id_floor = self.id_floor;
+        rebuilt.cold = self.cold.clone();
         let mut ids = BTreeSet::new();
         for remote in &snapshot.orders {
             let local = self
@@ -495,6 +487,29 @@ impl Core {
                     intent: remote.intent.clone(),
                     filled: 0,
                     lifecycle: Lifecycle::Accepted,
+                    pending: None,
+                    deadline: None,
+                    uncertain: false,
+                },
+            );
+        }
+        // Proven never received: terminal before fills are applied, so a fill that
+        // names one of these orders fails closed instead of reviving it.
+        for id in &snapshot.absent {
+            let local = self.orders.get(id).ok_or("absent order unknown locally")?;
+            if !ids.insert(*id)
+                || local.lifecycle != Lifecycle::Pending
+                || local.filled != 0
+                || self.fills.values().any(|f| f.order_id == *id)
+            {
+                return Err("venue reports absent an order it acknowledged or filled".into());
+            }
+            rebuilt.orders.insert(
+                *id,
+                Order {
+                    intent: local.intent.clone(),
+                    filled: 0,
+                    lifecycle: Lifecycle::Rejected,
                     pending: None,
                     deadline: None,
                     uncertain: false,
@@ -528,17 +543,12 @@ impl Core {
                 return Err("snapshot omitted or changed a known fill".into());
             }
         }
-        if rebuilt.position != snapshot.position {
+        // Venue positions are session-relative (from the journal's genesis).
+        if rebuilt.position as i128 - self.opening_position as i128 != snapshot.position as i128 {
             return Err("venue position disagrees with fills".into());
         }
-        self.orders = rebuilt.orders;
-        self.fills = rebuilt.fills;
-        self.position = rebuilt.position;
-        self.cash = rebuilt.cash;
-        self.venue_seq = snapshot.watermark;
-        self.reconciled_through = snapshot.watermark;
-        self.last_private_at = self.now;
-        self.health = Health::Healthy;
-        Ok(())
+        // Built during preparation so commit only moves the replacement in.
+        rebuilt.reindex();
+        Ok(rebuilt)
     }
 }

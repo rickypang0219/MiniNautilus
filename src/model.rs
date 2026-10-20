@@ -90,11 +90,51 @@ pub struct Fill {
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub enum Report {
-    Accepted { id: OrderId },
+    Accepted {
+        id: OrderId,
+    },
     Fill(Fill),
-    Canceled { id: OrderId, cumulative_filled: i64 },
-    Rejected { id: OrderId },
-    CancelRejected { id: OrderId },
+    Canceled {
+        id: OrderId,
+        cumulative_filled: i64,
+    },
+    Rejected {
+        id: OrderId,
+    },
+    CancelRejected {
+        id: OrderId,
+    },
+    /// A report about an order retired by live rotation (at or below `id_floor`).
+    /// Only the durable engine creates it, after consulting the cold index, so
+    /// replay uses the recorded verdict (docs/adr-live-rotation.md).
+    Retired {
+        report: Box<Report>,
+        verdict: RetiredVerdict,
+    },
+}
+
+impl Report {
+    /// The client order ID this report is about.
+    pub fn order_id(&self) -> OrderId {
+        match self {
+            Report::Accepted { id }
+            | Report::Canceled { id, .. }
+            | Report::Rejected { id }
+            | Report::CancelRejected { id } => *id,
+            Report::Fill(fill) => fill.order_id,
+            Report::Retired { report, .. } => report.order_id(),
+        }
+    }
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub enum RetiredVerdict {
+    /// Exactly matches retired evidence: consumes its venue sequence, changes nothing else.
+    Duplicate,
+    /// Disagrees with retired evidence: gate for reconciliation.
+    Contradiction,
+    /// Evidence missing or failed verification: gate (fail closed).
+    Unavailable,
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
@@ -113,6 +153,12 @@ pub struct Reconciliation {
     pub orders: Vec<VenueOrder>,
     pub fills: Vec<Fill>,
     pub position: i64,
+    /// Local orders the venue proves it never received: queried by client order
+    /// ID after every request that could create them has expired (for Binance,
+    /// after the signed request's recvWindow). Only never-acknowledged, unfilled
+    /// orders may be listed; they become terminal (Rejected) and their IDs stay used.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub absent: Vec<OrderId>,
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]

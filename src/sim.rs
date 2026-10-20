@@ -1,11 +1,16 @@
 //! Deterministic exchange with explicit delivery faults. Quotes do not imply fills:
 //! `trade` supplies available liquidity and fills eligible orders in ID order.
 use crate::model::*;
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, BTreeSet};
+use std::ops::Bound::{Excluded, Unbounded};
 
 #[derive(Default)]
 pub struct PaperExchange {
+    /// Complete venue history (snapshots, idempotent submit). Mutate only through
+    /// `execute`/`trade`: matching walks the separate set of resting order IDs.
     pub orders: BTreeMap<OrderId, VenueOrder>,
+    /// Non-terminal orders in ID order; matching priority is unchanged (ID order).
+    resting: BTreeSet<OrderId>,
     pub fills: Vec<Fill>,
     pub venue_seq: u64,
     pub position: i64,
@@ -39,6 +44,18 @@ impl PaperExchange {
     }
 
     pub fn execute(&mut self, epoch: u64, effect: &Effect) -> Result<Vec<Event>, String> {
+        let mut out = Vec::new();
+        self.execute_into(epoch, effect, &mut out)?;
+        Ok(out)
+    }
+
+    /// `execute` that appends to the caller's buffer (no per-effect Vec).
+    pub fn execute_into(
+        &mut self,
+        epoch: u64,
+        effect: &Effect,
+        out: &mut Vec<Event>,
+    ) -> Result<(), String> {
         let report = match effect {
             Effect::SendOrder(intent) => {
                 if let Some(existing) = self.orders.get(&intent.id) {
@@ -59,6 +76,7 @@ impl PaperExchange {
                             lifecycle: Lifecycle::Accepted,
                         },
                     );
+                    self.resting.insert(intent.id);
                     Report::Accepted { id: intent.id }
                 }
             }
@@ -69,6 +87,7 @@ impl PaperExchange {
                 match self.orders.get_mut(id) {
                     Some(order) if !order.lifecycle.terminal() => {
                         order.lifecycle = Lifecycle::Canceled;
+                        self.resting.remove(id);
                         Report::Canceled {
                             id: *id,
                             cumulative_filled: order.filled,
@@ -78,11 +97,13 @@ impl PaperExchange {
                 }
             }
             Effect::QueryState { epoch } if self.connected => {
-                return Ok(vec![Event::Reconcile(self.snapshot(*epoch))]);
+                out.push(Event::Reconcile(self.snapshot(*epoch)));
+                return Ok(());
             }
-            _ => return Ok(Vec::new()),
+            _ => return Ok(()),
         };
-        Ok(self.deliver(epoch, report).into_iter().collect())
+        out.extend(self.deliver(epoch, report));
+        Ok(())
     }
 
     /// A taker sell hits resting buys; taker buy lifts resting sells. No impact model.
@@ -97,10 +118,18 @@ impl PaperExchange {
             return Err("invalid trade".into());
         }
         let mut generated = Vec::new();
-        for order in self.orders.values_mut() {
+        // Cursor walk so filled orders can leave `resting` without allocating.
+        let mut cursor = self.resting.first().copied();
+        while let Some(id) = cursor {
+            cursor = self
+                .resting
+                .range((Excluded(id), Unbounded))
+                .next()
+                .copied();
             if qty == 0 {
                 break;
             }
+            let order = self.orders.get_mut(&id).expect("resting order exists");
             if order.lifecycle.terminal() || order.intent.side == taker {
                 continue;
             }
@@ -115,6 +144,7 @@ impl PaperExchange {
             qty -= filled;
             order.filled += filled;
             order.lifecycle = if order.filled == order.intent.qty {
+                self.resting.remove(&id);
                 Lifecycle::Filled
             } else {
                 Lifecycle::Partial
@@ -149,6 +179,7 @@ impl PaperExchange {
             orders: self.orders.values().cloned().collect(),
             fills: self.fills.clone(),
             position: self.position,
+            absent: vec![],
         }
     }
 }
