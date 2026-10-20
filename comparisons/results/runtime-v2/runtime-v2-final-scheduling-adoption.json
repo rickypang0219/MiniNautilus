@@ -1,9 +1,0 @@
-{
-  "baseline_source": "f7186be",
-  "candidate_source": "eedf924",
-  "decision": "REJECTED",
-  "rollback_source": "88def66",
-  "final_runtime_source": "e16496d",
-  "reason": "No >=10% nonoverlapping CPU/event improvement; other guardrails inconclusive.",
-  "retained": "Independent timeout safety tests only; runtime timeout implementation restored to baseline."
-}

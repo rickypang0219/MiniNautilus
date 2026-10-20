@@ -2,6 +2,10 @@
 
 一個用 Rust 學 trading systems 嘅實驗室：**先驗證狀態正確同可恢復，再量度低延遲設計**。
 
+目前狀態以 [native acceptance](docs/native-readiness-20261018.md) 及
+[feed consistency](docs/native-feed-consistency.md) 為準；歷史報告及測試輸出見
+[封存索引](docs/history.md)，每份原檔均保留固定 commit 連結及 hash。
+
 已實作 deterministic core、故障 simulator、durable journal/recovery、Python strategy、Hyperliquid Perps Testnet adapter、Binance Spot Testnet adapter，以及獨立效能實驗。範圍係 **一個 account、一個 instrument、limit order + cancel**。
 
 目前係可執行嘅 reference implementation，**未係 production/HFT engine**：Core 已改為 validate/prepare/commit，避免每個事件 clone 全份 state；journal 預設每個事件做 `sync_all`（可選 `--sync outbox`），舊 Python bridge 用 JSON IPC（protocol 2 只送 delta）；新 `native-live` 在 Rust 直接呼叫 DurableEngine，Python 只作可選策略。Binance execution adapter 保留原有 REST polling。風控、timer 和 paper 撮合只走 open-order index，不再掃描完整歷史。各部分「做到甚麼才算夠」見 [驗收條件](docs/acceptance.md)。
@@ -64,17 +68,17 @@ target/release/native-live probe --seconds 15
 target/release/native-live paper --python-strategy --seconds 900 --flatten --run-dir runs/native-paper-new
 ```
 
-紙上成交不代表交易所成交。實際 Testnet 小額下單、原 session 恢復、環境變數及風險限制見 [native 操作指引](docs/rust-native-runtime-operations.md)。[驗收記錄](docs/rust-native-runtime-results.md) 分開列出 correctness 和性能結果；不要把 Rust implementation 本身當作低延遲證明。Private stream 目前觸發 REST refresh；`1000/Expired` 會先關 gate 再重新訂閱及完整對帳，最多三次。其他斷線仍停止 session，live journal 輪換未啟用。
+紙上成交不代表交易所成交。實際 Testnet 小額下單、原 session 恢復、環境變數及風險限制見 [native 操作指引](docs/rust-native-runtime-operations.md)。[最新驗收](docs/native-readiness-20261018.md) 分開列出 correctness 和未通過的 fidelity／operations gates；不要把 Rust implementation 本身當作低延遲證明。Private stream 目前觸發 REST refresh；`1000/Expired` 會先關 gate 再重新訂閱及完整對帳，最多三次。Native lifecycle 支援 bounded flat-session 輪換及已驗證範圍內的 retained-EBS 換機；non-flat portfolio carry 及無人值守運行仍未驗收。
 
 Live 部署前的 artifact／ABI 核對、原 session 恢復及升級步驟見 [deployment runbook](docs/native-live-deployment-runbook.md)。生命週期、持久 journal／失機演練，以及已選定的 Cluster-PCA 無下單 shadow，見 [下一階段 scope 與量化驗收](docs/native-production-readiness-proposal.md) 及 [機讀 manifest](comparisons/native-readiness/manifest-v1.json)；這些待驗收項目不代表已能無人值守實盤。
 
-Native flat segmentation、原始行情／funding 錄製、獨立帳本／模擬成交對照及 retained-EBS 換機演練的實作與當次驗收，見 [readiness progress](docs/native-readiness-progress.md)。條件式成交重播與完整策略回測驗收分開報告。 完整數值、artifact hashes、原 FAIL 與清理證據見 [machine-readable results](docs/native-readiness-evidence.json)。
+Native flat segmentation、原始行情／funding 錄製、獨立帳本／模擬成交對照及 retained-EBS 換機演練的實作與當次驗收，見 [readiness progress](https://github.com/rickypang0219/MiniNautilus/blob/7524d895d618cb912572921afdefea8d39fe9cd7/docs/native-readiness-progress.md)。條件式成交重播與完整策略回測驗收分開報告。 完整數值、artifact hashes、原 FAIL 與清理證據見 [machine-readable results](docs/native-readiness-evidence.json)。
 
 ## Hyperliquid Perps Testnet
 
 下一個執行 venue 使用 Hyperliquid：沿用 Rust durable single writer、actor、bounded SMA cache，支援一個專用帳戶、一個 USDC perp 的 long/short、取消、USDC 費用／funding 對帳及恢復。Mainnet 下單關閉。詳見 [操作指引](docs/hyperliquid-testnet.md) 和 [migration scope／驗收](docs/hyperliquid-migration-proposal.md)。PCA 多交易對策略仍是獨立階段。
 
-[H1 驗收結果](docs/hyperliquid-migration-results.md)：15 分鐘 paper、兩輪 Testnet soak、實際成交後 SIGKILL recovery，以及中斷後殘留倉位的處理記錄。這些是受監督的 execution diagnostics，並非無人值守部署或策略收益證明。
+[H1 驗收結果](https://github.com/rickypang0219/MiniNautilus/blob/7524d895d618cb912572921afdefea8d39fe9cd7/docs/hyperliquid-migration-results.md)：15 分鐘 paper、兩輪 Testnet soak、實際成交後 SIGKILL recovery，以及中斷後殘留倉位的處理記錄。這些是受監督的 execution diagnostics，並非無人值守部署或策略收益證明。
 
 ```sh
 python3 -m pip install -r requirements.txt -r requirements-hyperliquid.txt
@@ -196,16 +200,16 @@ versioned target guards, delayed reports and independent venue/journal verificat
 
 已實際比較 Backtrader、NautilusTrader、vn.py 原生回測引擎，包括逐筆成交、
 部分成交／撤單、SMA 訊號、持倉與 PnL，以及不同歷史長度下的效能。
-見 [發現、成因、修正方法與實測數字](docs/backtest-comparison.md)，以及
+見 [發現、成因、修正方法與實測數字](https://github.com/rickypang0219/MiniNautilus/blob/7524d895d618cb912572921afdefea8d39fe9cd7/docs/backtest-comparison.md)，以及
 [可重跑的比較工具](comparisons/README.md)。所有案例均為離線合成數據。
 
 Core 與 Journal 的每事件 full clone 已改為 prepare／commit；見
 [逐段 code 導讀、全局影響與前後測量](docs/core-state-transitions.md)。
 
-最新驗證：[架構改動後的跨平台結果、adapter 修正及剩餘性能瓶頸](docs/post-refactor-audit.md)。
+最新驗證：[架構改動後的跨平台結果、adapter 修正及剩餘性能瓶頸](https://github.com/rickypang0219/MiniNautilus/blob/7524d895d618cb912572921afdefea8d39fe9cd7/docs/post-refactor-audit.md)。
 
 驗收條件、現狀及量度工具：[docs/acceptance.md](docs/acceptance.md)（`cargo run --release --example acceptance`）。
 
 Runtime v2：[設計與介面](docs/runtime-v2-design.md)、[離線運行方法](docs/runtime-v2-operations.md)、
-[47 項驗收與三個 90 分鐘故障 soak 結果](docs/runtime-v2-results.md)。
+[47 項驗收與三個 90 分鐘故障 soak 結果](https://github.com/rickypang0219/MiniNautilus/blob/7524d895d618cb912572921afdefea8d39fe9cd7/docs/runtime-v2-results.md)。
 Bounded actor 與增量 audit 已實作；可靠性 soak 通過，性能 guardrails 仍未全通過。

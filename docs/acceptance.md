@@ -41,7 +41,7 @@
 | C3 | Durable recovery 不重送歷史 effects；checksum 損壞拒絕啟動；kill latch 跨重啟保持 | `durable_recovery_snapshot_tail_and_exclusive_writer`、`committed_corruption_and_wrong_snapshot_fail_closed`、`kill_remains_latched_through_reconciliation_but_allows_cancel` |
 | C4 | 每次架構改動都與凍結的舊版逐事件一致 | `tests/transition_equivalence.rs`：對 `0580ad1` 的 full-clone reference 比較每個事件的 state、effects、Err，64 seeds × 256 個混合事件；本輪再加上 index 與 full scan 一致的斷言 |
 
-跨平台 audit（Backtrader、vn.py、NautilusTrader，見 [backtest-comparison.md](backtest-comparison.md) 和 [post-refactor-audit.md](post-refactor-audit.md)）沒有找到 Mini Core 的 bug，找到的是比較工具的 bug 和其他平台的語義差異。**凍結規則：** CI 繼續跑 `comparisons/run.py --platforms mini` 對 oracle 的比較；外部平台比較只在改動成交模型時手動重跑，不再新增案例類型。
+跨平台 audit（Backtrader、vn.py、NautilusTrader，見 [backtest-comparison.md](https://github.com/rickypang0219/MiniNautilus/blob/7524d895d618cb912572921afdefea8d39fe9cd7/docs/backtest-comparison.md) 和 [post-refactor-audit.md](https://github.com/rickypang0219/MiniNautilus/blob/7524d895d618cb912572921afdefea8d39fe9cd7/docs/post-refactor-audit.md)）沒有找到 Mini Core 的 bug，找到的是比較工具的 bug 和其他平台的語義差異。**凍結規則：** CI 繼續跑 `comparisons/run.py --platforms mini` 對 oracle 的比較；外部平台比較只在改動成交模型時手動重跑，不再新增案例類型。
 
 ---
 
@@ -110,7 +110,7 @@
 
 **證據：** `tests/rotation.rs`：5 個 session、每個 120 張訂單（含部分成交和取消），每次輪換後記憶體中的訂單數不超過一個 session，倉位、現金延續，kill latch 和 ID 下限跨輪換保持；有 open order 時拒絕輪換且不改動 journal。
 
-**Paper 自動觸發已實作（2026-10-11）：** `ops/synthetic_session.py --rotate-orders N` 在保留訂單數達到 N 後，等待 Healthy、flat、沒有 open／uncertain 訂單才輪換；不強制平倉。Rust 和 Python 都釋放舊 history，cash／kill／ID floor 保留。Live 仍需 adapter 協調 shutdown reconciliation，不能直接重設 venue。驗證及限制見 [deep-dive 報告](deep-dive-20261011.md)。
+**Paper 自動觸發已實作（2026-10-11）：** `ops/synthetic_session.py --rotate-orders N` 在保留訂單數達到 N 後，等待 Healthy、flat、沒有 open／uncertain 訂單才輪換；不強制平倉。Rust 和 Python 都釋放舊 history，cash／kill／ID floor 保留。Live 仍需 adapter 協調 shutdown reconciliation，不能直接重設 venue。驗證及限制見 [deep-dive 報告](https://github.com/rickypang0219/MiniNautilus/blob/7524d895d618cb912572921afdefea8d39fe9cd7/docs/deep-dive-20261011.md)。
 
 ---
 

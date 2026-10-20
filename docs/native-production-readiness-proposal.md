@@ -11,7 +11,7 @@ Status: **PREPARATION / NOT ACCEPTED**。這是後續 implementation scope；數
 
 目標是讓單一專用 Hyperliquid Testnet account 的 Rust runtime 可以安全運行、更新及恢復，再接上有版本的真實策略。Mainnet、無人值守實盤、多主動節點及跨交易所部署不在本次授權交付內。
 
-目前 Rust 已擁有行情、writer、durability、executor、簽名及恢復；Python 只作可選策略。`8d58574` 的 expiry 修正通過本地 verify，AWS 新驗收另見 [results](rust-native-runtime-results.md)。已有一次真實 crash-after-fill 恢復證據，不代表所有 crash window 已覆蓋。
+目前 Rust 已擁有行情、writer、durability、executor、簽名及恢復；Python 只作可選策略。`8d58574` 的 expiry 修正通過本地 verify，AWS 新驗收另見 [results](https://github.com/rickypang0219/MiniNautilus/blob/7524d895d618cb912572921afdefea8d39fe9cd7/docs/rust-native-runtime-results.md)。已有一次真實 crash-after-fill 恢復證據，不代表所有 crash window 已覆蓋。
 
 仍有重要限制：只有 `1000/Expired` 可有限度自動續接；其他網絡故障停止 session。每個 session 最多 1,000 張單；account lock 只在單一主機有效。現有基建 root EBS 是 delete-on-termination，不能當 production journal 的保護措施。現有 Core 是單 instrument，不能直接承載多幣 PCA portfolio。
 

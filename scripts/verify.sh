@@ -4,6 +4,7 @@ set -eu
 cd "$(dirname "$0")/.."
 step() { printf '\n== %s\n' "$*"; "$@"; }
 python3 -c "import websockets" 2>/dev/null || { echo "missing Python deps: pip install -r requirements.txt" >&2; exit 1; }
+step python3 scripts/check_archive.py
 step cargo fmt --check
 step cargo clippy --locked --all-targets -- -D warnings
 step cargo test --locked

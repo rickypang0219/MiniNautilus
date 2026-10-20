@@ -29,7 +29,7 @@ The lifecycle review supersedes several interpretations:
 - Tests used process crashes and a limited cold-write fault matrix; this does not
   establish hardware power-loss safety or complete new-runner soak coverage.
 
-See [LC results](runtime-v2-lifecycle-results.md) for the current itemised verdicts.
+See [LC results](https://github.com/rickypang0219/MiniNautilus/blob/7524d895d618cb912572921afdefea8d39fe9cd7/docs/runtime-v2-lifecycle-results.md) for the current itemised verdicts.
 No old run, raw data, numerical result or original commit is deleted.
 
 ## Historical next-phase summary (interpretations superseded above)

@@ -4,7 +4,7 @@ The implemented entrypoints exercise the Rust OMS through the bounded coordinato
 
 **Next phase (G2/G3, opt-in):** `examples/sma_spot.py --runtime actor --receipt target/runtime-v2-build.json --binary target/release/mininautilus` runs the same strategy through `mininautilus.live_actor.ActorSession` with the Binance Testnet adapter (`binance_live.py`). It refuses a binary without a matching release receipt and, for Testnet, a dirty tree. `--recovery-drill SECONDS` latches, reconciles and restarts a coordinator on purpose. `--rotate-orders N` (Testnet only) enables live rotation per [the ADR](adr-live-rotation.md): new risk stops at N hot orders, the session reconciles and rotates the journal, retired evidence moves to a cold index, and `--resume` follows the rotation chain using the `rotation-<journal>.json` baseline. Offline fault coverage: `tests/test_live_actor.py`, `tests/live_rotation.rs`.
 
-Read [design decisions](runtime-v2-design.md) and [scope/criteria](runtime-v2-proposal.md). No AWS resources or API keys are needed. Future cloud use keeps the existing Tokyo and under-USD-20 constraints; these commands do not deploy or resize anything.
+Read [design decisions](runtime-v2-design.md) and [scope/criteria](https://github.com/rickypang0219/MiniNautilus/blob/7524d895d618cb912572921afdefea8d39fe9cd7/docs/runtime-v2-proposal.md). No AWS resources or API keys are needed. Future cloud use keeps the existing Tokyo and under-USD-20 constraints; these commands do not deploy or resize anything.
 
 ## Build and correctness
 

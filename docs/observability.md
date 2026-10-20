@@ -116,7 +116,7 @@ Quantile 是 Prometheus 按 bucket 插值的估計，不是精確排序統計；
 
 ## 2026-10-11：重複證據、逐筆關聯與輪換
 
-完整結果及尚未達標的項目見 [deep-dive 報告](deep-dive-20261011.md)。
+完整結果及尚未達標的項目見 [deep-dive 報告](https://github.com/rickypang0219/MiniNautilus/blob/7524d895d618cb912572921afdefea8d39fe9cd7/docs/deep-dive-20261011.md)。
 
 - `ops/compare.py BEFORE AFTER` 可接收各含 `1/report.json` … `5/report.json` 的目錄。至少五次、相同 workload／machine、成功 session、乾淨 baseline、範圍不重疊且 median 差 >=10% 才能下性能結論。缺資料維持 inconclusive。
 - 合成 batching 每次 request 的 event 數不同，Rust request／Python IPC quantile 不能直接判定 engine 變快／變慢；比較 loop 與每次行情的 IPC 數。原有報告中的絕對門檻 FAIL 仍保留。

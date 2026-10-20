@@ -99,7 +99,7 @@ quote 的歷史長度依賴已消除；約24ns是此極小迴圈／編譯器最�
 
 驗證結果：46 Rust、43 Python、4 JavaScript tests；fmt／clippy；65個六profile原生平台案例及既定語義斷言；18個 durable／replay 案例；200,000個隨機行情觀測對獨立oracle，全部通過。
 
-原始樣本、版本、source hashes 及驗證摘要：[core-transition-performance.json](../comparisons/results/core-transition-performance.json)。保留原跨平台baseline，沒有覆寫當時的結果。
+原始樣本、版本、source hashes 及驗證摘要：[core-transition-performance.json](https://github.com/rickypang0219/MiniNautilus/blob/7524d895d618cb912572921afdefea8d39fe9cd7/comparisons/results/core-transition-performance.json)。保留原跨平台baseline，沒有覆寫當時的結果。
 
 舊版位於 [tests/support/reference_core.rs](../tests/support/reference_core.rs)，凍結自 `0580ad1`。Differential tests 比較每個事件的完整狀態、effects 及 Err，而不只看最後 PnL。64 seeds ×256個混合事件，另有 cash／position／deadline／epoch／sequence 邊界、重複成交、缺口和完整對帳案例。
 

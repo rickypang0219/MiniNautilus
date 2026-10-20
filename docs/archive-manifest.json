@@ -1,0 +1,1283 @@
+{
+  "schema": 1,
+  "repository": "https://github.com/rickypang0219/MiniNautilus",
+  "archive_commit": "7524d895d618cb912572921afdefea8d39fe9cd7",
+  "archive_tag": "archive/pre-cleanup-20261020",
+  "source_archive_url": "https://github.com/rickypang0219/MiniNautilus/archive/7524d895d618cb912572921afdefea8d39fe9cd7.tar.gz",
+  "recorded_verdicts_meaning": "Case-sensitive status markers present in the original file, not a new overall verdict. Consult the exact source for scope and criteria.",
+  "files": [
+    {
+      "path": "comparisons/results/aa-v1-20261012/ab-serial-vs-actor-immediate.json",
+      "size_bytes": 15416,
+      "sha256": "360f40390b25e69ce80114feb7f86fca249f81e9bffd7589d94a5461162637e7",
+      "git_blob": "71e30f2b5273197c3207eae84be7618bb506c4e5",
+      "recorded_verdicts": [
+        "FAIL",
+        "INCONCLUSIVE",
+        "PASS"
+      ],
+      "summary": "Historical experiment output (aa-v1-20261012); original observations and verdicts retained without regrading.",
+      "source_url": "https://github.com/rickypang0219/MiniNautilus/blob/7524d895d618cb912572921afdefea8d39fe9cd7/comparisons/results/aa-v1-20261012/ab-serial-vs-actor-immediate.json"
+    },
+    {
+      "path": "comparisons/results/aa-v1-20261012/ab-serial-vs-actor-slow.json",
+      "size_bytes": 15356,
+      "sha256": "2e6137d87abb84697bcac89ec7cca8b9a71e4b077a43a1cab949c93a8ee40835",
+      "git_blob": "d67505bf79a94ee78ce47d32dd922b3751ba97d5",
+      "recorded_verdicts": [
+        "FAIL",
+        "INCONCLUSIVE",
+        "PASS"
+      ],
+      "summary": "Historical experiment output (aa-v1-20261012); original observations and verdicts retained without regrading.",
+      "source_url": "https://github.com/rickypang0219/MiniNautilus/blob/7524d895d618cb912572921afdefea8d39fe9cd7/comparisons/results/aa-v1-20261012/ab-serial-vs-actor-slow.json"
+    },
+    {
+      "path": "comparisons/results/aa-v1-20261012/compare-actor-immediate.json",
+      "size_bytes": 10571,
+      "sha256": "9416306de0eaffa947bdd474ec631f3cbc93906d9a8edeb031ec9f7743d3f6ad",
+      "git_blob": "f8625d6cb76be082d72441b4488ff10ee91d2d41",
+      "recorded_verdicts": [
+        "INCONCLUSIVE",
+        "PASS"
+      ],
+      "summary": "Historical experiment output (aa-v1-20261012); original observations and verdicts retained without regrading.",
+      "source_url": "https://github.com/rickypang0219/MiniNautilus/blob/7524d895d618cb912572921afdefea8d39fe9cd7/comparisons/results/aa-v1-20261012/compare-actor-immediate.json"
+    },
+    {
+      "path": "comparisons/results/aa-v1-20261012/compare-actor-slow.json",
+      "size_bytes": 10562,
+      "sha256": "c06ea06e76b36304d497637a1a09335d88949559abc074b9dd533b60ca81adc6",
+      "git_blob": "d07ff5d02271abd3fed84ebc0e565021566723c6",
+      "recorded_verdicts": [
+        "PASS"
+      ],
+      "summary": "Historical experiment output (aa-v1-20261012); original observations and verdicts retained without regrading.",
+      "source_url": "https://github.com/rickypang0219/MiniNautilus/blob/7524d895d618cb912572921afdefea8d39fe9cd7/comparisons/results/aa-v1-20261012/compare-actor-slow.json"
+    },
+    {
+      "path": "comparisons/results/aa-v1-20261012/compare-serial-immediate.json",
+      "size_bytes": 10579,
+      "sha256": "2f7f5a9d70c2ea8b70a2f365bfefebfc8b779e89164e5796c03201c430997a4d",
+      "git_blob": "07f19524b055ebf9581005ad9e4df5135a25ce73",
+      "recorded_verdicts": [
+        "INCONCLUSIVE",
+        "PASS"
+      ],
+      "summary": "Historical experiment output (aa-v1-20261012); original observations and verdicts retained without regrading.",
+      "source_url": "https://github.com/rickypang0219/MiniNautilus/blob/7524d895d618cb912572921afdefea8d39fe9cd7/comparisons/results/aa-v1-20261012/compare-serial-immediate.json"
+    },
+    {
+      "path": "comparisons/results/aa-v1-20261012/compare-serial-slow.json",
+      "size_bytes": 10533,
+      "sha256": "0cbd490f6727898f2717778451c8c115ae2b873b0ea410e1c7bd4dc52719c538",
+      "git_blob": "4cc1df81875fac58e89fe2a71fb866102ab67e3a",
+      "recorded_verdicts": [
+        "INCONCLUSIVE",
+        "PASS"
+      ],
+      "summary": "Historical experiment output (aa-v1-20261012); original observations and verdicts retained without regrading.",
+      "source_url": "https://github.com/rickypang0219/MiniNautilus/blob/7524d895d618cb912572921afdefea8d39fe9cd7/comparisons/results/aa-v1-20261012/compare-serial-slow.json"
+    },
+    {
+      "path": "comparisons/results/aa-v1-20261012/overload-report.json",
+      "size_bytes": 18572,
+      "sha256": "1b3860b036ac27e4264462f50b612bf9d03073b60472f00b43f3eba1ddedb4cd",
+      "git_blob": "74fe0347ebdd85be88ddc99a7ed9de615494d0c0",
+      "recorded_verdicts": [],
+      "summary": "Historical experiment output (aa-v1-20261012); original observations and verdicts retained without regrading.",
+      "source_url": "https://github.com/rickypang0219/MiniNautilus/blob/7524d895d618cb912572921afdefea8d39fe9cd7/comparisons/results/aa-v1-20261012/overload-report.json"
+    },
+    {
+      "path": "comparisons/results/aa-v1-20261012/provenance.json",
+      "size_bytes": 13250,
+      "sha256": "6df83b52784aeedc8eb9c9f98f8202c01eac3b71985a4f5eb2a5e87b90ae3aeb",
+      "git_blob": "552f84fa20bbe1a606f9faebe6d9488897436fa0",
+      "recorded_verdicts": [],
+      "summary": "Historical experiment output (aa-v1-20261012); original observations and verdicts retained without regrading.",
+      "source_url": "https://github.com/rickypang0219/MiniNautilus/blob/7524d895d618cb912572921afdefea8d39fe9cd7/comparisons/results/aa-v1-20261012/provenance.json"
+    },
+    {
+      "path": "comparisons/results/aa-v1-20261012/runs.jsonl",
+      "size_bytes": 13953,
+      "sha256": "3890ea3b1d0356db98b3369d408e37fea6e1a6803a21b3a92fd14e978ecff08f",
+      "git_blob": "7223fd7653c886fd23526ad773cb9fba7df799cb",
+      "recorded_verdicts": [],
+      "summary": "Historical experiment output (aa-v1-20261012); original observations and verdicts retained without regrading.",
+      "source_url": "https://github.com/rickypang0219/MiniNautilus/blob/7524d895d618cb912572921afdefea8d39fe9cd7/comparisons/results/aa-v1-20261012/runs.jsonl"
+    },
+    {
+      "path": "comparisons/results/actor-soak-20261012/report-s17.json",
+      "size_bytes": 5508,
+      "sha256": "30ee7cb08036e55877a2b22fb435af2347738e3121da38a670a956c10bd36d69",
+      "git_blob": "956051694f0bd78111122eb474fa628072372f17",
+      "recorded_verdicts": [],
+      "summary": "Historical experiment output (actor-soak-20261012); original observations and verdicts retained without regrading.",
+      "source_url": "https://github.com/rickypang0219/MiniNautilus/blob/7524d895d618cb912572921afdefea8d39fe9cd7/comparisons/results/actor-soak-20261012/report-s17.json"
+    },
+    {
+      "path": "comparisons/results/actor-soak-20261012/report-s29.json",
+      "size_bytes": 5392,
+      "sha256": "23902abd52883f87c75f6c17a830f6007c1aef057c54dcfff82c8404137c59c9",
+      "git_blob": "0f89e53663934647ce4c01c5deec85fe453ff867",
+      "recorded_verdicts": [],
+      "summary": "Historical experiment output (actor-soak-20261012); original observations and verdicts retained without regrading.",
+      "source_url": "https://github.com/rickypang0219/MiniNautilus/blob/7524d895d618cb912572921afdefea8d39fe9cd7/comparisons/results/actor-soak-20261012/report-s29.json"
+    },
+    {
+      "path": "comparisons/results/actor-soak-20261012/report-s7.json",
+      "size_bytes": 5710,
+      "sha256": "ba5445fa6b6ae26dd7344c960cd5d3e3c550ea26f831b787632bf4a6549b0f9d",
+      "git_blob": "b8b827b5dd273b7c236d65c31cc8bf63cf098e14",
+      "recorded_verdicts": [],
+      "summary": "Historical experiment output (actor-soak-20261012); original observations and verdicts retained without regrading.",
+      "source_url": "https://github.com/rickypang0219/MiniNautilus/blob/7524d895d618cb912572921afdefea8d39fe9cd7/comparisons/results/actor-soak-20261012/report-s7.json"
+    },
+    {
+      "path": "comparisons/results/audit-summary.json",
+      "size_bytes": 899,
+      "sha256": "88fe25ff783a865bbfa0fdd09f5fd9dd3a988e2b918567480987eee11fd8a9ac",
+      "git_blob": "95d6e38176356886e1fda40ae5e6e552d77010b9",
+      "recorded_verdicts": [],
+      "summary": "Historical experiment output (audit-summary.json); original observations and verdicts retained without regrading.",
+      "source_url": "https://github.com/rickypang0219/MiniNautilus/blob/7524d895d618cb912572921afdefea8d39fe9cd7/comparisons/results/audit-summary.json"
+    },
+    {
+      "path": "comparisons/results/cloud-validation-20261011/controlled-comparison.md",
+      "size_bytes": 700,
+      "sha256": "0abe06a62109eb38214680dd41f20aeaee8320eab87b2fedd8c666292c06a765",
+      "git_blob": "f367109e3922c296fed9c92835e6f03679029579",
+      "recorded_verdicts": [
+        "FAIL",
+        "PASS"
+      ],
+      "summary": "Historical report or frozen proposal: controlled-comparison. Original scope, failures and limitations remain in the pinned source.",
+      "source_url": "https://github.com/rickypang0219/MiniNautilus/blob/7524d895d618cb912572921afdefea8d39fe9cd7/comparisons/results/cloud-validation-20261011/controlled-comparison.md"
+    },
+    {
+      "path": "comparisons/results/cloud-validation-20261011/durable-profile.json",
+      "size_bytes": 3278,
+      "sha256": "e33003c54b55a993767fa6969e73dae9f4aa11c28b9567685ae32f28a84dac32",
+      "git_blob": "fa55c3d5bf4f7b03dc499dbcf9ddcb3b36425773",
+      "recorded_verdicts": [],
+      "summary": "Historical experiment output (cloud-validation-20261011); original observations and verdicts retained without regrading.",
+      "source_url": "https://github.com/rickypang0219/MiniNautilus/blob/7524d895d618cb912572921afdefea8d39fe9cd7/comparisons/results/cloud-validation-20261011/durable-profile.json"
+    },
+    {
+      "path": "comparisons/results/cloud-validation-20261011/environment.json",
+      "size_bytes": 597,
+      "sha256": "677fabbe4df802fa9a542bb8de900cb0ae57fe94db2551faf96016b6c2ee35c6",
+      "git_blob": "e7db31d0be9c6eee9f0d023a4f44b0f63e4e7319",
+      "recorded_verdicts": [],
+      "summary": "Historical experiment output (cloud-validation-20261011); original observations and verdicts retained without regrading.",
+      "source_url": "https://github.com/rickypang0219/MiniNautilus/blob/7524d895d618cb912572921afdefea8d39fe9cd7/comparisons/results/cloud-validation-20261011/environment.json"
+    },
+    {
+      "path": "comparisons/results/cloud-validation-20261011/ipc-history.json",
+      "size_bytes": 1029,
+      "sha256": "34da5531119765c35128efacb7011ad5d7448228e302cce9dd9de1461a19d440",
+      "git_blob": "02062ccd9b6c8264aa16c76456fafabc28a70b7d",
+      "recorded_verdicts": [],
+      "summary": "Historical experiment output (cloud-validation-20261011); original observations and verdicts retained without regrading.",
+      "source_url": "https://github.com/rickypang0219/MiniNautilus/blob/7524d895d618cb912572921afdefea8d39fe9cd7/comparisons/results/cloud-validation-20261011/ipc-history.json"
+    },
+    {
+      "path": "comparisons/results/cloud-validation-20261011/journal-write-windows.json",
+      "size_bytes": 1143,
+      "sha256": "8007b15a0c634d92fbad29111f0b59292bcbddba26eae3d1c9bb9308c5726576",
+      "git_blob": "3b33f1559a4965aa558eb7ee2b8163a88653f5e0",
+      "recorded_verdicts": [],
+      "summary": "Historical experiment output (cloud-validation-20261011); original observations and verdicts retained without regrading.",
+      "source_url": "https://github.com/rickypang0219/MiniNautilus/blob/7524d895d618cb912572921afdefea8d39fe9cd7/comparisons/results/cloud-validation-20261011/journal-write-windows.json"
+    },
+    {
+      "path": "comparisons/results/cloud-validation-20261011/slice-analysis.json",
+      "size_bytes": 4463,
+      "sha256": "1263d004324df290312b60ac8a7a0dd3700c20733d59b988b787c643d8c9d2e2",
+      "git_blob": "ed1747f35009f31952c2e699ee4cac2dd0c94b94",
+      "recorded_verdicts": [
+        "FAIL"
+      ],
+      "summary": "Historical experiment output (cloud-validation-20261011); original observations and verdicts retained without regrading.",
+      "source_url": "https://github.com/rickypang0219/MiniNautilus/blob/7524d895d618cb912572921afdefea8d39fe9cd7/comparisons/results/cloud-validation-20261011/slice-analysis.json"
+    },
+    {
+      "path": "comparisons/results/cloud-validation-20261011/summary.json",
+      "size_bytes": 3730,
+      "sha256": "f9bad1e98c01ca64ffd9019fee201a5c65d10a3468215e893e67ebf0df738954",
+      "git_blob": "12eb83d380c033da7bfbd38b5c9afc6ece060e61",
+      "recorded_verdicts": [
+        "FAIL",
+        "PASS"
+      ],
+      "summary": "Historical experiment output (cloud-validation-20261011); original observations and verdicts retained without regrading.",
+      "source_url": "https://github.com/rickypang0219/MiniNautilus/blob/7524d895d618cb912572921afdefea8d39fe9cd7/comparisons/results/cloud-validation-20261011/summary.json"
+    },
+    {
+      "path": "comparisons/results/core-transition-performance.json",
+      "size_bytes": 14275,
+      "sha256": "af795d751023d96df22422dd512fb09a768007968d046e36f4e79052a5cac419",
+      "git_blob": "e745ee9c87edd9e1d15f04b059c750d1063da458",
+      "recorded_verdicts": [],
+      "summary": "Historical experiment output (core-transition-performance.json); original observations and verdicts retained without regrading.",
+      "source_url": "https://github.com/rickypang0219/MiniNautilus/blob/7524d895d618cb912572921afdefea8d39fe9cd7/comparisons/results/core-transition-performance.json"
+    },
+    {
+      "path": "comparisons/results/deep-dive-20261011/README.md",
+      "size_bytes": 1316,
+      "sha256": "3fd3486ded0f7af5146b705913e4ec297ff3e9ddbdb3985de55f41dd674825a3",
+      "git_blob": "ff85b530a04aed7e28f883a0081db09822c513c7",
+      "recorded_verdicts": [],
+      "summary": "Historical report or frozen proposal: Deep-dive evidence, 2026-10-11. Original scope, failures and limitations remain in the pinned source.",
+      "source_url": "https://github.com/rickypang0219/MiniNautilus/blob/7524d895d618cb912572921afdefea8d39fe9cd7/comparisons/results/deep-dive-20261011/README.md"
+    },
+    {
+      "path": "comparisons/results/deep-dive-20261011/aa-comparison.md",
+      "size_bytes": 1025,
+      "sha256": "548e83c4ea96b57d5a122dd6e3898400430057125bbcc2a59a7b156aba0466f7",
+      "git_blob": "5553d694e1bbfbb6024a8a6fbd0ac4a2c433a184",
+      "recorded_verdicts": [],
+      "summary": "Historical report or frozen proposal: aa-comparison. Original scope, failures and limitations remain in the pinned source.",
+      "source_url": "https://github.com/rickypang0219/MiniNautilus/blob/7524d895d618cb912572921afdefea8d39fe9cd7/comparisons/results/deep-dive-20261011/aa-comparison.md"
+    },
+    {
+      "path": "comparisons/results/deep-dive-20261011/aws-cleanup.json",
+      "size_bytes": 130,
+      "sha256": "f0dd7ef6c6df1e3a77faeb64da09fd221f074ce5573ff1caac50e25d463016c7",
+      "git_blob": "010e376933869778c765b677bf5705a2cb9fb522",
+      "recorded_verdicts": [],
+      "summary": "Historical experiment output (deep-dive-20261011); original observations and verdicts retained without regrading.",
+      "source_url": "https://github.com/rickypang0219/MiniNautilus/blob/7524d895d618cb912572921afdefea8d39fe9cd7/comparisons/results/deep-dive-20261011/aws-cleanup.json"
+    },
+    {
+      "path": "comparisons/results/deep-dive-20261011/batching-comparison-reviewed.md",
+      "size_bytes": 2078,
+      "sha256": "ed80763362c0916a008184e488dce7c891495acf112b8d38283141092b0194f1",
+      "git_blob": "d8ce0af8f6a644ce20ce2bb1ed8c1f1165c663f7",
+      "recorded_verdicts": [],
+      "summary": "Historical report or frozen proposal: batching-comparison-reviewed. Original scope, failures and limitations remain in the pinned source.",
+      "source_url": "https://github.com/rickypang0219/MiniNautilus/blob/7524d895d618cb912572921afdefea8d39fe9cd7/comparisons/results/deep-dive-20261011/batching-comparison-reviewed.md"
+    },
+    {
+      "path": "comparisons/results/deep-dive-20261011/flusher-comparison.md",
+      "size_bytes": 1018,
+      "sha256": "e62e4795de46debb0a4a13f0a8739eacba303ff3e9e6ba0e646feed720b184f4",
+      "git_blob": "75c955c8b86461979406dae12394a3b1c8947063",
+      "recorded_verdicts": [],
+      "summary": "Historical report or frozen proposal: flusher-comparison. Original scope, failures and limitations remain in the pinned source.",
+      "source_url": "https://github.com/rickypang0219/MiniNautilus/blob/7524d895d618cb912572921afdefea8d39fe9cd7/comparisons/results/deep-dive-20261011/flusher-comparison.md"
+    },
+    {
+      "path": "comparisons/results/deep-dive-20261011/order-attribution.json",
+      "size_bytes": 796,
+      "sha256": "d767ef7db52b4b39c9369cc6cd49dd8cd22f29625f4d355ee9ff3316dd5e6222",
+      "git_blob": "ec0ae6f399ed142f425e14ef112606e2d7b75561",
+      "recorded_verdicts": [],
+      "summary": "Historical experiment output (deep-dive-20261011); original observations and verdicts retained without regrading.",
+      "source_url": "https://github.com/rickypang0219/MiniNautilus/blob/7524d895d618cb912572921afdefea8d39fe9cd7/comparisons/results/deep-dive-20261011/order-attribution.json"
+    },
+    {
+      "path": "comparisons/results/deep-dive-20261011/real-bars.json",
+      "size_bytes": 983,
+      "sha256": "5e19fd014442e608351d8fb0774dbd85dde85abaea3c7a45bc5e7e1cc78a373d",
+      "git_blob": "b2a66540521d6c50cdd9a827ea66b6b226d22971",
+      "recorded_verdicts": [],
+      "summary": "Historical experiment output (deep-dive-20261011); original observations and verdicts retained without regrading.",
+      "source_url": "https://github.com/rickypang0219/MiniNautilus/blob/7524d895d618cb912572921afdefea8d39fe9cd7/comparisons/results/deep-dive-20261011/real-bars.json"
+    },
+    {
+      "path": "comparisons/results/deep-dive-20261011/repeated-evidence.json",
+      "size_bytes": 192847,
+      "sha256": "4f011c5202d9e548eddc39acb510560fad4070c4a70fbaa52655a3cb51651d67",
+      "git_blob": "627825b227afffa50e3b264c9cf2bc9cd3e76ff3",
+      "recorded_verdicts": [
+        "FAIL",
+        "PASS"
+      ],
+      "summary": "Historical experiment output (deep-dive-20261011); original observations and verdicts retained without regrading.",
+      "source_url": "https://github.com/rickypang0219/MiniNautilus/blob/7524d895d618cb912572921afdefea8d39fe9cd7/comparisons/results/deep-dive-20261011/repeated-evidence.json"
+    },
+    {
+      "path": "comparisons/results/deep-dive-20261011/rotation-bounded-sma.json",
+      "size_bytes": 8539,
+      "sha256": "b4031038c23e983f0de55c7f0ce74508cc2ff76239a88c5055d2696f92b4702a",
+      "git_blob": "d58ba495684527730f7fa35a344a9cd78ec9f805",
+      "recorded_verdicts": [
+        "FAIL",
+        "PASS"
+      ],
+      "summary": "Historical experiment output (deep-dive-20261011); original observations and verdicts retained without regrading.",
+      "source_url": "https://github.com/rickypang0219/MiniNautilus/blob/7524d895d618cb912572921afdefea8d39fe9cd7/comparisons/results/deep-dive-20261011/rotation-bounded-sma.json"
+    },
+    {
+      "path": "comparisons/results/deep-dive-20261011/rotation-comparison-reviewed.md",
+      "size_bytes": 1909,
+      "sha256": "0e4697365b1775898e85997df8abfc71c203e4277d2d725cc077d0c628d95da4",
+      "git_blob": "170988f84448bb35891a2f75575b3cc675377409",
+      "recorded_verdicts": [],
+      "summary": "Historical report or frozen proposal: rotation-comparison-reviewed. Original scope, failures and limitations remain in the pinned source.",
+      "source_url": "https://github.com/rickypang0219/MiniNautilus/blob/7524d895d618cb912572921afdefea8d39fe9cd7/comparisons/results/deep-dive-20261011/rotation-comparison-reviewed.md"
+    },
+    {
+      "path": "comparisons/results/deep-dive-20261011/rotation-sustained.json",
+      "size_bytes": 8535,
+      "sha256": "c6d0384a977ccaad9db1e1dc6f16a443afd9a475d3cf10ddc105769469969645",
+      "git_blob": "fb0deedb57c4554e65b6aa01a07be60bd9f1c46a",
+      "recorded_verdicts": [
+        "FAIL",
+        "PASS"
+      ],
+      "summary": "Historical experiment output (deep-dive-20261011); original observations and verdicts retained without regrading.",
+      "source_url": "https://github.com/rickypang0219/MiniNautilus/blob/7524d895d618cb912572921afdefea8d39fe9cd7/comparisons/results/deep-dive-20261011/rotation-sustained.json"
+    },
+    {
+      "path": "comparisons/results/deep-dive-20261011/strategy-memory.json",
+      "size_bytes": 2647,
+      "sha256": "55bfe9815001544b95a150f7c68cc8c0d3f3a0353c88026e67788b38983f38a6",
+      "git_blob": "8cc84be3a1d892630a825407a830ffe47afd1550",
+      "recorded_verdicts": [],
+      "summary": "Historical experiment output (deep-dive-20261011); original observations and verdicts retained without regrading.",
+      "source_url": "https://github.com/rickypang0219/MiniNautilus/blob/7524d895d618cb912572921afdefea8d39fe9cd7/comparisons/results/deep-dive-20261011/strategy-memory.json"
+    },
+    {
+      "path": "comparisons/results/deep-dive-20261011/tokyo-public-probe.json",
+      "size_bytes": 1968,
+      "sha256": "fdca8be23ef772ee72d649c40d7cf338f0965febda9ea0d395860f31bc482da2",
+      "git_blob": "0c3cfad33a094615b736448ff90d406f928a0b14",
+      "recorded_verdicts": [],
+      "summary": "Historical experiment output (deep-dive-20261011); original observations and verdicts retained without regrading.",
+      "source_url": "https://github.com/rickypang0219/MiniNautilus/blob/7524d895d618cb912572921afdefea8d39fe9cd7/comparisons/results/deep-dive-20261011/tokyo-public-probe.json"
+    },
+    {
+      "path": "comparisons/results/durable-performance.json",
+      "size_bytes": 1130,
+      "sha256": "5a9e301c94bb9ddae4ece592934297b40425d0953d6c6aa99975cbab5239c9d6",
+      "git_blob": "1969b57aaa49388591e18a257ccf964b7ab5e5eb",
+      "recorded_verdicts": [],
+      "summary": "Historical experiment output (durable-performance.json); original observations and verdicts retained without regrading.",
+      "source_url": "https://github.com/rickypang0219/MiniNautilus/blob/7524d895d618cb912572921afdefea8d39fe9cd7/comparisons/results/durable-performance.json"
+    },
+    {
+      "path": "comparisons/results/fixture-results.json",
+      "size_bytes": 125905,
+      "sha256": "30d2bb11079ec0cf5fc0b04ee9f2f38666e7d3c6cf487df2ba841bb386c9e6ad",
+      "git_blob": "b31e4e77f1a32a7b96a06f97a146867ca26fed47",
+      "recorded_verdicts": [],
+      "summary": "Historical experiment output (fixture-results.json); original observations and verdicts retained without regrading.",
+      "source_url": "https://github.com/rickypang0219/MiniNautilus/blob/7524d895d618cb912572921afdefea8d39fe9cd7/comparisons/results/fixture-results.json"
+    },
+    {
+      "path": "comparisons/results/history-scaling.json",
+      "size_bytes": 948,
+      "sha256": "3df3508453d0fea84c6901f213483946f65808a46a55bf715e93b83636ddcc5d",
+      "git_blob": "505a0a29e7cb04b59a2cb3ceccb1427cde36d58f",
+      "recorded_verdicts": [],
+      "summary": "Historical experiment output (history-scaling.json); original observations and verdicts retained without regrading.",
+      "source_url": "https://github.com/rickypang0219/MiniNautilus/blob/7524d895d618cb912572921afdefea8d39fe9cd7/comparisons/results/history-scaling.json"
+    },
+    {
+      "path": "comparisons/results/lifecycle-20261012/acceptance-ledger.json",
+      "size_bytes": 4924,
+      "sha256": "5fe328836c1a68df9fc00674eab0fd9d4af7b3d32fa467cf1eb2af2051a9c4b3",
+      "git_blob": "4de51e98178f8a2a1edfed58fb47be8a22506c98",
+      "recorded_verdicts": [
+        "BLOCKED",
+        "FAIL",
+        "INCONCLUSIVE",
+        "NOT_MEASURED",
+        "PASS"
+      ],
+      "summary": "Historical experiment output (lifecycle-20261012); original observations and verdicts retained without regrading.",
+      "source_url": "https://github.com/rickypang0219/MiniNautilus/blob/7524d895d618cb912572921afdefea8d39fe9cd7/comparisons/results/lifecycle-20261012/acceptance-ledger.json"
+    },
+    {
+      "path": "comparisons/results/lifecycle-20261012/archives.json",
+      "size_bytes": 1894,
+      "sha256": "9540498e0966c2f1d7fac33aa9476192a92c3c0516a1602d2480dc2d14fdffe5",
+      "git_blob": "f8d9c8260cf4ed0cc713787e87f456f984b42230",
+      "recorded_verdicts": [],
+      "summary": "Historical experiment output (lifecycle-20261012); original observations and verdicts retained without regrading.",
+      "source_url": "https://github.com/rickypang0219/MiniNautilus/blob/7524d895d618cb912572921afdefea8d39fe9cd7/comparisons/results/lifecycle-20261012/archives.json"
+    },
+    {
+      "path": "comparisons/results/lifecycle-20261012/disk-report.json",
+      "size_bytes": 92480,
+      "sha256": "e051f1f2906fcc4589bf4b6555bea50063a04f21cb61d211a1ac3ba92442833d",
+      "git_blob": "f9c21cc9d1402202348560ebb62ee90f998684a5",
+      "recorded_verdicts": [
+        "FAIL",
+        "NOT_MEASURED",
+        "PASS"
+      ],
+      "summary": "Historical experiment output (lifecycle-20261012); original observations and verdicts retained without regrading.",
+      "source_url": "https://github.com/rickypang0219/MiniNautilus/blob/7524d895d618cb912572921afdefea8d39fe9cd7/comparisons/results/lifecycle-20261012/disk-report.json"
+    },
+    {
+      "path": "comparisons/results/lifecycle-20261012/fixture-archives.json",
+      "size_bytes": 17568,
+      "sha256": "c5261211b4380e9a8268d77a64b5b943900b367aa82da94cf49c5382af696a0a",
+      "git_blob": "d163ec9b7785a1fce598afa5c364f3d46a1d99c0",
+      "recorded_verdicts": [],
+      "summary": "Historical experiment output (lifecycle-20261012); original observations and verdicts retained without regrading.",
+      "source_url": "https://github.com/rickypang0219/MiniNautilus/blob/7524d895d618cb912572921afdefea8d39fe9cd7/comparisons/results/lifecycle-20261012/fixture-archives.json"
+    },
+    {
+      "path": "comparisons/results/lifecycle-20261012/host-cloudwatch.json",
+      "size_bytes": 2975,
+      "sha256": "e17ae58f10422f855ad846d6fbc2171bc47f1f43a8b7cd21176549b00a971626",
+      "git_blob": "37560e277107f8f38cba0982e9422c7bb0541fcf",
+      "recorded_verdicts": [],
+      "summary": "Historical experiment output (lifecycle-20261012); original observations and verdicts retained without regrading.",
+      "source_url": "https://github.com/rickypang0219/MiniNautilus/blob/7524d895d618cb912572921afdefea8d39fe9cd7/comparisons/results/lifecycle-20261012/host-cloudwatch.json"
+    },
+    {
+      "path": "comparisons/results/lifecycle-20261012/host-restoration.json",
+      "size_bytes": 1401,
+      "sha256": "ad71f18a97cbeadb45f838c6c225ae4d1d7a83dbb7b94fa697b2bc2d7b49a911",
+      "git_blob": "c6b99c9ec1f68c29f2621101d899c37cba63983b",
+      "recorded_verdicts": [],
+      "summary": "Historical experiment output (lifecycle-20261012); original observations and verdicts retained without regrading.",
+      "source_url": "https://github.com/rickypang0219/MiniNautilus/blob/7524d895d618cb912572921afdefea8d39fe9cd7/comparisons/results/lifecycle-20261012/host-restoration.json"
+    },
+    {
+      "path": "comparisons/results/lifecycle-20261012/host.json",
+      "size_bytes": 287,
+      "sha256": "92a89760427145a84251a87afd633cb731c64e823195d89a12fd2db5d5b7d61c",
+      "git_blob": "dbbc21fac6738e6242b56f0adff922cf62f60d0d",
+      "recorded_verdicts": [],
+      "summary": "Historical experiment output (lifecycle-20261012); original observations and verdicts retained without regrading.",
+      "source_url": "https://github.com/rickypang0219/MiniNautilus/blob/7524d895d618cb912572921afdefea8d39fe9cd7/comparisons/results/lifecycle-20261012/host.json"
+    },
+    {
+      "path": "comparisons/results/lifecycle-20261012/ssm-commands.json",
+      "size_bytes": 6534,
+      "sha256": "308965c53b67f70b5ef46f250521a8ca4cc61ada01cb67087f9817095f1b2a1f",
+      "git_blob": "30781979588ef7e47358a65cc3f252200ef7bebe",
+      "recorded_verdicts": [],
+      "summary": "Historical experiment output (lifecycle-20261012); original observations and verdicts retained without regrading.",
+      "source_url": "https://github.com/rickypang0219/MiniNautilus/blob/7524d895d618cb912572921afdefea8d39fe9cd7/comparisons/results/lifecycle-20261012/ssm-commands.json"
+    },
+    {
+      "path": "comparisons/results/lifecycle-20261012/validation.json",
+      "size_bytes": 997,
+      "sha256": "bea7f2918385248bf0765a806cfe99559ff5688e6ec80a1392e2f918f1ae2fe0",
+      "git_blob": "314eb231f7e0884f273cc633eb961345821892fb",
+      "recorded_verdicts": [],
+      "summary": "Historical experiment output (lifecycle-20261012); original observations and verdicts retained without regrading.",
+      "source_url": "https://github.com/rickypang0219/MiniNautilus/blob/7524d895d618cb912572921afdefea8d39fe9cd7/comparisons/results/lifecycle-20261012/validation.json"
+    },
+    {
+      "path": "comparisons/results/lifecycle-20261012/w1-short-report-final.json",
+      "size_bytes": 93790,
+      "sha256": "19ce76118fd93fe8fb2525a99ee027bf85b3a6420a917b0d1ef0e566420eaff9",
+      "git_blob": "a97c155fd23b4fc818340b8017317c8a069877a9",
+      "recorded_verdicts": [
+        "FAIL",
+        "NOT_MEASURED",
+        "PASS"
+      ],
+      "summary": "Historical experiment output (lifecycle-20261012); original observations and verdicts retained without regrading.",
+      "source_url": "https://github.com/rickypang0219/MiniNautilus/blob/7524d895d618cb912572921afdefea8d39fe9cd7/comparisons/results/lifecycle-20261012/w1-short-report-final.json"
+    },
+    {
+      "path": "comparisons/results/lifecycle-20261012/w1-short-report-reviewed.json",
+      "size_bytes": 93790,
+      "sha256": "438a7a5d3f7c5c3eb72b651ae1fcc89262696efd59e1f29f17da35bd975e8731",
+      "git_blob": "e6de8cc6a78a8bce594f157cd7c89e6ff5437646",
+      "recorded_verdicts": [
+        "FAIL",
+        "NOT_MEASURED",
+        "PASS"
+      ],
+      "summary": "Historical experiment output (lifecycle-20261012); original observations and verdicts retained without regrading.",
+      "source_url": "https://github.com/rickypang0219/MiniNautilus/blob/7524d895d618cb912572921afdefea8d39fe9cd7/comparisons/results/lifecycle-20261012/w1-short-report-reviewed.json"
+    },
+    {
+      "path": "comparisons/results/lifecycle-20261012/w1-short-report.json",
+      "size_bytes": 93330,
+      "sha256": "cf7e25bb0821dcfedaf5e58cd76320baf69b6037973beac2cbc7e1842ebfa1d4",
+      "git_blob": "79a7b59ee9730b54919173d058fdf1ca2d6084f9",
+      "recorded_verdicts": [
+        "FAIL",
+        "PASS"
+      ],
+      "summary": "Historical experiment output (lifecycle-20261012); original observations and verdicts retained without regrading.",
+      "source_url": "https://github.com/rickypang0219/MiniNautilus/blob/7524d895d618cb912572921afdefea8d39fe9cd7/comparisons/results/lifecycle-20261012/w1-short-report.json"
+    },
+    {
+      "path": "comparisons/results/liquidity-fuzz.json",
+      "size_bytes": 313,
+      "sha256": "480bf7e10bffcc62d87f0abda02bea51f25ea96a4734235081d1decf2e5a0c72",
+      "git_blob": "1f2fd17cc7d8375f9dbfcf4a048525aa68c85224",
+      "recorded_verdicts": [],
+      "summary": "Historical experiment output (liquidity-fuzz.json); original observations and verdicts retained without regrading.",
+      "source_url": "https://github.com/rickypang0219/MiniNautilus/blob/7524d895d618cb912572921afdefea8d39fe9cd7/comparisons/results/liquidity-fuzz.json"
+    },
+    {
+      "path": "comparisons/results/live-actor-20261012/command.json",
+      "size_bytes": 542,
+      "sha256": "82084e7add472407b77a4e1e727f0c4e0e7d3cbd8811257ceae380d1653630c0",
+      "git_blob": "081b80a226a809a4a01a782eebd37ae7a20de349",
+      "recorded_verdicts": [],
+      "summary": "Historical experiment output (live-actor-20261012); original observations and verdicts retained without regrading.",
+      "source_url": "https://github.com/rickypang0219/MiniNautilus/blob/7524d895d618cb912572921afdefea8d39fe9cd7/comparisons/results/live-actor-20261012/command.json"
+    },
+    {
+      "path": "comparisons/results/live-actor-20261012/provenance.json",
+      "size_bytes": 13941,
+      "sha256": "06794b9fa44a0dc088b717e37caa370645378a4509700b8cac8067f70b920b8f",
+      "git_blob": "e8deb1b79bc27aecc36942b56d777c97f7b9ec98",
+      "recorded_verdicts": [],
+      "summary": "Historical experiment output (live-actor-20261012); original observations and verdicts retained without regrading.",
+      "source_url": "https://github.com/rickypang0219/MiniNautilus/blob/7524d895d618cb912572921afdefea8d39fe9cd7/comparisons/results/live-actor-20261012/provenance.json"
+    },
+    {
+      "path": "comparisons/results/live-actor-20261012/report.json",
+      "size_bytes": 47200,
+      "sha256": "e2efe6dbdfa11e011d0a88f783255c8e01aeab727211d4118a16bff2fd269ba9",
+      "git_blob": "91e6773287f278303f85d6d0e0df82cefdfee92b",
+      "recorded_verdicts": [
+        "FAIL",
+        "PASS"
+      ],
+      "summary": "Historical experiment output (live-actor-20261012); original observations and verdicts retained without regrading.",
+      "source_url": "https://github.com/rickypang0219/MiniNautilus/blob/7524d895d618cb912572921afdefea8d39fe9cd7/comparisons/results/live-actor-20261012/report.json"
+    },
+    {
+      "path": "comparisons/results/live-actor-20261012/report.md",
+      "size_bytes": 21062,
+      "sha256": "7d3d2c07b507b4bb44d440b074f786ccae22b73748681ed51567665b0743fd0c",
+      "git_blob": "27ee8d4d06f979f6c8e529565658e0f610a13e81",
+      "recorded_verdicts": [
+        "FAIL",
+        "PASS"
+      ],
+      "summary": "Historical report or frozen proposal: Soak report: examples/sma_spot.py --mode testnet --runtime actor --receipt /home/trader/repo/target/runtime-v2-build.json --binary /home/trader/repo/target/release/mininautilus --interval 1s --fast 3 --slow 8 --max-orders 100000 --order-ttl 10 --sync outbox --rotate-orders 100 --recovery-drill 1800 --recovery-drill 3600. Original scope, failures and limitations remain in the pinned source.",
+      "source_url": "https://github.com/rickypang0219/MiniNautilus/blob/7524d895d618cb912572921afdefea8d39fe9cd7/comparisons/results/live-actor-20261012/report.md"
+    },
+    {
+      "path": "comparisons/results/live-actor-20261012/rotation-events-1.jsonl.json",
+      "size_bytes": 88,
+      "sha256": "d2a7ce5618585f37c2f863215fbd2e73216d719d38373aaa1a61de6fe26562c6",
+      "git_blob": "81a3ecfdfc10fa491d5b9c8e12ea7cc6ce38c148",
+      "recorded_verdicts": [],
+      "summary": "Historical experiment output (live-actor-20261012); original observations and verdicts retained without regrading.",
+      "source_url": "https://github.com/rickypang0219/MiniNautilus/blob/7524d895d618cb912572921afdefea8d39fe9cd7/comparisons/results/live-actor-20261012/rotation-events-1.jsonl.json"
+    },
+    {
+      "path": "comparisons/results/live-actor-20261012/rotation-events-2.jsonl.json",
+      "size_bytes": 90,
+      "sha256": "6115e36e0a3e1c7d21ea2b33af3ca72b9ab55a3a2eb260b43880710456f7dae0",
+      "git_blob": "cea0bfe739d56611985203407b93122c66947b9a",
+      "recorded_verdicts": [],
+      "summary": "Historical experiment output (live-actor-20261012); original observations and verdicts retained without regrading.",
+      "source_url": "https://github.com/rickypang0219/MiniNautilus/blob/7524d895d618cb912572921afdefea8d39fe9cd7/comparisons/results/live-actor-20261012/rotation-events-2.jsonl.json"
+    },
+    {
+      "path": "comparisons/results/live-actor-20261012/rotation-events-3.jsonl.json",
+      "size_bytes": 90,
+      "sha256": "75dd38d288e5afae61ae902ca8eb12d95e2364ca670dd3332e3102257daa31d5",
+      "git_blob": "92e9ec9f19df9a4e9aa10bea09e9248c1c158bf8",
+      "recorded_verdicts": [],
+      "summary": "Historical experiment output (live-actor-20261012); original observations and verdicts retained without regrading.",
+      "source_url": "https://github.com/rickypang0219/MiniNautilus/blob/7524d895d618cb912572921afdefea8d39fe9cd7/comparisons/results/live-actor-20261012/rotation-events-3.jsonl.json"
+    },
+    {
+      "path": "comparisons/results/live-actor-20261012/rotation-events-4.jsonl.json",
+      "size_bytes": 90,
+      "sha256": "69968635d0ea68b84107e14227db979cd729ce2edc671146068de561411a9754",
+      "git_blob": "704d2217682ef218d70f63a335e355d568eb079a",
+      "recorded_verdicts": [],
+      "summary": "Historical experiment output (live-actor-20261012); original observations and verdicts retained without regrading.",
+      "source_url": "https://github.com/rickypang0219/MiniNautilus/blob/7524d895d618cb912572921afdefea8d39fe9cd7/comparisons/results/live-actor-20261012/rotation-events-4.jsonl.json"
+    },
+    {
+      "path": "comparisons/results/live-actor-20261012/rotation-events-5.jsonl.json",
+      "size_bytes": 90,
+      "sha256": "aa6454462d7b345dd2f0e9b044ae50b5817fa2d200cf2e2e5bc0d95baa3408b8",
+      "git_blob": "4e32a5394cbfd33e26fc642ba30cf661e2272952",
+      "recorded_verdicts": [],
+      "summary": "Historical experiment output (live-actor-20261012); original observations and verdicts retained without regrading.",
+      "source_url": "https://github.com/rickypang0219/MiniNautilus/blob/7524d895d618cb912572921afdefea8d39fe9cd7/comparisons/results/live-actor-20261012/rotation-events-5.jsonl.json"
+    },
+    {
+      "path": "comparisons/results/live-actor-20261012/session-summary.json",
+      "size_bytes": 1253,
+      "sha256": "83d5b561f7229105f29fb31ec1a69a9b02fe0ed61cd330ab2ff55ddf5aaa9347",
+      "git_blob": "5a188f2c1b3b4f479bcf6e982bb677640fd8dade",
+      "recorded_verdicts": [],
+      "summary": "Historical experiment output (live-actor-20261012); original observations and verdicts retained without regrading.",
+      "source_url": "https://github.com/rickypang0219/MiniNautilus/blob/7524d895d618cb912572921afdefea8d39fe9cd7/comparisons/results/live-actor-20261012/session-summary.json"
+    },
+    {
+      "path": "comparisons/results/live-actor-20261012/smoke-summary.json",
+      "size_bytes": 1209,
+      "sha256": "954041f117a4bf52b1a397fa7eaa043e2ee3d6f9fe095cee3e9caebcc48d74f2",
+      "git_blob": "2ee98d2c9ff00741016c7653a8ccb81ab44d04df",
+      "recorded_verdicts": [],
+      "summary": "Historical experiment output (live-actor-20261012); original observations and verdicts retained without regrading.",
+      "source_url": "https://github.com/rickypang0219/MiniNautilus/blob/7524d895d618cb912572921afdefea8d39fe9cd7/comparisons/results/live-actor-20261012/smoke-summary.json"
+    },
+    {
+      "path": "comparisons/results/live-testnet-20261011/report.json",
+      "size_bytes": 64875,
+      "sha256": "57babe6a784e4eae69df02bc8b8d75e1d9a13b6d02f0ab4341035c68a50d287a",
+      "git_blob": "ef81b69a17f9242ee97f43f2a9d15d613650c148",
+      "recorded_verdicts": [
+        "FAIL",
+        "PASS"
+      ],
+      "summary": "Historical experiment output (live-testnet-20261011); original observations and verdicts retained without regrading.",
+      "source_url": "https://github.com/rickypang0219/MiniNautilus/blob/7524d895d618cb912572921afdefea8d39fe9cd7/comparisons/results/live-testnet-20261011/report.json"
+    },
+    {
+      "path": "comparisons/results/live-testnet-20261011/report.md",
+      "size_bytes": 35968,
+      "sha256": "6ff873d9e45e4efccae2b303529671d6cacce55e7b582d1e83172c3bcbd25b24",
+      "git_blob": "b532e9255c2dffbf40e2fbd6d886894165cc6acf",
+      "recorded_verdicts": [
+        "FAIL",
+        "PASS"
+      ],
+      "summary": "Historical report or frozen proposal: Soak report: examples/sma_spot.py --mode testnet --interval 1s --fast 3 --slow 8 --max-orders 3000 --order-ttl 10 --sync outbox. Original scope, failures and limitations remain in the pinned source.",
+      "source_url": "https://github.com/rickypang0219/MiniNautilus/blob/7524d895d618cb912572921afdefea8d39fe9cd7/comparisons/results/live-testnet-20261011/report.md"
+    },
+    {
+      "path": "comparisons/results/metadata.json",
+      "size_bytes": 8289,
+      "sha256": "14cbfcdbed49c3001bf6d1580e6857be0010c3309e385cc4223b5f8ca9e4733e",
+      "git_blob": "44821607c5d4be6ebb09a4cd37199365f27a82d3",
+      "recorded_verdicts": [],
+      "summary": "Historical experiment output (metadata.json); original observations and verdicts retained without regrading.",
+      "source_url": "https://github.com/rickypang0219/MiniNautilus/blob/7524d895d618cb912572921afdefea8d39fe9cd7/comparisons/results/metadata.json"
+    },
+    {
+      "path": "comparisons/results/model-remedies.json",
+      "size_bytes": 54742,
+      "sha256": "c701981cda6585e770ed2d3616e39e424fa4638a05f7f83646ba0a195c5cb629",
+      "git_blob": "5ce53ac9751ba99dfa1c8e96a4f9da3642238370",
+      "recorded_verdicts": [],
+      "summary": "Historical experiment output (model-remedies.json); original observations and verdicts retained without regrading.",
+      "source_url": "https://github.com/rickypang0219/MiniNautilus/blob/7524d895d618cb912572921afdefea8d39fe9cd7/comparisons/results/model-remedies.json"
+    },
+    {
+      "path": "comparisons/results/nautilus-pnl.json",
+      "size_bytes": 15843,
+      "sha256": "f86867f1bcd22be9ac3dafb16174ec65ad23a2d4f6745e2aa75897f0549fb22f",
+      "git_blob": "6d80c59b4b881ea33af6731be16cd94a0f2af644",
+      "recorded_verdicts": [],
+      "summary": "Historical experiment output (nautilus-pnl.json); original observations and verdicts retained without regrading.",
+      "source_url": "https://github.com/rickypang0219/MiniNautilus/blob/7524d895d618cb912572921afdefea8d39fe9cd7/comparisons/results/nautilus-pnl.json"
+    },
+    {
+      "path": "comparisons/results/performance.json",
+      "size_bytes": 8324,
+      "sha256": "1283ddf731a3eea09cd2cbb314175b447a6b6a2b59377cc162ee037457c85e8f",
+      "git_blob": "c5581aff442a88bad1403da6206a7134732a5d3a",
+      "recorded_verdicts": [],
+      "summary": "Historical experiment output (performance.json); original observations and verdicts retained without regrading.",
+      "source_url": "https://github.com/rickypang0219/MiniNautilus/blob/7524d895d618cb912572921afdefea8d39fe9cd7/comparisons/results/performance.json"
+    },
+    {
+      "path": "comparisons/results/post-refactor-audit.json",
+      "size_bytes": 130705,
+      "sha256": "ade56d534eeaf051f57e662a18ef7228e1714dbe12d80e2ec751014e6e4abcd5",
+      "git_blob": "29d2706e928457892c12318ab085f3918404a00a",
+      "recorded_verdicts": [],
+      "summary": "Historical experiment output (post-refactor-audit.json); original observations and verdicts retained without regrading.",
+      "source_url": "https://github.com/rickypang0219/MiniNautilus/blob/7524d895d618cb912572921afdefea8d39fe9cd7/comparisons/results/post-refactor-audit.json"
+    },
+    {
+      "path": "comparisons/results/retention-20261012/container-10min-both.json",
+      "size_bytes": 4424,
+      "sha256": "8c4cf90991e95ff7f4da5bbd5008bb263d56722822d6dc6c3e4783855a1aecf9",
+      "git_blob": "fe0bcd10f01c4268ecdcc78e8016980f1999ec07",
+      "recorded_verdicts": [],
+      "summary": "Historical experiment output (retention-20261012); original observations and verdicts retained without regrading.",
+      "source_url": "https://github.com/rickypang0219/MiniNautilus/blob/7524d895d618cb912572921afdefea8d39fe9cd7/comparisons/results/retention-20261012/container-10min-both.json"
+    },
+    {
+      "path": "comparisons/results/retention-20261012/container-rotating-20min.json",
+      "size_bytes": 3916,
+      "sha256": "e2b03d6cba6aca1d136ab1effd429b61ccb4d76a488035ca85d0fabd8c456822",
+      "git_blob": "3d5f5bbfb9101b9f2f587fb4b0ef60bf8fe6da78",
+      "recorded_verdicts": [],
+      "summary": "Historical experiment output (retention-20261012); original observations and verdicts retained without regrading.",
+      "source_url": "https://github.com/rickypang0219/MiniNautilus/blob/7524d895d618cb912572921afdefea8d39fe9cd7/comparisons/results/retention-20261012/container-rotating-20min.json"
+    },
+    {
+      "path": "comparisons/results/retention-20261012/ec2-baseline-no-rotation.json",
+      "size_bytes": 2122,
+      "sha256": "50210b378ac5da0a3ecf8428fadf46d62c49a7623fc8590a1a02f3255d151907",
+      "git_blob": "8619b9f2db709952185a0887a60edd471b9691b9",
+      "recorded_verdicts": [],
+      "summary": "Historical experiment output (retention-20261012); original observations and verdicts retained without regrading.",
+      "source_url": "https://github.com/rickypang0219/MiniNautilus/blob/7524d895d618cb912572921afdefea8d39fe9cd7/comparisons/results/retention-20261012/ec2-baseline-no-rotation.json"
+    },
+    {
+      "path": "comparisons/results/retention-20261012/ec2-provenance.json",
+      "size_bytes": 14034,
+      "sha256": "bcaa8b67819f95fbdf5b3473f5d99563dc9f86ca8059df568e5835dd00adb2a1",
+      "git_blob": "fa074d339c5881b863ef64e190453311a6513acb",
+      "recorded_verdicts": [],
+      "summary": "Historical experiment output (retention-20261012); original observations and verdicts retained without regrading.",
+      "source_url": "https://github.com/rickypang0219/MiniNautilus/blob/7524d895d618cb912572921afdefea8d39fe9cd7/comparisons/results/retention-20261012/ec2-provenance.json"
+    },
+    {
+      "path": "comparisons/results/retention-20261012/ec2-rotating-and-failed-baseline.json",
+      "size_bytes": 6819,
+      "sha256": "786b968cef09d73c69a564677b1040ab434b6f19226b0515d105c08bbaa0244c",
+      "git_blob": "688531bad21a1e2a0a855bbc0ac57e72c11f8be0",
+      "recorded_verdicts": [],
+      "summary": "Historical experiment output (retention-20261012); original observations and verdicts retained without regrading.",
+      "source_url": "https://github.com/rickypang0219/MiniNautilus/blob/7524d895d618cb912572921afdefea8d39fe9cd7/comparisons/results/retention-20261012/ec2-rotating-and-failed-baseline.json"
+    },
+    {
+      "path": "comparisons/results/runtime-v2/archived-builds.json",
+      "size_bytes": 592,
+      "sha256": "d4c6a6960c08f4c6465b5227dd84f941886d0b258b5c4b91c239a2dcb513ff69",
+      "git_blob": "9e14f0448434a9e1ea6213c7e9d79a575874854f",
+      "recorded_verdicts": [],
+      "summary": "Historical experiment output (runtime-v2); original observations and verdicts retained without regrading.",
+      "source_url": "https://github.com/rickypang0219/MiniNautilus/blob/7524d895d618cb912572921afdefea8d39fe9cd7/comparisons/results/runtime-v2/archived-builds.json"
+    },
+    {
+      "path": "comparisons/results/runtime-v2/bootstrap-rejection.json",
+      "size_bytes": 2485,
+      "sha256": "d866fc535e242445e656541b36c65abc3386a4f912d0477ff548492b75eeb856",
+      "git_blob": "aedae49d7c9b27666a093047c823d62da75796e8",
+      "recorded_verdicts": [],
+      "summary": "Historical experiment output (runtime-v2); original observations and verdicts retained without regrading.",
+      "source_url": "https://github.com/rickypang0219/MiniNautilus/blob/7524d895d618cb912572921afdefea8d39fe9cd7/comparisons/results/runtime-v2/bootstrap-rejection.json"
+    },
+    {
+      "path": "comparisons/results/runtime-v2/canonical-immediate-aa.json",
+      "size_bytes": 8216,
+      "sha256": "73d4533e3ad6b6da07419919c682d273edb59a36d578209424b2001de145fbbe",
+      "git_blob": "940dfc1fd1bf1eed3a7f78e1787749829d9e1c88",
+      "recorded_verdicts": [
+        "INCONCLUSIVE",
+        "PASS"
+      ],
+      "summary": "Historical experiment output (runtime-v2); original observations and verdicts retained without regrading.",
+      "source_url": "https://github.com/rickypang0219/MiniNautilus/blob/7524d895d618cb912572921afdefea8d39fe9cd7/comparisons/results/runtime-v2/canonical-immediate-aa.json"
+    },
+    {
+      "path": "comparisons/results/runtime-v2/canonical-immediate-ab.json",
+      "size_bytes": 7876,
+      "sha256": "746bb66017d9a2d09b68d5cb9b3bf25290b9db91c53331f13c03d6a71319258b",
+      "git_blob": "09da45e642a4711e910fa52ef06e5e66e9463ada",
+      "recorded_verdicts": [
+        "FAIL",
+        "INCONCLUSIVE",
+        "PASS"
+      ],
+      "summary": "Historical experiment output (runtime-v2); original observations and verdicts retained without regrading.",
+      "source_url": "https://github.com/rickypang0219/MiniNautilus/blob/7524d895d618cb912572921afdefea8d39fe9cd7/comparisons/results/runtime-v2/canonical-immediate-ab.json"
+    },
+    {
+      "path": "comparisons/results/runtime-v2/canonical-slow-aa.json",
+      "size_bytes": 8170,
+      "sha256": "338c5e297201401c7e966cc4b6d4c7761378324a7cc445c1a6679fa030ebdeb8",
+      "git_blob": "dc0d0341e9c71d2c2a69e8a50a584aafc325744d",
+      "recorded_verdicts": [
+        "INCONCLUSIVE",
+        "PASS"
+      ],
+      "summary": "Historical experiment output (runtime-v2); original observations and verdicts retained without regrading.",
+      "source_url": "https://github.com/rickypang0219/MiniNautilus/blob/7524d895d618cb912572921afdefea8d39fe9cd7/comparisons/results/runtime-v2/canonical-slow-aa.json"
+    },
+    {
+      "path": "comparisons/results/runtime-v2/canonical-slow-ab.json",
+      "size_bytes": 7786,
+      "sha256": "df7d24170ebb66f19d894c601d0945889a569888fcf46538545669624cf4644e",
+      "git_blob": "9df30421daa9d58f3798d9427a64a81959f251bc",
+      "recorded_verdicts": [
+        "FAIL",
+        "INCONCLUSIVE",
+        "PASS"
+      ],
+      "summary": "Historical experiment output (runtime-v2); original observations and verdicts retained without regrading.",
+      "source_url": "https://github.com/rickypang0219/MiniNautilus/blob/7524d895d618cb912572921afdefea8d39fe9cd7/comparisons/results/runtime-v2/canonical-slow-ab.json"
+    },
+    {
+      "path": "comparisons/results/runtime-v2/correctness.json",
+      "size_bytes": 1698,
+      "sha256": "717715674c55c3b8f183b5b2638e2d1f1a55bc62307bbf37b5ce64ced5d5ab07",
+      "git_blob": "2203e19aef667eb8ba2c316c98a2f757cae0112c",
+      "recorded_verdicts": [
+        "PASS"
+      ],
+      "summary": "Historical experiment output (runtime-v2); original observations and verdicts retained without regrading.",
+      "source_url": "https://github.com/rickypang0219/MiniNautilus/blob/7524d895d618cb912572921afdefea8d39fe9cd7/comparisons/results/runtime-v2/correctness.json"
+    },
+    {
+      "path": "comparisons/results/runtime-v2/final-journal-replay.json",
+      "size_bytes": 1592,
+      "sha256": "9123f33198c4a7ee8458f24f7217c6e032526ff8c13a361276e985893f1eddd0",
+      "git_blob": "c70dd5a23883f0d9e8e76b1f674969b027c7be38",
+      "recorded_verdicts": [],
+      "summary": "Historical experiment output (runtime-v2); original observations and verdicts retained without regrading.",
+      "source_url": "https://github.com/rickypang0219/MiniNautilus/blob/7524d895d618cb912572921afdefea8d39fe9cd7/comparisons/results/runtime-v2/final-journal-replay.json"
+    },
+    {
+      "path": "comparisons/results/runtime-v2/final-scheduling-immediate-aa.json",
+      "size_bytes": 8173,
+      "sha256": "b7b6b7a67e851c8abf75a920f3bb89c9a07c63fe530a44a7dd0a9c8f025f9423",
+      "git_blob": "a7af4bd001dfb99bbc2ca3bce4201cb07e6335a3",
+      "recorded_verdicts": [
+        "INCONCLUSIVE",
+        "PASS"
+      ],
+      "summary": "Historical experiment output (runtime-v2); original observations and verdicts retained without regrading.",
+      "source_url": "https://github.com/rickypang0219/MiniNautilus/blob/7524d895d618cb912572921afdefea8d39fe9cd7/comparisons/results/runtime-v2/final-scheduling-immediate-aa.json"
+    },
+    {
+      "path": "comparisons/results/runtime-v2/final-scheduling-immediate-ab.json",
+      "size_bytes": 7891,
+      "sha256": "13a1f92d1c7bfbe147ad53af5d762da4a0d94a0b35ae4a3c8fddd7cf8c39cdcb",
+      "git_blob": "91b783e57670f9ac08ffd4dc12db3416ae336d0f",
+      "recorded_verdicts": [
+        "INCONCLUSIVE",
+        "PASS"
+      ],
+      "summary": "Historical experiment output (runtime-v2); original observations and verdicts retained without regrading.",
+      "source_url": "https://github.com/rickypang0219/MiniNautilus/blob/7524d895d618cb912572921afdefea8d39fe9cd7/comparisons/results/runtime-v2/final-scheduling-immediate-ab.json"
+    },
+    {
+      "path": "comparisons/results/runtime-v2/final-scheduling-slow-aa.json",
+      "size_bytes": 8175,
+      "sha256": "26995f24d126e701e2ea1dcd1c2dda3df82408dfafcdd0d9c31b6d622101da8b",
+      "git_blob": "14a753fdcd5de9328799b0a9862aebb6b73a9f38",
+      "recorded_verdicts": [
+        "INCONCLUSIVE",
+        "PASS"
+      ],
+      "summary": "Historical experiment output (runtime-v2); original observations and verdicts retained without regrading.",
+      "source_url": "https://github.com/rickypang0219/MiniNautilus/blob/7524d895d618cb912572921afdefea8d39fe9cd7/comparisons/results/runtime-v2/final-scheduling-slow-aa.json"
+    },
+    {
+      "path": "comparisons/results/runtime-v2/final-scheduling-slow-ab.json",
+      "size_bytes": 7823,
+      "sha256": "7284d555a8f4a4d4e2337e8eb6cf6ecac929361e1b3aa5ea19c2a9e7884bba23",
+      "git_blob": "d8ec23ecb7de66613282213d0b61443cb8b5c193",
+      "recorded_verdicts": [
+        "INCONCLUSIVE",
+        "PASS"
+      ],
+      "summary": "Historical experiment output (runtime-v2); original observations and verdicts retained without regrading.",
+      "source_url": "https://github.com/rickypang0219/MiniNautilus/blob/7524d895d618cb912572921afdefea8d39fe9cd7/comparisons/results/runtime-v2/final-scheduling-slow-ab.json"
+    },
+    {
+      "path": "comparisons/results/runtime-v2/identities.json",
+      "size_bytes": 134375,
+      "sha256": "50ff26e571248159bb6849a1711cb9836d5d19f412f200d71f1044e0f0b58475",
+      "git_blob": "c16a3d84f6133630d4b44660a342246ca374f868",
+      "recorded_verdicts": [],
+      "summary": "Historical experiment output (runtime-v2); original observations and verdicts retained without regrading.",
+      "source_url": "https://github.com/rickypang0219/MiniNautilus/blob/7524d895d618cb912572921afdefea8d39fe9cd7/comparisons/results/runtime-v2/identities.json"
+    },
+    {
+      "path": "comparisons/results/runtime-v2/legacy-evidence-immediate-aa.json",
+      "size_bytes": 8209,
+      "sha256": "b26c77870937b2a3ea191357f006ee065e9512124785ee6884d2ed7f524420a0",
+      "git_blob": "8296c9eceb9425db725ffada40497b70e2ba4191",
+      "recorded_verdicts": [
+        "INCONCLUSIVE",
+        "PASS"
+      ],
+      "summary": "Historical experiment output (runtime-v2); original observations and verdicts retained without regrading.",
+      "source_url": "https://github.com/rickypang0219/MiniNautilus/blob/7524d895d618cb912572921afdefea8d39fe9cd7/comparisons/results/runtime-v2/legacy-evidence-immediate-aa.json"
+    },
+    {
+      "path": "comparisons/results/runtime-v2/legacy-evidence-immediate-ab.json",
+      "size_bytes": 7873,
+      "sha256": "9e5ba5148aba26c950b43970cbbf412afc667754bdbbdc923845ff04648695ea",
+      "git_blob": "9a3279e63ea7aaae4d4054486dc017c420bf3f41",
+      "recorded_verdicts": [
+        "FAIL",
+        "INCONCLUSIVE",
+        "PASS"
+      ],
+      "summary": "Historical experiment output (runtime-v2); original observations and verdicts retained without regrading.",
+      "source_url": "https://github.com/rickypang0219/MiniNautilus/blob/7524d895d618cb912572921afdefea8d39fe9cd7/comparisons/results/runtime-v2/legacy-evidence-immediate-ab.json"
+    },
+    {
+      "path": "comparisons/results/runtime-v2/legacy-evidence-slow-aa.json",
+      "size_bytes": 8165,
+      "sha256": "8815423ceb828b268a72a269429c3b1195909472c0dd85aa613a5404e7780fe8",
+      "git_blob": "000ee9ff39b7a0e127f3822ea747caf3f7a8c89c",
+      "recorded_verdicts": [
+        "INCONCLUSIVE",
+        "PASS"
+      ],
+      "summary": "Historical experiment output (runtime-v2); original observations and verdicts retained without regrading.",
+      "source_url": "https://github.com/rickypang0219/MiniNautilus/blob/7524d895d618cb912572921afdefea8d39fe9cd7/comparisons/results/runtime-v2/legacy-evidence-slow-aa.json"
+    },
+    {
+      "path": "comparisons/results/runtime-v2/legacy-evidence-slow-ab.json",
+      "size_bytes": 7792,
+      "sha256": "89fad6e764f5c7edfb2f8089fd00560d17ac952093ffe25de602c7d9c6e32bd4",
+      "git_blob": "0bb35b002bee9c45ec828c1f7bee9b6055c736f7",
+      "recorded_verdicts": [
+        "INCONCLUSIVE",
+        "PASS"
+      ],
+      "summary": "Historical experiment output (runtime-v2); original observations and verdicts retained without regrading.",
+      "source_url": "https://github.com/rickypang0219/MiniNautilus/blob/7524d895d618cb912572921afdefea8d39fe9cd7/comparisons/results/runtime-v2/legacy-evidence-slow-ab.json"
+    },
+    {
+      "path": "comparisons/results/runtime-v2/profile.txt",
+      "size_bytes": 4748,
+      "sha256": "283adb3bc14f7a32709c4bec8143ac3728123e0734f68ce4b8b5e8daa51dfdf5",
+      "git_blob": "8e3ff8c7f9e131e62d4e6b0c32ef1f702b6a62d0",
+      "recorded_verdicts": [],
+      "summary": "Historical experiment output (runtime-v2); original observations and verdicts retained without regrading.",
+      "source_url": "https://github.com/rickypang0219/MiniNautilus/blob/7524d895d618cb912572921afdefea8d39fe9cd7/comparisons/results/runtime-v2/profile.txt"
+    },
+    {
+      "path": "comparisons/results/runtime-v2/raw-index.json",
+      "size_bytes": 353820,
+      "sha256": "f98e5033685df1dae631e6c017b0558ea9fd11075b87602740cbf6872112a757",
+      "git_blob": "41cb68d0f8436c7a0d487aab0a138eadd074d3a4",
+      "recorded_verdicts": [],
+      "summary": "Historical experiment output (runtime-v2); original observations and verdicts retained without regrading.",
+      "source_url": "https://github.com/rickypang0219/MiniNautilus/blob/7524d895d618cb912572921afdefea8d39fe9cd7/comparisons/results/runtime-v2/raw-index.json"
+    },
+    {
+      "path": "comparisons/results/runtime-v2/reports.json",
+      "size_bytes": 940207,
+      "sha256": "0273af0f2960954a3042aa5a1bab1957a4fc3d1c29256dd8050d4d363df67727",
+      "git_blob": "47a90f0a2f2ce178ca19bd30a6d2def7ad8dd092",
+      "recorded_verdicts": [],
+      "summary": "Historical experiment output (runtime-v2); original observations and verdicts retained without regrading.",
+      "source_url": "https://github.com/rickypang0219/MiniNautilus/blob/7524d895d618cb912572921afdefea8d39fe9cd7/comparisons/results/runtime-v2/reports.json"
+    },
+    {
+      "path": "comparisons/results/runtime-v2/runtime-v2-final-scheduling-adoption.json",
+      "size_bytes": 365,
+      "sha256": "c9725e10d28abc9b45d733b6720005cc48460ec2abbf53a12ec3e7ccbf244b7a",
+      "git_blob": "22253504ecfb7ce3a30032d90d61b572114f83e7",
+      "recorded_verdicts": [
+        "REJECTED"
+      ],
+      "summary": "Historical experiment output (runtime-v2); original observations and verdicts retained without regrading.",
+      "source_url": "https://github.com/rickypang0219/MiniNautilus/blob/7524d895d618cb912572921afdefea8d39fe9cd7/comparisons/results/runtime-v2/runtime-v2-final-scheduling-adoption.json"
+    },
+    {
+      "path": "comparisons/results/runtime-v2/runtime-v2-final-scheduling-decision.json",
+      "size_bytes": 365,
+      "sha256": "c9725e10d28abc9b45d733b6720005cc48460ec2abbf53a12ec3e7ccbf244b7a",
+      "git_blob": "22253504ecfb7ce3a30032d90d61b572114f83e7",
+      "recorded_verdicts": [
+        "REJECTED"
+      ],
+      "summary": "Historical experiment output (runtime-v2); original observations and verdicts retained without regrading.",
+      "source_url": "https://github.com/rickypang0219/MiniNautilus/blob/7524d895d618cb912572921afdefea8d39fe9cd7/comparisons/results/runtime-v2/runtime-v2-final-scheduling-decision.json"
+    },
+    {
+      "path": "comparisons/results/runtime-v2/soak-fixed-seed17-report.json",
+      "size_bytes": 22496,
+      "sha256": "12f864d9625ac199cfec8ebc758f4739ac3381f1e326147ec17ba75a9dfeedd2",
+      "git_blob": "9b2e33d0c29560793e8c752fd1624fb0826d84a7",
+      "recorded_verdicts": [],
+      "summary": "Historical experiment output (runtime-v2); original observations and verdicts retained without regrading.",
+      "source_url": "https://github.com/rickypang0219/MiniNautilus/blob/7524d895d618cb912572921afdefea8d39fe9cd7/comparisons/results/runtime-v2/soak-fixed-seed17-report.json"
+    },
+    {
+      "path": "comparisons/results/runtime-v2/soak-fixed-seed29-report.json",
+      "size_bytes": 22503,
+      "sha256": "3d051990374e05b3f7d36a37f449941b73906e5fcb362a2b2996070071978c68",
+      "git_blob": "2c212de5ec4d5ee1e75a0b5dd8ee8e5a07326a85",
+      "recorded_verdicts": [],
+      "summary": "Historical experiment output (runtime-v2); original observations and verdicts retained without regrading.",
+      "source_url": "https://github.com/rickypang0219/MiniNautilus/blob/7524d895d618cb912572921afdefea8d39fe9cd7/comparisons/results/runtime-v2/soak-fixed-seed29-report.json"
+    },
+    {
+      "path": "comparisons/results/runtime-v2/soak-fixed-seed7-report.json",
+      "size_bytes": 22514,
+      "sha256": "a172d2f92fefcb70030034ea9f4174e8adf982a03233fbc243ef250af4a2c668",
+      "git_blob": "d2f3ab826d33ed084a67844584b0b5693af7a298",
+      "recorded_verdicts": [],
+      "summary": "Historical experiment output (runtime-v2); original observations and verdicts retained without regrading.",
+      "source_url": "https://github.com/rickypang0219/MiniNautilus/blob/7524d895d618cb912572921afdefea8d39fe9cd7/comparisons/results/runtime-v2/soak-fixed-seed7-report.json"
+    },
+    {
+      "path": "comparisons/results/runtime-v2/soak-resources.json",
+      "size_bytes": 94295,
+      "sha256": "c1e500918eb94c46e09c794a257b4a2baa1e905c95f58352543f88ae4d90c4e8",
+      "git_blob": "c3e13a8e9db3087279a3f8e80017a370940d47e6",
+      "recorded_verdicts": [],
+      "summary": "Historical experiment output (runtime-v2); original observations and verdicts retained without regrading.",
+      "source_url": "https://github.com/rickypang0219/MiniNautilus/blob/7524d895d618cb912572921afdefea8d39fe9cd7/comparisons/results/runtime-v2/soak-resources.json"
+    },
+    {
+      "path": "comparisons/results/runtime-v2/stage-fractions.json",
+      "size_bytes": 390,
+      "sha256": "b61f7d44e874aa24a6a0c51e07cff38c949cca8131bf585e955d4ca735805cab",
+      "git_blob": "c5c656e23bb97e5440b02965f64973eb424efa01",
+      "recorded_verdicts": [],
+      "summary": "Historical experiment output (runtime-v2); original observations and verdicts retained without regrading.",
+      "source_url": "https://github.com/rickypang0219/MiniNautilus/blob/7524d895d618cb912572921afdefea8d39fe9cd7/comparisons/results/runtime-v2/stage-fractions.json"
+    },
+    {
+      "path": "comparisons/results/runtime-v2/sync-stalls.json",
+      "size_bytes": 12250,
+      "sha256": "6498ac0d777847f848b2d54dbaff03d7920cc7ea550875917c586278a6455d71",
+      "git_blob": "7af940ae77bc50d8bf9e4cc9119d56292a577bdd",
+      "recorded_verdicts": [],
+      "summary": "Historical experiment output (runtime-v2); original observations and verdicts retained without regrading.",
+      "source_url": "https://github.com/rickypang0219/MiniNautilus/blob/7524d895d618cb912572921afdefea8d39fe9cd7/comparisons/results/runtime-v2/sync-stalls.json"
+    },
+    {
+      "path": "comparisons/results/runtime-v2/transport-probe.json",
+      "size_bytes": 11781,
+      "sha256": "06f9d403a2aea3eda0a3c1505abdc3ceec5b711a705e5ac2a0dbbff0a101c6ed",
+      "git_blob": "f88742efed2e3afaf76dc9883a9858b3467b56ce",
+      "recorded_verdicts": [],
+      "summary": "Historical experiment output (runtime-v2); original observations and verdicts retained without regrading.",
+      "source_url": "https://github.com/rickypang0219/MiniNautilus/blob/7524d895d618cb912572921afdefea8d39fe9cd7/comparisons/results/runtime-v2/transport-probe.json"
+    },
+    {
+      "path": "comparisons/results/sma-parity.json",
+      "size_bytes": 2152,
+      "sha256": "cbe70f8dab1c6750f6a84d258d8793b98ffa51974ff7b09e714e6ee6f1f7b0ef",
+      "git_blob": "e671a8914ba39d64c332b20bed5d5f39498af000",
+      "recorded_verdicts": [],
+      "summary": "Historical experiment output (sma-parity.json); original observations and verdicts retained without regrading.",
+      "source_url": "https://github.com/rickypang0219/MiniNautilus/blob/7524d895d618cb912572921afdefea8d39fe9cd7/comparisons/results/sma-parity.json"
+    },
+    {
+      "path": "comparisons/runtime-v2/lifecycle-fast-ledger.json",
+      "size_bytes": 246113,
+      "sha256": "8735b53ba25634b554fb8a7071316cf6d219ef438fcd5d257810265ff7698234",
+      "git_blob": "0ddd8065a9ab7225d0fff6a11b401f6f46df4b93",
+      "recorded_verdicts": [
+        "BLOCKED",
+        "FAIL",
+        "INCONCLUSIVE",
+        "NOT_MEASURED",
+        "PASS"
+      ],
+      "summary": "Historical LC-v2-fast acceptance ledger or raw-artifact index; overall acceptance remained FAIL/BLOCKED, with scoped PASS rows.",
+      "source_url": "https://github.com/rickypang0219/MiniNautilus/blob/7524d895d618cb912572921afdefea8d39fe9cd7/comparisons/runtime-v2/lifecycle-fast-ledger.json"
+    },
+    {
+      "path": "comparisons/runtime-v2/lifecycle-fast-raw-index.json",
+      "size_bytes": 130216,
+      "sha256": "94350697cfe0fa5b2b0e8c3b95190928dbdbae743589293eeeae176a19aff0c2",
+      "git_blob": "c430ab9f4a1e14ca35b33f326b6d8d1de703f004",
+      "recorded_verdicts": [],
+      "summary": "Historical LC-v2-fast acceptance ledger or raw-artifact index; overall acceptance remained FAIL/BLOCKED, with scoped PASS rows.",
+      "source_url": "https://github.com/rickypang0219/MiniNautilus/blob/7524d895d618cb912572921afdefea8d39fe9cd7/comparisons/runtime-v2/lifecycle-fast-raw-index.json"
+    },
+    {
+      "path": "docs/backtest-comparison.md",
+      "size_bytes": 15901,
+      "sha256": "fae6bd30d8953638e8cb5b3491e9f8e4e71c681f650d033c2fdfdf0e91fa3e56",
+      "git_blob": "6fc66357fa945af1cc649b44875681f77ca9c1f4",
+      "recorded_verdicts": [],
+      "summary": "Historical report or frozen proposal: MiniNautilus 跨平台正確性與性能審查. Original scope, failures and limitations remain in the pinned source.",
+      "source_url": "https://github.com/rickypang0219/MiniNautilus/blob/7524d895d618cb912572921afdefea8d39fe9cd7/docs/backtest-comparison.md"
+    },
+    {
+      "path": "docs/cloud-validation-20261011.md",
+      "size_bytes": 10618,
+      "sha256": "60c9206114d6eb4d6f794a2a0417a12e26a1e266cac03a534b38df5b67338561",
+      "git_blob": "5314e01680ac442005baaf7b88f51f3dcd351fde",
+      "recorded_verdicts": [
+        "FAIL",
+        "PASS"
+      ],
+      "summary": "Historical report or frozen proposal: MiniNautilus 驗證結果. Original scope, failures and limitations remain in the pinned source.",
+      "source_url": "https://github.com/rickypang0219/MiniNautilus/blob/7524d895d618cb912572921afdefea8d39fe9cd7/docs/cloud-validation-20261011.md"
+    },
+    {
+      "path": "docs/deep-dive-20261011.md",
+      "size_bytes": 14439,
+      "sha256": "61cf4b33d5efd9c110a8fc6de79f642eead660c3d96ad81d8be16bd91205b0de",
+      "git_blob": "e8bdf563b72150e0d9fad00792fdd8e439c3da26",
+      "recorded_verdicts": [
+        "FAIL",
+        "PASS"
+      ],
+      "summary": "Historical report or frozen proposal: Remaining-task investigation — 2026-10-11 (Hong Kong). Original scope, failures and limitations remain in the pinned source.",
+      "source_url": "https://github.com/rickypang0219/MiniNautilus/blob/7524d895d618cb912572921afdefea8d39fe9cd7/docs/deep-dive-20261011.md"
+    },
+    {
+      "path": "docs/hyperliquid-connectivity-results.md",
+      "size_bytes": 5050,
+      "sha256": "8f2532e88b8bee3a6ec82f6bf16f0b111e5319644f067c41e3978b980f6837f4",
+      "git_blob": "8d9864f5beff1aad84373479a4bf3319430c0709",
+      "recorded_verdicts": [
+        "BLOCKED",
+        "NOT_MEASURED",
+        "PASS"
+      ],
+      "summary": "Historical report or frozen proposal: Hyperliquid Testnet connectivity handoff. Original scope, failures and limitations remain in the pinned source.",
+      "source_url": "https://github.com/rickypang0219/MiniNautilus/blob/7524d895d618cb912572921afdefea8d39fe9cd7/docs/hyperliquid-connectivity-results.md"
+    },
+    {
+      "path": "docs/hyperliquid-migration-results.md",
+      "size_bytes": 12093,
+      "sha256": "96799ce071febf1a34f3c1259e93fa3f1f84352e78ac60255aca3abd6f826d1d",
+      "git_blob": "ad8cbd14a8292970b6eafe34a4fa9539bb911f55",
+      "recorded_verdicts": [
+        "NOT_IMPLEMENTED",
+        "PASS"
+      ],
+      "summary": "Historical report or frozen proposal: Hyperliquid H1 migration acceptance. Original scope, failures and limitations remain in the pinned source.",
+      "source_url": "https://github.com/rickypang0219/MiniNautilus/blob/7524d895d618cb912572921afdefea8d39fe9cd7/docs/hyperliquid-migration-results.md"
+    },
+    {
+      "path": "docs/live-testnet-20261011.md",
+      "size_bytes": 2508,
+      "sha256": "7074f53d4d2114a35c59dc8df6eec11ed319d172d4c11f887a426760efcd6718",
+      "git_blob": "6bf40a685739a4268ad9120bd8d216f076bf7114",
+      "recorded_verdicts": [
+        "PASS"
+      ],
+      "summary": "Historical report or frozen proposal: Live Testnet soak — 2026-10-11, Tokyo EC2. Original scope, failures and limitations remain in the pinned source.",
+      "source_url": "https://github.com/rickypang0219/MiniNautilus/blob/7524d895d618cb912572921afdefea8d39fe9cd7/docs/live-testnet-20261011.md"
+    },
+    {
+      "path": "docs/native-readiness-progress.md",
+      "size_bytes": 27576,
+      "sha256": "ee92168782006d9e9af9e2a56373e3784e4cb7fc7d7137844ea599a3b0fa956a",
+      "git_blob": "02c5a9dd49026c0193f087de8e4d48483272b35f",
+      "recorded_verdicts": [
+        "FAIL",
+        "INCONCLUSIVE",
+        "PASS"
+      ],
+      "summary": "Historical report or frozen proposal: Native reliability and market correspondence. Original scope, failures and limitations remain in the pinned source.",
+      "source_url": "https://github.com/rickypang0219/MiniNautilus/blob/7524d895d618cb912572921afdefea8d39fe9cd7/docs/native-readiness-progress.md"
+    },
+    {
+      "path": "docs/post-refactor-audit.md",
+      "size_bytes": 9668,
+      "sha256": "23cb6835a1408cef12b6c2cd7f75543551c55c50d30f2a0c6b8fd7dc65d97a1f",
+      "git_blob": "bf65f5f21893053b19cc9b124cc962b2f7417de9",
+      "recorded_verdicts": [],
+      "summary": "Historical report or frozen proposal: 架構改動後的跨平台驗證與剩餘瓶頸. Original scope, failures and limitations remain in the pinned source.",
+      "source_url": "https://github.com/rickypang0219/MiniNautilus/blob/7524d895d618cb912572921afdefea8d39fe9cd7/docs/post-refactor-audit.md"
+    },
+    {
+      "path": "docs/runtime-v2-lifecycle-fast-iteration-proposal.md",
+      "size_bytes": 31709,
+      "sha256": "974c924a545a1f9df50661b3ad873cd9926d53e432dee447b3cc80cd352cad0e",
+      "git_blob": "e4fc2323ed48abe65cf22e5c3553a54694c8697c",
+      "recorded_verdicts": [
+        "BLOCKED",
+        "FAIL",
+        "INCONCLUSIVE",
+        "NOT_MEASURED",
+        "PASS"
+      ],
+      "summary": "Historical report or frozen proposal: Runtime v2 Lifecycle：增量歷史與15分鐘快速驗收 proposal. Original scope, failures and limitations remain in the pinned source.",
+      "source_url": "https://github.com/rickypang0219/MiniNautilus/blob/7524d895d618cb912572921afdefea8d39fe9cd7/docs/runtime-v2-lifecycle-fast-iteration-proposal.md"
+    },
+    {
+      "path": "docs/runtime-v2-lifecycle-fast-results.md",
+      "size_bytes": 13412,
+      "sha256": "7f30a4cece171a9753606606b38842fb502ba4622822d317c1db10d1e2d49beb",
+      "git_blob": "2ec9cb6a57e4747ef4e566f17c331d971ae18daa",
+      "recorded_verdicts": [
+        "BLOCKED",
+        "FAIL",
+        "INCONCLUSIVE",
+        "PASS"
+      ],
+      "summary": "Historical report or frozen proposal: LC-v2-fast implementation and acceptance results. Original scope, failures and limitations remain in the pinned source.",
+      "source_url": "https://github.com/rickypang0219/MiniNautilus/blob/7524d895d618cb912572921afdefea8d39fe9cd7/docs/runtime-v2-lifecycle-fast-results.md"
+    },
+    {
+      "path": "docs/runtime-v2-lifecycle-results.md",
+      "size_bytes": 13275,
+      "sha256": "aadb72d39dabe34a9286049e35d8e33175452e44d293b9104909e4f3d881894a",
+      "git_blob": "f854d5d23364e77f3571da49b8f37d07c2605de3",
+      "recorded_verdicts": [
+        "BLOCKED",
+        "FAIL",
+        "INCONCLUSIVE",
+        "NOT_MEASURED",
+        "PASS"
+      ],
+      "summary": "Historical report or frozen proposal: Runtime v2 lifecycle acceptance: implementation and evidence. Original scope, failures and limitations remain in the pinned source.",
+      "source_url": "https://github.com/rickypang0219/MiniNautilus/blob/7524d895d618cb912572921afdefea8d39fe9cd7/docs/runtime-v2-lifecycle-results.md"
+    },
+    {
+      "path": "docs/runtime-v2-lifecycle-review-v2.md",
+      "size_bytes": 3662,
+      "sha256": "f91b7b7805eb8215a89ab8aeb367d228deeb152cdb77220aa80b79abddb9501a",
+      "git_blob": "48633917c1c954043db18efc2ac4660c56113718",
+      "recorded_verdicts": [
+        "BLOCKED",
+        "FAIL",
+        "INCONCLUSIVE",
+        "NOT_MEASURED",
+        "PASS"
+      ],
+      "summary": "Historical report or frozen proposal: Lifecycle 本輪成果檢收. Original scope, failures and limitations remain in the pinned source.",
+      "source_url": "https://github.com/rickypang0219/MiniNautilus/blob/7524d895d618cb912572921afdefea8d39fe9cd7/docs/runtime-v2-lifecycle-review-v2.md"
+    },
+    {
+      "path": "docs/runtime-v2-proposal.md",
+      "size_bytes": 27379,
+      "sha256": "026c3dfd3470400c4187130e36f7ba874ef42e33dba38ff4fb5be2253d685916",
+      "git_blob": "6e26f70aef48a6494f441e2e87af7a2505a2b190",
+      "recorded_verdicts": [
+        "DEFERRED",
+        "FAIL",
+        "INCONCLUSIVE",
+        "PASS"
+      ],
+      "summary": "Historical report or frozen proposal: Runtime v2：task scope 與 acceptance criteria. Original scope, failures and limitations remain in the pinned source.",
+      "source_url": "https://github.com/rickypang0219/MiniNautilus/blob/7524d895d618cb912572921afdefea8d39fe9cd7/docs/runtime-v2-proposal.md"
+    },
+    {
+      "path": "docs/runtime-v2-results.md",
+      "size_bytes": 21433,
+      "sha256": "c8b6d09e0a99ea80b61254ca7da5d7be941844fece15bd3758fa1a8303110524",
+      "git_blob": "bd8e995446c137f180d4320ad6f6f1b151f05a0d",
+      "recorded_verdicts": [
+        "DEFERRED",
+        "FAIL",
+        "INCONCLUSIVE",
+        "PASS"
+      ],
+      "summary": "Historical report or frozen proposal: Runtime v2 implementation and acceptance record. Original scope, failures and limitations remain in the pinned source.",
+      "source_url": "https://github.com/rickypang0219/MiniNautilus/blob/7524d895d618cb912572921afdefea8d39fe9cd7/docs/runtime-v2-results.md"
+    },
+    {
+      "path": "docs/rust-native-runtime-proposal.md",
+      "size_bytes": 17738,
+      "sha256": "72f8bddc7904609d9992e4c8196917dfaced3214425e2c76bb605768289f7b69",
+      "git_blob": "498ae84d25a3f8d6d94d7bdf186ed1e4909021cf",
+      "recorded_verdicts": [
+        "BLOCKED",
+        "FAIL",
+        "INCONCLUSIVE",
+        "NOT_MEASURED",
+        "PASS"
+      ],
+      "summary": "Historical report or frozen proposal: Rust native live runtime: migration and evidence proposal v1.0. Original scope, failures and limitations remain in the pinned source.",
+      "source_url": "https://github.com/rickypang0219/MiniNautilus/blob/7524d895d618cb912572921afdefea8d39fe9cd7/docs/rust-native-runtime-proposal.md"
+    },
+    {
+      "path": "docs/rust-native-runtime-results.md",
+      "size_bytes": 25976,
+      "sha256": "0fa246ec168f3b9e31fb65dc032f2d79516a16c2b8b9bec9cd0c83054318bcc9",
+      "git_blob": "e5d2f1883bae4b6b3630e707c7fd462708ec9f96",
+      "recorded_verdicts": [
+        "FAIL",
+        "INCONCLUSIVE",
+        "NOT_MEASURED",
+        "NOT_RUN",
+        "PASS"
+      ],
+      "summary": "Historical report or frozen proposal: Rust native migration: acceptance record. Original scope, failures and limitations remain in the pinned source.",
+      "source_url": "https://github.com/rickypang0219/MiniNautilus/blob/7524d895d618cb912572921afdefea8d39fe9cd7/docs/rust-native-runtime-results.md"
+    }
+  ]
+}
