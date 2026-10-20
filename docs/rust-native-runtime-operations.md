@@ -1,6 +1,6 @@
 # Rust native runtime: operation and evidence
 
-Created: 2026-10-15T08:20:00+09:00. Scope: the [frozen migration proposal](rust-native-runtime-proposal.md).
+Created: 2026-10-15T08:20:00+09:00. Scope: the [frozen migration proposal](https://github.com/rickypang0219/MiniNautilus/blob/7524d895d618cb912572921afdefea8d39fe9cd7/docs/rust-native-runtime-proposal.md).
 
 ## Ownership
 

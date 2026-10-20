@@ -11,7 +11,7 @@ native root failed read visibility before successful original-session recovery.
 No24h qualification or persistent deployment was started. The volume template
 below is still undeployed; temporary tests used the explicit drill controller.
 
-This runbook prepares a supervised rollout. It does not establish an unattended production service. Current implementation and failed attempts are recorded in [migration results](rust-native-runtime-results.md); the subsequent implementation/drill scope is [production readiness proposal](native-production-readiness-proposal.md).
+This runbook prepares a supervised rollout. It does not establish an unattended production service. Current implementation and failed attempts are recorded in [migration results](https://github.com/rickypang0219/MiniNautilus/blob/7524d895d618cb912572921afdefea8d39fe9cd7/docs/rust-native-runtime-results.md); the subsequent implementation/drill scope is [production readiness proposal](native-production-readiness-proposal.md).
 
 ## Release and evidence
 

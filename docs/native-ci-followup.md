@@ -11,7 +11,7 @@ An open-file-description lock can outlive the logical owner if another descripto
 
 `Attempts::Drop` now explicitly unlocks at logical owner teardown. File ownership stays private. Live owners remain exclusive; an old descriptor closing later cannot unlock the next owner; persisted nonce/action de-duplication and torn/corrupt-record rejection remain intact. The new test asserts each of those conditions. No lock assertion, journal check, timing limit or test was removed/loosened.
 
-RED/GREEN passed, and the unchanged12-test native boundary suite passed **20 repetitions with12 threads** after the fix. Full verify and CI38959672921 passed on the lock fix. A subsequent signed run exposed the independent fill-visibility issue, now corrected and tested in f95a88b. Full verify, CI38962119498 and experiment7 signed900 all passed on that final source; see [runtime results](rust-native-runtime-results.md). Earlier failed/live evidence stays bound to its original binary.
+RED/GREEN passed, and the unchanged12-test native boundary suite passed **20 repetitions with12 threads** after the fix. Full verify and CI38959672921 passed on the lock fix. A subsequent signed run exposed the independent fill-visibility issue, now corrected and tested in f95a88b. Full verify, CI38962119498 and experiment7 signed900 all passed on that final source; see [runtime results](https://github.com/rickypang0219/MiniNautilus/blob/7524d895d618cb912572921afdefea8d39fe9cd7/docs/rust-native-runtime-results.md). Earlier failed/live evidence stays bound to its original binary.
 
 ## Historical evidence and diagnostic improvement
 

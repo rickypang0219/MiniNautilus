@@ -7,7 +7,7 @@
 - 狀態：PROPOSED → 用戶於 2026-10-12 指示依本文件執行；個別 AC 狀態見結果文件，本文件本身不是實作成果。
 - 審閱基線：`c71ec6a4506a4e3b05d158dcb487d45722e52bbe`
 - Branch：`codex/cross-platform-backtest-audit`
-- 前置文件：[原 proposal](runtime-v2-proposal.md)、[47 項驗收結果](runtime-v2-results.md)、[設計](runtime-v2-design.md)、[操作手冊](runtime-v2-operations.md)。
+- 前置文件：[原 proposal](https://github.com/rickypang0219/MiniNautilus/blob/7524d895d618cb912572921afdefea8d39fe9cd7/docs/runtime-v2-proposal.md)、[47 項驗收結果](https://github.com/rickypang0219/MiniNautilus/blob/7524d895d618cb912572921afdefea8d39fe9cd7/docs/runtime-v2-results.md)、[設計](runtime-v2-design.md)、[操作手冊](runtime-v2-operations.md)。
 
 建立時間永久保留；修訂另加 Updated at、版本與變更摘要。本文件不重編或改寫上一輪 RV 驗收結果。
 
