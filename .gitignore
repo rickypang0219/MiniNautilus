@@ -7,3 +7,6 @@ __pycache__/
 .env
 .env.*
 !.env.testnet.example
+
+# Optional pstack Bun dependencies.
+/.agents/skills/poteto-mode/scripts/node_modules/

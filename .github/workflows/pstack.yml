@@ -1,0 +1,33 @@
+name: Validate pstack port
+
+on:
+  pull_request:
+    paths:
+      - '.agents/skills/**'
+      - 'docs/pstack/**'
+      - 'scripts/pstack/**'
+      - 'AGENTS.md'
+      - '.github/workflows/pstack.yml'
+  push:
+    paths:
+      - '.agents/skills/**'
+      - 'docs/pstack/**'
+      - 'scripts/pstack/**'
+      - 'AGENTS.md'
+      - '.github/workflows/pstack.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - run: python3 scripts/pstack/validate.py
+      - run: node --test .agents/skills/poteto-mode/scripts/check-plan.node.test.mjs
+      - run: bash -n .agents/skills/show-me-your-work/scripts/log.sh
+      - run: bash -n .agents/skills/poteto-mode/scripts/worktree-audit.sh
